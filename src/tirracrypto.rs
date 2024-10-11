@@ -8,6 +8,7 @@ use chacha20poly1305::{
 use rusqlite::Result;
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::path::Path;
 
 const NONCE: [u8; 12] = [
     0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc,
@@ -23,6 +24,7 @@ pub struct TirraSecrets {
 
 pub struct TirraCrypto {
     db_location: String,
+    db_location_enc: String,
     secrets: TirraSecrets,
 }
 
@@ -30,6 +32,7 @@ impl TirraCrypto {
     pub fn new(location: &str) -> Self {
         Self {
             db_location: location.to_string(),
+            db_location_enc: format!("{}.{}", &location, "enc"),
             secrets: TirraCrypto::key_and_nonce_from_pwd(b"monmotdepasse"),
         }
     }
@@ -59,12 +62,13 @@ impl TirraCrypto {
         key_nonce_struct
     }
 
+    pub fn enc_db_found(&self) -> bool {
+        Path::new(&self.db_location_enc).exists()
+    }
     /**
      * Encrypt Db
      */
     pub fn tirra_encrypt_db(&self) -> Result<()> {
-        let location_enc = format!("{}.{}", &self.db_location, "enc");
-
         // PASSPHRASE
         let secret_struct = &self.secrets;
 
@@ -77,7 +81,7 @@ impl TirraCrypto {
             .map_err(|err| anyhow!("enc some file: {}", err))
             .expect("nothing");
 
-        fs::write(location_enc, enc_file).expect("");
+        fs::write(&self.db_location_enc, enc_file).expect("");
 
         Ok(())
     }
@@ -87,21 +91,18 @@ impl TirraCrypto {
      *
      */
     pub fn tirra_decrypt_db(&self) -> Result<()> {
-        let location_enc = format!("{}.{}", &self.db_location, "enc");
-
         // PASSPHRASE
         let secret_struct = &self.secrets;
 
         //decrypt small file
         let cipher = ChaCha20Poly1305::new(&secret_struct.key.into());
 
-        let file_data = fs::read(location_enc).expect("can't find database");
+        let file_data = fs::read(&self.db_location_enc).expect("can't find database");
         let dec_file = cipher
             .decrypt(&secret_struct.nonce.into(), file_data.as_ref())
             .map_err(|err| anyhow!("enc some file: {}", err))
             .expect("nothing");
 
-        //fs::remove_file(&location).expect("");
         fs::write(&self.db_location, dec_file).expect("");
 
         Ok(())

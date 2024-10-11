@@ -12,7 +12,6 @@ use rusqlite::Result;
 use std::borrow::Cow;
 use std::fs;
 use std::io;
-use std::path::Path;
 use std::time::SystemTime;
 
 use crate::gui::styles::button::TirraButtonStyle;
@@ -80,8 +79,8 @@ impl Application for TirraIced {
         //Init Crypto
         let tirra_crypto = TirraCrypto::new(TIRRA_DB_PATH);
         // intialize the backend
-        if Path::new(TIRRA_DB_PATH).exists() == false {
-            println!("db not found");
+        if tirra_crypto.enc_db_found() == false {
+            println!("enc db not found");
             // create new db
             tirra_db_init(TIRRA_DB_PATH, &tirra_crypto).unwrap();
             // insert first empty entry
