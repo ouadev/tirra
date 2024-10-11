@@ -9,25 +9,29 @@ pub mod tirracrypto {
     use serde::{Deserialize, Serialize};
     use std::fs;
 
+
+    const NONCE: [u8; 12] = [
+        0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc,
+    ];
+    const PBKDF2_SALT: [u8; 8] = [0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0x65];
+    const PBKDF2_ITERATIONS: u32 = 600u32;
+
+
+
     #[derive(Serialize, Deserialize, Debug)]
     pub struct TirraSecrets {
         pub key: [u8; 32],
         pub nonce: [u8; 12],
     }
 
-    const NONCE: [u8; 12] = [
-        0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc,
-    ];
-
     /**
      * PBKDF2(user_password + salt) => 32 Bytes key
      */
     fn tirra_key_and_nonce_from_pwd(password: &[u8]) -> TirraSecrets {
-        let salt = b"tirra*salt";
-        let mut key1: [u8; 32] = [0u8; 32];
-        pbkdf2::pbkdf2_hmac::<sha2::Sha256>(password, salt, 600, &mut key1);
+        let mut key: [u8; 32] = [0u8; 32];
+        pbkdf2::pbkdf2_hmac::<sha2::Sha256>(password, &PBKDF2_SALT, PBKDF2_ITERATIONS, &mut key);
         TirraSecrets {
-            key: key1,
+            key: key,
             nonce: NONCE,
         }
     }

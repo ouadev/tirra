@@ -344,7 +344,7 @@ fn tirra_db_init(location: &str) -> Result<()> {
         (),
     )?;
 
-    tirracr::tirra_init_crypto()?;
+    //tirracr::tirra_init_crypto()?;
 
     //encrypt db
     tirracr::tirra_encrypt_db(location).expect("fine not encrypted");
