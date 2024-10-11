@@ -86,8 +86,6 @@ impl Application for TirraIced {
             tirra_db_init(TIRRA_DB_PATH, &tirra_crypto).unwrap();
             // insert first empty entry
             tirra_db_add_entry(TIRRA_DB_PATH, "Welcome ...", &tirra_crypto).unwrap();
-            // remove the plaintext file
-            fs::remove_file(TIRRA_DB_PATH).expect("plaintext db file couldn't removed");
         }
 
         // Load all entries into memory and display the first one
@@ -366,6 +364,8 @@ fn tirra_db_init(location: &str, crypto: &TirraCrypto) -> Result<()> {
     //encrypt db
     crypto.tirra_encrypt_db().expect("fine not encrypted");
 
+    fs::remove_file(TIRRA_DB_PATH).expect("plaintext db file couldn't removed");
+
     Ok(())
 }
 
@@ -395,6 +395,8 @@ fn tirra_db_add_entry(location: &str, text_entry: &str, crypto: &TirraCrypto) ->
 
     //re-encrypt db
     crypto.tirra_encrypt_db()?;
+
+    fs::remove_file(TIRRA_DB_PATH).expect("plaintext db file couldn't removed");
 
     Ok(timestamp)
 }
@@ -430,6 +432,8 @@ fn tirra_db_update_entry(
 
     //re-encrypt db
     crypto.tirra_encrypt_db()?;
+
+    fs::remove_file(TIRRA_DB_PATH).expect("plaintext db file couldn't removed");
 
     Ok(timestamp)
 }
@@ -499,6 +503,8 @@ fn tirra_db_get_all_entries(location: &str, crypto: &TirraCrypto) -> Result<Vec<
 
     //re-encrypt db
     crypto.tirra_encrypt_db()?;
+
+    fs::remove_file(TIRRA_DB_PATH).expect("plaintext db file couldn't removed");
 
     return Ok(vec_entries);
 }
