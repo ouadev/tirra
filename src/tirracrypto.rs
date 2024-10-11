@@ -1,33 +1,42 @@
-pub mod tirracrypto {
+//pub mod tirracrypto {
 
-    use anyhow::anyhow;
-    use chacha20poly1305::{
-        aead::{Aead, AeadCore, KeyInit, OsRng},
-        ChaCha20Poly1305,
-    };
-    use rusqlite::Result;
-    use serde::{Deserialize, Serialize};
-    use std::fs;
+use anyhow::anyhow;
+use chacha20poly1305::{
+    aead::{Aead, AeadCore, KeyInit, OsRng},
+    ChaCha20Poly1305,
+};
+use rusqlite::Result;
+use serde::{Deserialize, Serialize};
+use std::fs;
 
+const NONCE: [u8; 12] = [
+    0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc,
+];
+const PBKDF2_SALT: [u8; 8] = [0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0x65];
+const PBKDF2_ITERATIONS: u32 = 600u32;
 
-    const NONCE: [u8; 12] = [
-        0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc,
-    ];
-    const PBKDF2_SALT: [u8; 8] = [0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0x65];
-    const PBKDF2_ITERATIONS: u32 = 600u32;
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TirraSecrets {
+    pub key: [u8; 32],
+    pub nonce: [u8; 12],
+}
 
+pub struct TirraCrypto {
+    db_location: String,
+    secrets: TirraSecrets,
+}
 
-
-    #[derive(Serialize, Deserialize, Debug)]
-    pub struct TirraSecrets {
-        pub key: [u8; 32],
-        pub nonce: [u8; 12],
+impl TirraCrypto {
+    pub fn new(location: &str) -> Self {
+        Self {
+            db_location: location.to_string(),
+            secrets: TirraCrypto::key_and_nonce_from_pwd(b"monmotdepasse"),
+        }
     }
-
     /**
      * PBKDF2(user_password + salt) => 32 Bytes key
      */
-    fn tirra_key_and_nonce_from_pwd(password: &[u8]) -> TirraSecrets {
+    fn key_and_nonce_from_pwd(password: &[u8]) -> TirraSecrets {
         let mut key: [u8; 32] = [0u8; 32];
         pbkdf2::pbkdf2_hmac::<sha2::Sha256>(password, &PBKDF2_SALT, PBKDF2_ITERATIONS, &mut key);
         TirraSecrets {
@@ -47,38 +56,22 @@ pub mod tirracrypto {
 
         key_nonce_struct.key = ChaCha20Poly1305::generate_key(&mut OsRng).into();
         key_nonce_struct.nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng).into();
-
-        //fs::remove_file("secret.key").expect("");
-        /*let mut secret_file = File::create(SECRETS_PATH).expect("creation failed");
-        let encoded_secrets: Vec<u8> = bincode::serialize(&key_nonce_struct).unwrap();
-        secret_file.write(&encoded_secrets).expect("write failed");*/
-
         key_nonce_struct
     }
 
     /**
-     *
-     *
-     *
+     * Encrypt Db
      */
-    pub fn tirra_encrypt_db(location: &str) -> Result<()> {
-        let location_enc = format!("{}.{}", location, "enc");
-
-        //retrieve key from file
-        /*let mut secrets_file = File::open(SECRETS_PATH).unwrap();
-        let mut secrets_vec = Vec::new();
-        secrets_file.read_to_end(&mut secrets_vec).unwrap();
-
-        let secret_struct: TirraSecrets = bincode::deserialize(&secrets_vec).unwrap();
-        */
+    pub fn tirra_encrypt_db(&self) -> Result<()> {
+        let location_enc = format!("{}.{}", &self.db_location, "enc");
 
         // PASSPHRASE
-        let secret_struct = tirra_key_and_nonce_from_pwd(b"monmotdepasse");
+        let secret_struct = &self.secrets;
 
         //encrypt small file
         let cipher = ChaCha20Poly1305::new(&secret_struct.key.into());
 
-        let file_data = fs::read(location).expect("can't find database");
+        let file_data = fs::read(&self.db_location).expect("can't find database");
         let enc_file = cipher
             .encrypt(&secret_struct.nonce.into(), file_data.as_ref())
             .map_err(|err| anyhow!("enc some file: {}", err))
@@ -93,19 +86,11 @@ pub mod tirracrypto {
      *
      *
      */
-    pub fn tirra_decrypt_db(location: &str) -> Result<()> {
-        let location_enc = format!("{}.{}", location, "enc");
+    pub fn tirra_decrypt_db(&self) -> Result<()> {
+        let location_enc = format!("{}.{}", &self.db_location, "enc");
 
-        //retrieve key from file
-        /*
-        let mut secrets_file = File::open(SECRETS_PATH).unwrap();
-        let mut secrets_vec = Vec::new();
-        secrets_file.read_to_end(&mut secrets_vec).unwrap();
-
-        let secret_struct: TirraSecrets = bincode::deserialize(&secrets_vec).unwrap();
-        */
         // PASSPHRASE
-        let secret_struct = tirra_key_and_nonce_from_pwd(b"monmotdepasse");
+        let secret_struct = &self.secrets;
 
         //decrypt small file
         let cipher = ChaCha20Poly1305::new(&secret_struct.key.into());
@@ -117,8 +102,9 @@ pub mod tirracrypto {
             .expect("nothing");
 
         //fs::remove_file(&location).expect("");
-        fs::write(location, dec_file).expect("");
+        fs::write(&self.db_location, dec_file).expect("");
 
         Ok(())
     }
 }
+//}

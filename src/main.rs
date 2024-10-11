@@ -20,8 +20,8 @@ use crate::gui::styles::button::TirraButtonType;
 use crate::gui::styles::style_constants::FONT_DEJAVU_SANS_MONO;
 use crate::gui::styles::style_constants::FONT_DEJAVU_SANS_MONO_BYTES;
 use crate::gui::styles::text_editor::EditorStyle;
-use crate::tirracrypto::tirracrypto as tirracr;
-
+//use crate::tirracrypto::tirracrypto as tirracr;
+use crate::tirracrypto::TirraCrypto;
 mod gui;
 mod tirracrypto;
 
@@ -52,6 +52,7 @@ struct TirraIced {
     is_dirty: bool,
     entries: Vec<TirraEntry>,
     _curr_entry_id: u32,
+    crypto: TirraCrypto,
 }
 
 #[derive(Debug, Clone)]
@@ -76,20 +77,22 @@ impl Application for TirraIced {
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, Command<Message>) {
+        //Init Crypto
+        let tirra_crypto = TirraCrypto::new(TIRRA_DB_PATH);
         // intialize the backend
         if Path::new(TIRRA_DB_PATH).exists() == false {
             println!("db not found");
             // create new db
-            tirra_db_init(TIRRA_DB_PATH).unwrap();
+            tirra_db_init(TIRRA_DB_PATH, &tirra_crypto).unwrap();
             // insert first empty entry
-            tirra_db_add_entry(TIRRA_DB_PATH, "Welcome ...").unwrap();
+            tirra_db_add_entry(TIRRA_DB_PATH, "Welcome ...", &tirra_crypto).unwrap();
             // remove the plaintext file
             fs::remove_file(TIRRA_DB_PATH).expect("plaintext db file couldn't removed");
         }
 
         // Load all entries into memory and display the first one
-        let all_entries =
-            tirra_db_get_all_entries(TIRRA_DB_PATH).expect("Error loading entries from database");
+        let all_entries = tirra_db_get_all_entries(TIRRA_DB_PATH, &tirra_crypto)
+            .expect("Error loading entries from database");
         let init_content = text_editor::Content::with_text(&all_entries[0].text);
         let id = all_entries[0].id;
         //return
@@ -100,6 +103,7 @@ impl Application for TirraIced {
                 is_dirty: false,
                 entries: all_entries,
                 _curr_entry_id: id,
+                crypto: tirra_crypto,
             },
             Command::none(),
         )
@@ -120,12 +124,17 @@ impl Application for TirraIced {
             Message::SaveFile | Message::PeriodicTick => {
                 //save_content_to_disk(&self.content.text());
                 if self.is_dirty {
-                    tirra_db_update_entry(TIRRA_DB_PATH, &self.content.text(), self._curr_entry_id)
-                        .unwrap();
+                    tirra_db_update_entry(
+                        TIRRA_DB_PATH,
+                        &self.content.text(),
+                        self._curr_entry_id,
+                        &self.crypto,
+                    )
+                    .unwrap();
                     self.is_dirty = false;
 
                     // Load all entries into memory and display the first one
-                    self.entries = tirra_db_get_all_entries(TIRRA_DB_PATH)
+                    self.entries = tirra_db_get_all_entries(TIRRA_DB_PATH, &self.crypto)
                         .expect("Error loading entries from database");
                 }
                 Command::none()
@@ -134,11 +143,16 @@ impl Application for TirraIced {
                 println!("entry selected : {}", entry_id);
                 // Save first
                 if self.is_dirty {
-                    tirra_db_update_entry(TIRRA_DB_PATH, &self.content.text(), self._curr_entry_id)
-                        .unwrap();
+                    tirra_db_update_entry(
+                        TIRRA_DB_PATH,
+                        &self.content.text(),
+                        self._curr_entry_id,
+                        &self.crypto,
+                    )
+                    .unwrap();
                     self.is_dirty = false;
                     // Load all entries into memory and display the first one
-                    self.entries = tirra_db_get_all_entries(TIRRA_DB_PATH)
+                    self.entries = tirra_db_get_all_entries(TIRRA_DB_PATH, &self.crypto)
                         .expect("Error loading entries from database");
                 }
                 //
@@ -153,13 +167,18 @@ impl Application for TirraIced {
                 println!("New paper will be created");
                 // Save before creating a new entry
                 if self.is_dirty {
-                    tirra_db_update_entry(TIRRA_DB_PATH, &self.content.text(), self._curr_entry_id)
-                        .unwrap();
+                    tirra_db_update_entry(
+                        TIRRA_DB_PATH,
+                        &self.content.text(),
+                        self._curr_entry_id,
+                        &self.crypto,
+                    )
+                    .unwrap();
                     self.is_dirty = false;
                 }
-                tirra_db_add_entry(TIRRA_DB_PATH, "Pour your soul here >").unwrap();
+                tirra_db_add_entry(TIRRA_DB_PATH, "Pour your soul here >", &self.crypto).unwrap();
                 // Load all entries into memory and display the first one
-                self.entries = tirra_db_get_all_entries(TIRRA_DB_PATH)
+                self.entries = tirra_db_get_all_entries(TIRRA_DB_PATH, &self.crypto)
                     .expect("Error loading entries from database");
                 Command::none()
             }
@@ -333,7 +352,7 @@ fn save_content_to_disk (cont: &str) -> () {
 /**
  * Create new database
  */
-fn tirra_db_init(location: &str) -> Result<()> {
+fn tirra_db_init(location: &str, crypto: &TirraCrypto) -> Result<()> {
     let db = Connection::open(location)?;
     db.execute(
         "CREATE TABLE entries (
@@ -344,10 +363,8 @@ fn tirra_db_init(location: &str) -> Result<()> {
         (),
     )?;
 
-    //tirracr::tirra_init_crypto()?;
-
     //encrypt db
-    tirracr::tirra_encrypt_db(location).expect("fine not encrypted");
+    crypto.tirra_encrypt_db().expect("fine not encrypted");
 
     Ok(())
 }
@@ -355,9 +372,9 @@ fn tirra_db_init(location: &str) -> Result<()> {
 /**
  * Create a new entry in the database
  */
-fn tirra_db_add_entry(location: &str, text_entry: &str) -> Result<u64> {
+fn tirra_db_add_entry(location: &str, text_entry: &str, crypto: &TirraCrypto) -> Result<u64> {
     // decrypt the db
-    tirracr::tirra_decrypt_db(location)?;
+    crypto.tirra_decrypt_db()?;
 
     // Open connection
     let db = Connection::open(location)?;
@@ -377,7 +394,7 @@ fn tirra_db_add_entry(location: &str, text_entry: &str) -> Result<u64> {
     db.close().expect("kk");
 
     //re-encrypt db
-    tirracr::tirra_encrypt_db(location)?;
+    crypto.tirra_encrypt_db()?;
 
     Ok(timestamp)
 }
@@ -385,9 +402,14 @@ fn tirra_db_add_entry(location: &str, text_entry: &str) -> Result<u64> {
 /**
  * Save content to db
  */
-fn tirra_db_update_entry(location: &str, text_entry: &str, entry_id: u32) -> Result<u64> {
+fn tirra_db_update_entry(
+    location: &str,
+    text_entry: &str,
+    entry_id: u32,
+    crypto: &TirraCrypto,
+) -> Result<u64> {
     // decrypt the db
-    tirracr::tirra_decrypt_db(location)?;
+    crypto.tirra_decrypt_db()?;
 
     // Open connection
     let db = Connection::open(location)?;
@@ -407,7 +429,7 @@ fn tirra_db_update_entry(location: &str, text_entry: &str, entry_id: u32) -> Res
     db.close().expect("kk");
 
     //re-encrypt db
-    tirracr::tirra_encrypt_db(location)?;
+    crypto.tirra_encrypt_db()?;
 
     Ok(timestamp)
 }
@@ -451,9 +473,9 @@ fn tirra_db_get_entry(location: &str, id: u32) -> Result<Option<TirraEntry>> {
 /**
  * Retrieve all entries to memory. NO PAGING
  */
-fn tirra_db_get_all_entries(location: &str) -> Result<Vec<TirraEntry>> {
+fn tirra_db_get_all_entries(location: &str, crypto: &TirraCrypto) -> Result<Vec<TirraEntry>> {
     //decrypt db
-    tirracr::tirra_decrypt_db(location)?;
+    crypto.tirra_decrypt_db()?;
     //conn
     let db = Connection::open(location)?;
 
@@ -476,7 +498,7 @@ fn tirra_db_get_all_entries(location: &str) -> Result<Vec<TirraEntry>> {
     }
 
     //re-encrypt db
-    tirracr::tirra_encrypt_db(location)?;
+    crypto.tirra_encrypt_db()?;
 
     return Ok(vec_entries);
 }
