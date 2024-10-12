@@ -5,7 +5,7 @@ use chacha20poly1305::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
     ChaCha20Poly1305,
 };
-use rusqlite::Result;
+//use std::Result;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
@@ -15,6 +15,7 @@ const NONCE: [u8; 12] = [
 ];
 const PBKDF2_SALT: [u8; 8] = [0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0x65];
 const PBKDF2_ITERATIONS: u32 = 600u32;
+const TIRRA_CRYPTO_TEST_PWD: &[u8] = b"monmotdepasse-x";
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TirraSecrets {
@@ -33,7 +34,7 @@ impl TirraCrypto {
         Self {
             db_location: location.to_string(),
             db_location_enc: format!("{}.{}", &location, "enc"),
-            secrets: TirraCrypto::key_and_nonce_from_pwd(b"monmotdepasse"),
+            secrets: TirraCrypto::key_and_nonce_from_pwd(TIRRA_CRYPTO_TEST_PWD),
         }
     }
     /**
@@ -68,7 +69,7 @@ impl TirraCrypto {
     /**
      * Encrypt Db
      */
-    pub fn tirra_encrypt_db(&self) -> Result<()> {
+    pub fn tirra_encrypt_db(&self) -> Result<bool, ()> {
         // PASSPHRASE
         let secret_struct = &self.secrets;
 
@@ -83,14 +84,14 @@ impl TirraCrypto {
 
         fs::write(&self.db_location_enc, enc_file).expect("");
 
-        Ok(())
+        Ok(true)
     }
 
     /**
      *
      *
      */
-    pub fn tirra_decrypt_db(&self) -> Result<()> {
+    pub fn tirra_decrypt_db(&self) -> Result<bool, ()> {
         // PASSPHRASE
         let secret_struct = &self.secrets;
 
@@ -98,14 +99,19 @@ impl TirraCrypto {
         let cipher = ChaCha20Poly1305::new(&secret_struct.key.into());
 
         let file_data = fs::read(&self.db_location_enc).expect("can't find database");
-        let dec_file = cipher
-            .decrypt(&secret_struct.nonce.into(), file_data.as_ref())
-            .map_err(|err| anyhow!("enc some file: {}", err))
-            .expect("nothing");
+        let dec_file = cipher.decrypt(&secret_struct.nonce.into(), file_data.as_ref());
+        //.map_err(|err| anyhow!("enc some file: {}", err))
+        //.expect("Error Decrypting the database.");
+        match dec_file {
+            Ok(f) => {
+                fs::write(&self.db_location, f).expect("");
+            }
+            Err(_) => {
+                return Err(());
+            }
+        }
 
-        fs::write(&self.db_location, dec_file).expect("");
-
-        Ok(())
+        Ok(true)
     }
 }
 //}

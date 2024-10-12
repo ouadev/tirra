@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use gui::styles::style_constants;
 use iced::highlighter::{self};
 use iced::theme;
@@ -7,20 +9,16 @@ use iced::widget::{column, container, horizontal_space, row, text, text_editor, 
 use iced::{executor, Background};
 use iced::{keyboard, window};
 use iced::{Application, Command, Element, Length, Settings, Subscription};
-use rusqlite::Connection;
-use rusqlite::Result;
-use std::borrow::Cow;
-use std::fs;
-use std::io;
-use std::time::SystemTime;
 
+use crate::db::TirraEntry;
 use crate::gui::styles::button::TirraButtonStyle;
 use crate::gui::styles::button::TirraButtonType;
 use crate::gui::styles::style_constants::FONT_DEJAVU_SANS_MONO;
 use crate::gui::styles::style_constants::FONT_DEJAVU_SANS_MONO_BYTES;
 use crate::gui::styles::text_editor::EditorStyle;
-//use crate::tirracrypto::tirracrypto as tirracr;
 use crate::tirracrypto::TirraCrypto;
+
+mod db;
 mod gui;
 mod tirracrypto;
 
@@ -37,12 +35,6 @@ pub fn main() -> iced::Result {
         },
         ..Settings::default()
     })
-}
-
-struct TirraEntry {
-    id: u32,
-    date: String,
-    text: String,
 }
 
 struct TirraIced {
@@ -62,12 +54,13 @@ enum Message {
     EntryButtonClicked(u32),
     NewEntryButtonClicked,
 }
-
+/*
 #[derive(Debug, Clone)]
 pub enum Error {
     DialogClosed,
     IoError(io::ErrorKind),
 }
+    */
 
 impl Application for TirraIced {
     type Message = Message;
@@ -82,13 +75,14 @@ impl Application for TirraIced {
         if tirra_crypto.enc_db_found() == false {
             println!("enc db not found");
             // create new db
-            tirra_db_init(TIRRA_DB_PATH, &tirra_crypto).unwrap();
+            db::tirra_db_init(TIRRA_DB_PATH, &tirra_crypto).expect("database init error");
             // insert first empty entry
-            tirra_db_add_entry(TIRRA_DB_PATH, "Welcome ...", &tirra_crypto).unwrap();
+            db::tirra_db_add_entry(TIRRA_DB_PATH, "Welcome ...", &tirra_crypto)
+                .expect("first entry add failed");
         }
 
         // Load all entries into memory and display the first one
-        let all_entries = tirra_db_get_all_entries(TIRRA_DB_PATH, &tirra_crypto)
+        let all_entries = db::tirra_db_get_all_entries(TIRRA_DB_PATH, &tirra_crypto)
             .expect("Error loading entries from database");
         let init_content = text_editor::Content::with_text(&all_entries[0].text);
         let id = all_entries[0].id;
@@ -121,7 +115,7 @@ impl Application for TirraIced {
             Message::SaveFile | Message::PeriodicTick => {
                 //save_content_to_disk(&self.content.text());
                 if self.is_dirty {
-                    tirra_db_update_entry(
+                    db::tirra_db_update_entry(
                         TIRRA_DB_PATH,
                         &self.content.text(),
                         self._curr_entry_id,
@@ -131,7 +125,7 @@ impl Application for TirraIced {
                     self.is_dirty = false;
 
                     // Load all entries into memory and display the first one
-                    self.entries = tirra_db_get_all_entries(TIRRA_DB_PATH, &self.crypto)
+                    self.entries = db::tirra_db_get_all_entries(TIRRA_DB_PATH, &self.crypto)
                         .expect("Error loading entries from database");
                 }
                 Command::none()
@@ -140,7 +134,7 @@ impl Application for TirraIced {
                 println!("entry selected : {}", entry_id);
                 // Save first
                 if self.is_dirty {
-                    tirra_db_update_entry(
+                    db::tirra_db_update_entry(
                         TIRRA_DB_PATH,
                         &self.content.text(),
                         self._curr_entry_id,
@@ -149,7 +143,7 @@ impl Application for TirraIced {
                     .unwrap();
                     self.is_dirty = false;
                     // Load all entries into memory and display the first one
-                    self.entries = tirra_db_get_all_entries(TIRRA_DB_PATH, &self.crypto)
+                    self.entries = db::tirra_db_get_all_entries(TIRRA_DB_PATH, &self.crypto)
                         .expect("Error loading entries from database");
                 }
                 //
@@ -164,7 +158,7 @@ impl Application for TirraIced {
                 println!("New paper will be created");
                 // Save before creating a new entry
                 if self.is_dirty {
-                    tirra_db_update_entry(
+                    db::tirra_db_update_entry(
                         TIRRA_DB_PATH,
                         &self.content.text(),
                         self._curr_entry_id,
@@ -173,9 +167,10 @@ impl Application for TirraIced {
                     .unwrap();
                     self.is_dirty = false;
                 }
-                tirra_db_add_entry(TIRRA_DB_PATH, "Pour your soul here >", &self.crypto).unwrap();
+                db::tirra_db_add_entry(TIRRA_DB_PATH, "Pour your soul here >", &self.crypto)
+                    .unwrap();
                 // Load all entries into memory and display the first one
-                self.entries = tirra_db_get_all_entries(TIRRA_DB_PATH, &self.crypto)
+                self.entries = db::tirra_db_get_all_entries(TIRRA_DB_PATH, &self.crypto)
                     .expect("Error loading entries from database");
                 Command::none()
             }
@@ -345,165 +340,3 @@ fn save_content_to_disk (cont: &str) -> () {
     fs::write("/tmp/editor.txt",cont).expect("");
 }
 */
-
-/**
- * Create new database
- */
-fn tirra_db_init(location: &str, crypto: &TirraCrypto) -> Result<()> {
-    let db = Connection::open(location)?;
-    db.execute(
-        "CREATE TABLE entries (
-            id INTEGER PRIMARY KEY,
-            date INTEGER NOT NULL,
-            text BLOB
-        )",
-        (),
-    )?;
-
-    //encrypt db
-    crypto.tirra_encrypt_db().expect("fine not encrypted");
-
-    fs::remove_file(TIRRA_DB_PATH).expect("plaintext db file couldn't removed");
-
-    Ok(())
-}
-
-/**
- * Create a new entry in the database
- */
-fn tirra_db_add_entry(location: &str, text_entry: &str, crypto: &TirraCrypto) -> Result<u64> {
-    // decrypt the db
-    crypto.tirra_decrypt_db()?;
-
-    // Open connection
-    let db = Connection::open(location)?;
-
-    //calculate timestamp
-    let timestamp = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-        Ok(n) => n.as_secs(),
-        Err(_) => panic!("can't calculate system time"),
-    };
-
-    //save
-    db.execute(
-        "INSERT INTO entries (date, text) VALUES (?1, ?2)",
-        (timestamp, text_entry),
-    )?;
-
-    db.close().expect("kk");
-
-    //re-encrypt db
-    crypto.tirra_encrypt_db()?;
-
-    fs::remove_file(TIRRA_DB_PATH).expect("plaintext db file couldn't removed");
-
-    Ok(timestamp)
-}
-
-/**
- * Save content to db
- */
-fn tirra_db_update_entry(
-    location: &str,
-    text_entry: &str,
-    entry_id: u32,
-    crypto: &TirraCrypto,
-) -> Result<u64> {
-    // decrypt the db
-    crypto.tirra_decrypt_db()?;
-
-    // Open connection
-    let db = Connection::open(location)?;
-
-    //calculate timestamp
-    let timestamp = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-        Ok(n) => n.as_secs(),
-        Err(_) => panic!("can't calculate system time"),
-    };
-
-    //save
-    db.execute(
-        "UPDATE entries SET date = ?1, text = ?2 WHERE id = ?3",
-        (timestamp, text_entry, entry_id),
-    )?;
-
-    db.close().expect("kk");
-
-    //re-encrypt db
-    crypto.tirra_encrypt_db()?;
-
-    fs::remove_file(TIRRA_DB_PATH).expect("plaintext db file couldn't removed");
-
-    Ok(timestamp)
-}
-
-/**
- * Get the entry from db by Id
- */
-/*
-fn tirra_db_get_entry(location: &str, id: u32) -> Result<Option<TirraEntry>> {
-    let mut  ret_val = None;
-    //decrypt db
-    tirracr::tirra_decrypt_db(location) ?;
-
-    //conn
-    let db = Connection::open(location)?;
-
-    let mut stmt = db.prepare("SELECT id, datetime(date, 'unixepoch'), text from entries")?;
-
-    let entry_iter = stmt.query_map([], |row| {
-        Ok(TirraEntry {
-            _id: row.get(0)?,
-            date: row.get(1)?,
-            text: row.get(2)?,
-        })
-    })?;
-
-    for entry in entry_iter {
-        let entry_unwrapped = entry.unwrap();
-        if entry_unwrapped._id == id {
-            //println!("Date:\t{:?}\n{}\n------------------------",  entry_unwrapped.date, entry_unwrapped.text);
-            ret_val = Some(entry_unwrapped);
-        }
-    }
-
-    //re-encrypt db
-    tirracr::tirra_encrypt_db(location) ?;
-
-    return Ok(ret_val);
-}
-*/
-/**
- * Retrieve all entries to memory. NO PAGING
- */
-fn tirra_db_get_all_entries(location: &str, crypto: &TirraCrypto) -> Result<Vec<TirraEntry>> {
-    //decrypt db
-    crypto.tirra_decrypt_db()?;
-    //conn
-    let db = Connection::open(location)?;
-
-    let mut stmt =
-        db.prepare("SELECT id, datetime(date, 'unixepoch'), text from entries ORDER BY id DESC")?;
-
-    let entry_iter = stmt.query_map([], |row| {
-        Ok(TirraEntry {
-            id: row.get(0)?,
-            date: row.get(1)?,
-            text: row.get(2)?,
-        })
-    })?;
-
-    let mut vec_entries = Vec::new();
-
-    for entry in entry_iter {
-        let entry_unwrapped = entry.unwrap();
-        vec_entries.push(entry_unwrapped);
-    }
-
-    //re-encrypt db
-    crypto.tirra_encrypt_db()?;
-
-    fs::remove_file(TIRRA_DB_PATH).expect("plaintext db file couldn't removed");
-
-    return Ok(vec_entries);
-}
