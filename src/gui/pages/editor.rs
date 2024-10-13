@@ -1,23 +1,23 @@
-use iced::theme;
 use iced::theme::Theme;
-
 use iced::widget::{column, container, horizontal_space, row, text, text_editor, Button};
 use iced::Background;
-
+use iced::{theme, Command};
 use iced::{Element, Length};
 
-use crate::db::TirraEntry;
-
+use crate::db::{self, TirraEntry};
 use crate::gui::styles::button::TirraButtonStyle;
 use crate::gui::styles::button::TirraButtonType;
 use crate::gui::styles::style_constants;
 use crate::gui::styles::text_editor::EditorStyle;
+use crate::tirracrypto::TirraCrypto;
 
 pub struct EditorPage {
     pub content: text_editor::Content,
     pub is_dirty: bool,
     pub entries: Vec<TirraEntry>,
     pub curr_entry_id: u32,
+    pub db_location: String,
+    pub crypto: TirraCrypto,
 }
 
 #[derive(Debug, Clone)]
@@ -29,6 +29,77 @@ pub enum Message {
     NewEntryButtonClicked,
 }
 impl EditorPage {
+    pub fn update(&mut self, message: Message) -> Command<Message> {
+        match message {
+            Message::ActionPerformed(action) => {
+                self.is_dirty = self.is_dirty || action.is_edit();
+                self.content.perform(action);
+                Command::none()
+            }
+
+            Message::SaveFile | Message::PeriodicTick => {
+                if self.is_dirty {
+                    db::tirra_db_update_entry(
+                        &self.db_location,
+                        &self.content.text(),
+                        self.curr_entry_id,
+                        &self.crypto,
+                    )
+                    .unwrap();
+                    self.is_dirty = false;
+
+                    // Load all entries into memory and display the first one
+                    self.entries = db::tirra_db_get_all_entries(&self.db_location, &self.crypto)
+                        .expect("Error loading entries from database");
+                }
+                Command::none()
+            }
+            Message::EntryButtonClicked(entry_id) => {
+                println!("entry selected : {}", entry_id);
+                // Save first
+                if self.is_dirty {
+                    db::tirra_db_update_entry(
+                        &self.db_location,
+                        &self.content.text(),
+                        self.curr_entry_id,
+                        &self.crypto,
+                    )
+                    .unwrap();
+                    self.is_dirty = false;
+                    // Load all entries into memory and display the first one
+                    self.entries = db::tirra_db_get_all_entries(&self.db_location, &self.crypto)
+                        .expect("Error loading entries from database");
+                }
+                //
+                self.curr_entry_id = entry_id;
+                self.content = text_editor::Content::with_text(
+                    &self.entry_by_id(self.curr_entry_id).unwrap().text,
+                );
+
+                Command::none()
+            }
+            Message::NewEntryButtonClicked => {
+                println!("New paper will be created");
+                // Save before creating a new entry
+                if self.is_dirty {
+                    db::tirra_db_update_entry(
+                        &self.db_location,
+                        &self.content.text(),
+                        self.curr_entry_id,
+                        &self.crypto,
+                    )
+                    .unwrap();
+                    self.is_dirty = false;
+                }
+                db::tirra_db_add_entry(&self.db_location, "Pour your soul here >", &self.crypto)
+                    .unwrap();
+                // Load all entries into memory and display the first one
+                self.entries = db::tirra_db_get_all_entries(&self.db_location, &self.crypto)
+                    .expect("Error loading entries from database");
+                Command::none()
+            }
+        }
+    }
     pub fn view(&self) -> Element<Message> {
         // DIV : Editor Text Zone
         let div_editor_text = text_editor(&self.content)

@@ -8,7 +8,6 @@ use iced::widget::text_editor;
 use iced::{keyboard, window};
 use iced::{Application, Command, Element, Settings, Subscription};
 
-use crate::db::TirraEntry;
 use crate::gui::pages::editor::{EditorPage, Message};
 use crate::gui::styles::style_constants::FONT_DEJAVU_SANS_MONO;
 use crate::gui::styles::style_constants::FONT_DEJAVU_SANS_MONO_BYTES;
@@ -35,7 +34,7 @@ pub fn main() -> iced::Result {
 
 struct TirraIced {
     theme: highlighter::Theme,
-    crypto: TirraCrypto,
+
     editor_page: EditorPage,
 }
 
@@ -68,12 +67,14 @@ impl Application for TirraIced {
         (
             Self {
                 theme: highlighter::Theme::InspiredGitHub,
-                crypto: tirra_crypto,
+
                 editor_page: EditorPage {
                     curr_entry_id: id,
                     content: init_content,
                     is_dirty: false,
                     entries: all_entries,
+                    db_location: String::from(TIRRA_DB_PATH),
+                    crypto: tirra_crypto,
                 },
             },
             Command::none(),
@@ -81,87 +82,11 @@ impl Application for TirraIced {
     }
 
     fn title(&self) -> String {
-        format!(
-            "Tirra{} ",
-            if self.editor_page.is_dirty { "*" } else { "" }
-        )
+        format!("Tirra{} ", if self.editor_page.is_dirty { "*" } else { "" })
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {
-        match message {
-            Message::ActionPerformed(action) => {
-                self.editor_page.is_dirty = self.editor_page.is_dirty || action.is_edit();
-                self.editor_page.content.perform(action);
-                Command::none()
-            }
-
-            Message::SaveFile | Message::PeriodicTick => {
-                if self.editor_page.is_dirty {
-                    db::tirra_db_update_entry(
-                        TIRRA_DB_PATH,
-                        &self.editor_page.content.text(),
-                        self.editor_page.curr_entry_id,
-                        &self.crypto,
-                    )
-                    .unwrap();
-                    self.editor_page.is_dirty = false;
-
-                    // Load all entries into memory and display the first one
-                    self.editor_page.entries =
-                        db::tirra_db_get_all_entries(TIRRA_DB_PATH, &self.crypto)
-                            .expect("Error loading entries from database");
-                }
-                Command::none()
-            }
-            Message::EntryButtonClicked(entry_id) => {
-                println!("entry selected : {}", entry_id);
-                // Save first
-                if self.editor_page.is_dirty {
-                    db::tirra_db_update_entry(
-                        TIRRA_DB_PATH,
-                        &self.editor_page.content.text(),
-                        self.editor_page.curr_entry_id,
-                        &self.crypto,
-                    )
-                    .unwrap();
-                    self.editor_page.is_dirty = false;
-                    // Load all entries into memory and display the first one
-                    self.editor_page.entries =
-                        db::tirra_db_get_all_entries(TIRRA_DB_PATH, &self.crypto)
-                            .expect("Error loading entries from database");
-                }
-                //
-                self.editor_page.curr_entry_id = entry_id;
-                self.editor_page.content = text_editor::Content::with_text(
-                    &entry_ref_by_id(&self.editor_page.entries, entry_id)
-                        .unwrap()
-                        .text,
-                );
-
-                Command::none()
-            }
-            Message::NewEntryButtonClicked => {
-                println!("New paper will be created");
-                // Save before creating a new entry
-                if self.editor_page.is_dirty {
-                    db::tirra_db_update_entry(
-                        TIRRA_DB_PATH,
-                        &self.editor_page.content.text(),
-                        self.editor_page.curr_entry_id,
-                        &self.crypto,
-                    )
-                    .unwrap();
-                    self.editor_page.is_dirty = false;
-                }
-                db::tirra_db_add_entry(TIRRA_DB_PATH, "Pour your soul here >", &self.crypto)
-                    .unwrap();
-                // Load all entries into memory and display the first one
-                self.editor_page.entries =
-                    db::tirra_db_get_all_entries(TIRRA_DB_PATH, &self.crypto)
-                        .expect("Error loading entries from database");
-                Command::none()
-            }
-        }
+        self.editor_page.update(message)
     }
 
     fn subscription(&self) -> Subscription<Message> {
@@ -187,8 +112,4 @@ impl Application for TirraIced {
             Theme::Light
         }
     }
-}
-
-fn entry_ref_by_id(entries: &Vec<TirraEntry>, id: u32) -> Option<&TirraEntry> {
-    entries.iter().find(|ent| ent.id == id)
 }
