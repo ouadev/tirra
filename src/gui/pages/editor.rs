@@ -208,6 +208,10 @@ impl EditorPage {
         body.into()
     }
 
+    pub fn title(&self) -> String {
+        format!("Tirra{} ", if self.is_dirty { "*" } else { "" })
+    }
+
     fn entry_by_id(&self, id: u32) -> Option<&TirraEntry> {
         self.entries.iter().find(|ent| ent.id == id)
     }

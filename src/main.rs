@@ -62,7 +62,7 @@ impl Application for TirraIced {
     }
 
     fn title(&self) -> String {
-        format!("Tirra{} ", if self.editor_page.is_dirty { "*" } else { "" })
+        self.editor_page.title()
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {
