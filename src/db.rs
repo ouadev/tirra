@@ -49,8 +49,7 @@ pub fn tirra_db_init(location: &str, crypto: &TirraCrypto) -> Result<(), TirraDb
 /**
  * check the provided crypto can access the database
  */
-#[allow(dead_code)]
-fn tirra_db_try_access(crypto: &TirraCrypto) -> bool {
+pub fn tirra_db_try_access(crypto: &TirraCrypto) -> bool {
     // decrypt the db
     let result = crypto.tirra_decrypt_db();
 

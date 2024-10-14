@@ -15,7 +15,7 @@ const NONCE: [u8; 12] = [
 ];
 const PBKDF2_SALT: [u8; 8] = [0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0x65];
 const PBKDF2_ITERATIONS: u32 = 600u32;
-const TIRRA_CRYPTO_TEST_PWD: &[u8] = b"monmotdepasse-x";
+
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TirraSecrets {
@@ -30,11 +30,11 @@ pub struct TirraCrypto {
 }
 
 impl TirraCrypto {
-    pub fn new(location: &str) -> Self {
+    pub fn new(location: &str, password: &[u8]) -> Self {
         Self {
             db_location: location.to_string(),
             db_location_enc: format!("{}.{}", &location, "enc"),
-            secrets: TirraCrypto::key_and_nonce_from_pwd(TIRRA_CRYPTO_TEST_PWD),
+            secrets: TirraCrypto::key_and_nonce_from_pwd(password),
         }
     }
     /**

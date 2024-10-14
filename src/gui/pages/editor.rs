@@ -11,6 +11,8 @@ use crate::gui::styles::style_constants;
 use crate::gui::styles::text_editor::EditorStyle;
 use crate::tirracrypto::TirraCrypto;
 
+const TIRRA_CRYPTO_TEST_PWD: &[u8] = b"monmotdepasse-x";
+
 pub struct EditorPage {
     pub content: text_editor::Content,
     pub is_dirty: bool,
@@ -30,7 +32,7 @@ pub enum Message {
 impl EditorPage {
     pub fn new(db_location: &str) -> (Self, Command<Message>) {
         //Init Crypto
-        let tirra_crypto = TirraCrypto::new(db_location);
+        let tirra_crypto = TirraCrypto::new(db_location, TIRRA_CRYPTO_TEST_PWD);
         // intialize the backend
         if tirra_crypto.enc_db_found() == false {
             println!("enc db not found");
@@ -87,7 +89,6 @@ impl EditorPage {
                 Command::none()
             }
             Message::EntryButtonClicked(entry_id) => {
-                println!("entry selected : {}", entry_id);
                 // Save first
                 if self.is_dirty {
                     db::tirra_db_update_entry(
