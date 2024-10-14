@@ -4,14 +4,12 @@ use iced::executor;
 use iced::highlighter::{self};
 use iced::theme::Theme;
 use iced::time::{self, every};
-use iced::widget::text_editor;
 use iced::{keyboard, window};
 use iced::{Application, Command, Element, Settings, Subscription};
 
-use crate::gui::pages::editor::{EditorPage, Message};
+use crate::gui::pages::editor::{self, EditorPage};
 use crate::gui::styles::style_constants::FONT_DEJAVU_SANS_MONO;
 use crate::gui::styles::style_constants::FONT_DEJAVU_SANS_MONO_BYTES;
-use crate::tirracrypto::TirraCrypto;
 
 mod db;
 mod gui;
@@ -34,8 +32,14 @@ pub fn main() -> iced::Result {
 
 struct TirraIced {
     theme: highlighter::Theme,
-
     editor_page: EditorPage,
+}
+
+#[derive(Debug, Clone)]
+enum Message {
+    PeriodicTick,
+    CtrlS,
+    Editor(editor::Message),
 }
 
 impl Application for TirraIced {
@@ -45,39 +49,15 @@ impl Application for TirraIced {
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, Command<Message>) {
-        //Init Crypto
-        let tirra_crypto = TirraCrypto::new(TIRRA_DB_PATH);
-        // intialize the backend
-        if tirra_crypto.enc_db_found() == false {
-            println!("enc db not found");
-            // create new db
-            db::tirra_db_init(TIRRA_DB_PATH, &tirra_crypto).expect("database init error");
-            // insert first empty entry
-            db::tirra_db_add_entry(TIRRA_DB_PATH, "Welcome ...", &tirra_crypto)
-                .expect("first entry add failed");
-        }
-
-        // Load all entries into memory and display the first one
-        let all_entries = db::tirra_db_get_all_entries(TIRRA_DB_PATH, &tirra_crypto)
-            .expect("Error loading entries from database");
-        let init_content = text_editor::Content::with_text(&all_entries[0].text);
-        let id = all_entries[0].id;
+        let (editor_page, command) = EditorPage::new(TIRRA_DB_PATH);
 
         //return
         (
             Self {
                 theme: highlighter::Theme::InspiredGitHub,
-
-                editor_page: EditorPage {
-                    curr_entry_id: id,
-                    content: init_content,
-                    is_dirty: false,
-                    entries: all_entries,
-                    db_location: String::from(TIRRA_DB_PATH),
-                    crypto: tirra_crypto,
-                },
+                editor_page: editor_page,
             },
-            Command::none(),
+            command.map(Message::Editor),
         )
     }
 
@@ -86,12 +66,22 @@ impl Application for TirraIced {
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {
-        self.editor_page.update(message)
+        let editor_msg: editor::Message;
+
+        match message {
+            Message::PeriodicTick | Message::CtrlS => {
+                editor_msg = editor::Message::SaveFile;
+            }
+            Message::Editor(msg) => {
+                editor_msg = msg;
+            }
+        }
+        self.editor_page.update(editor_msg).map(Message::Editor)
     }
 
     fn subscription(&self) -> Subscription<Message> {
         let kb_event = keyboard::on_key_press(|key, modifiers| match key.as_ref() {
-            keyboard::Key::Character("s") if modifiers.command() => Some(Message::SaveFile),
+            keyboard::Key::Character("s") if modifiers.command() => Some(Message::CtrlS),
             _ => None,
         });
 
@@ -102,7 +92,7 @@ impl Application for TirraIced {
     }
 
     fn view(&self) -> Element<Message> {
-        self.editor_page.view()
+        self.editor_page.view().map(Message::Editor)
     }
 
     fn theme(&self) -> Theme {

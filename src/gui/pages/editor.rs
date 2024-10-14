@@ -24,11 +24,43 @@ pub struct EditorPage {
 pub enum Message {
     ActionPerformed(text_editor::Action),
     SaveFile,
-    PeriodicTick,
     EntryButtonClicked(u32),
     NewEntryButtonClicked,
 }
 impl EditorPage {
+    pub fn new(db_location: &str) -> (Self, Command<Message>) {
+        //Init Crypto
+        let tirra_crypto = TirraCrypto::new(db_location);
+        // intialize the backend
+        if tirra_crypto.enc_db_found() == false {
+            println!("enc db not found");
+            // create new db
+            db::tirra_db_init(db_location, &tirra_crypto).expect("database init error");
+            // insert first empty entry
+            db::tirra_db_add_entry(db_location, "Welcome ...", &tirra_crypto)
+                .expect("first entry add failed");
+        }
+
+        // Load all entries into memory and display the first one
+        let all_entries = db::tirra_db_get_all_entries(db_location, &tirra_crypto)
+            .expect("Error loading entries from database");
+        let init_content = text_editor::Content::with_text(&all_entries[0].text);
+        let id = all_entries[0].id;
+
+        //return
+        (
+            Self {
+                curr_entry_id: id,
+                content: init_content,
+                is_dirty: false,
+                entries: all_entries,
+                db_location: String::from(db_location),
+                crypto: tirra_crypto,
+            },
+            Command::none(),
+        )
+    }
+
     pub fn update(&mut self, message: Message) -> Command<Message> {
         match message {
             Message::ActionPerformed(action) => {
@@ -37,7 +69,7 @@ impl EditorPage {
                 Command::none()
             }
 
-            Message::SaveFile | Message::PeriodicTick => {
+            Message::SaveFile => {
                 if self.is_dirty {
                     db::tirra_db_update_entry(
                         &self.db_location,
