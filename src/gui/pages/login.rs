@@ -12,7 +12,7 @@ use crate::tirracrypto::TirraCrypto;
 pub struct LoginPage {
     pub db_location: String,
     info_text: String,
-    password: String,
+    pub password: String,
 }
 
 #[derive(Debug, Clone)]

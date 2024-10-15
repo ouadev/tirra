@@ -109,7 +109,10 @@ impl Application for TirraIced {
                             match login_msg {
                                 login::Message::LoginSuccess => {
                                     self.logged_in = true;
-                                    let (editor_page, command) = EditorPage::new(TIRRA_DB_PATH);
+                                    let (editor_page, command) = EditorPage::new(
+                                        TIRRA_DB_PATH,
+                                        self.login_page.password.as_bytes(),
+                                    );
                                     self.editor_page = Some(editor_page);
                                     command.map(Message::Editor)
                                 }

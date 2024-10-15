@@ -8,6 +8,8 @@ use chacha20poly1305::{
 //use std::Result;
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::fs::File;
+use std::io::Read;
 use std::path::Path;
 
 const NONCE: [u8; 12] = [
@@ -15,7 +17,6 @@ const NONCE: [u8; 12] = [
 ];
 const PBKDF2_SALT: [u8; 8] = [0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0x65];
 const PBKDF2_ITERATIONS: u32 = 600u32;
-
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TirraSecrets {
@@ -35,6 +36,19 @@ impl TirraCrypto {
             db_location: location.to_string(),
             db_location_enc: format!("{}.{}", &location, "enc"),
             secrets: TirraCrypto::key_and_nonce_from_pwd(password),
+        }
+    }
+    #[allow(dead_code)]
+    pub fn from_key(location: &str, secrets_file: &str) -> Self {
+        let mut secrets_file = File::open(secrets_file).unwrap();
+        let mut secrets_vec = Vec::new();
+        secrets_file.read_to_end(&mut secrets_vec).unwrap();
+        let secret_struct: TirraSecrets = bincode::deserialize(&secrets_vec).unwrap();
+
+        Self {
+            db_location: location.to_string(),
+            db_location_enc: format!("{}.{}", &location, "enc"),
+            secrets: secret_struct,
         }
     }
     /**
