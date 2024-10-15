@@ -169,7 +169,7 @@ pub fn tirra_db_get_all_entries(
 
     {
         let mut stmt = db
-            .prepare("SELECT id, datetime(date, 'unixepoch'), text from entries ORDER BY id DESC")
+            .prepare("SELECT id, datetime(date, 'unixepoch'), text from entries ORDER BY date DESC")
             .map_err(|_e| TirraDbError::DbRequestError)?;
 
         let entry_iter = stmt
