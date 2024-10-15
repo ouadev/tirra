@@ -11,6 +11,7 @@ use crate::tirracrypto::TirraCrypto;
 
 pub struct LoginPage {
     pub db_location: String,
+    db_found: bool,
     info_text: String,
     pub password: String,
 }
@@ -24,12 +25,28 @@ pub enum Message {
 impl LoginPage {
     pub fn new(db_location: &str) -> (Self, Command<Message>) {
         let focus_input = text_input::focus(text_input::Id::new("pwdinput-id"));
+        // Check database file existence
+        let db_enc_loc = format!("{}.enc", db_location);
+        let mut info_text = String::new();
+        info_text.push_str(&format!("+ db: {}\n", db_enc_loc));
+        let db_found: bool;
+        if db::tirra_db_found(&db_enc_loc) == true {
+            info_text.push_str(&format!("+ database file is found\n"));
+            db_found = true;
+        } else {
+            info_text.push_str(&format!("+ database NOT found.\n"));
+            info_text.push_str(&format!(
+                "+ pick a passphrase to initialise a new one at this location\n"
+            ));
+            db_found = false;
+        }
         //return
         (
             Self {
                 db_location: String::from(db_location),
+                db_found: db_found,
                 password: String::from(""),
-                info_text: String::from(""),
+                info_text: info_text,
             },
             //Command::none(),
             focus_input,
@@ -46,17 +63,32 @@ impl LoginPage {
             }
             Message::LoginButtonPressed => {
                 let crypto = TirraCrypto::new(&self.db_location, self.password.as_bytes());
-                if db::tirra_db_try_access(&crypto) {
-                    Some(Message::LoginSuccess)
+                if self.db_found == false {
+                    // Database is not found, start initialization of a new one at the same location.
+                    // intialize the backend
+                    if crypto.enc_db_found() == false {
+                        // create new db
+                        db::tirra_db_init(&self.db_location, &crypto).expect("database init error");
+                        // insert first empty entry
+                        db::tirra_db_add_entry(&self.db_location, "Mar7baaaa ...", &crypto)
+                            .expect("first entry add failed");
+                        Some(Message::LoginSuccess)
+                    } else {
+                        panic!("something is up. database is not supposed to be found");
+                    }
                 } else {
-                    self.info_text = format!("Decryption failure: Wrong key");
-                    None
+                    if db::tirra_db_try_access(&crypto) {
+                        Some(Message::LoginSuccess)
+                    } else {
+                        self.info_text = format!("Decryption failure: Wrong key");
+                        None
+                    }
                 }
             }
             _ => None,
         }
-        //Command::none()
     }
+    //Command::none()
 
     pub fn view(&self) -> Element<Message> {
         //DIV : margin-top
@@ -77,7 +109,12 @@ impl LoginPage {
 
         let div_pwd_cont = container(div_pwd).width(Length::Fill).center_x();
         // DIV : Login Button
-        let div_decrypt_button = Button::new("Decrypt & Access")
+        let button_text = if self.db_found {
+            "Decrypt & Access"
+        } else {
+            "New Database"
+        };
+        let div_decrypt_button = Button::new(button_text)
             .width(Length::Shrink)
             .style(theme::Button::custom(TirraButtonStyle {
                 button_type: TirraButtonType::EntryAdd,

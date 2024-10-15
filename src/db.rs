@@ -2,6 +2,7 @@ use crate::tirracrypto::TirraCrypto;
 use rusqlite::params;
 use rusqlite::Connection;
 use std::fs;
+use std::path::Path;
 use std::result::Result;
 use std::time::SystemTime;
 
@@ -191,4 +192,8 @@ pub fn tirra_db_get_all_entries(
     tirra_db_access_stop(location, db, crypto)?;
 
     return Ok(vec_entries);
+}
+
+pub fn tirra_db_found(db_enc_loc: &str) -> bool {
+    Path::new(db_enc_loc).exists()
 }

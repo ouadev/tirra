@@ -17,7 +17,7 @@ mod gui;
 mod tirracrypto;
 
 // Constants
-const TIRRA_DB_PATH: &str = "./tirra.db";
+const TIRRA_DB_PATH: &str = "./test.db";
 
 pub fn main() -> iced::Result {
     TirraIced::run(Settings {

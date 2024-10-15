@@ -33,12 +33,7 @@ impl EditorPage {
         let tirra_crypto = TirraCrypto::new(db_location, crypto_pwd);
         // intialize the backend
         if tirra_crypto.enc_db_found() == false {
-            println!("enc db not found");
-            // create new db
-            db::tirra_db_init(db_location, &tirra_crypto).expect("database init error");
-            // insert first empty entry
-            db::tirra_db_add_entry(db_location, "Welcome ...", &tirra_crypto)
-                .expect("first entry add failed");
+            panic!("we are not supposed to be here without an encrypted database");
         }
 
         // Load all entries into memory and display the first one
