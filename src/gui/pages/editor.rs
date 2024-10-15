@@ -97,10 +97,7 @@ impl EditorPage {
                         .expect("Error loading entries from database");
                 }
                 //
-                self.curr_entry_id = entry_id;
-                self.content = text_editor::Content::with_text(
-                    &self.entry_by_id(self.curr_entry_id).unwrap().text,
-                );
+                self.show_entry(entry_id);
 
                 Command::none()
             }
@@ -119,9 +116,10 @@ impl EditorPage {
                 }
                 db::tirra_db_add_entry(&self.db_location, "Pour your soul here >", &self.crypto)
                     .unwrap();
-                // Load all entries into memory and display the first one
+                // Load all entries into memory and display the last added one
                 self.entries = db::tirra_db_get_all_entries(&self.db_location, &self.crypto)
                     .expect("Error loading entries from database");
+                self.show_entry(self.entry_greatest_id());
                 Command::none()
             }
         }
@@ -202,12 +200,30 @@ impl EditorPage {
         body.into()
     }
 
+    /**
+     * Show an entry defined by ID in the editor
+     */
+    fn show_entry(&mut self, id: u32) {
+        self.curr_entry_id = id;
+        self.content = text_editor::Content::with_text(&self.entry_by_id(id).unwrap().text);
+    }
+
     pub fn title(&self) -> String {
         format!("Tirra{} ", if self.is_dirty { "*" } else { "" })
     }
 
     fn entry_by_id(&self, id: u32) -> Option<&TirraEntry> {
         self.entries.iter().find(|ent| ent.id == id)
+    }
+
+    fn entry_greatest_id(&self) -> u32 {
+        let mut id = 0u32;
+        for entry in self.entries.iter() {
+            if entry.id > id {
+                id = entry.id;
+            }
+        }
+        id
     }
 
     fn entry_title(entry: &TirraEntry, max_chars: u8) -> &str {
