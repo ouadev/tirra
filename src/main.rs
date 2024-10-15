@@ -55,6 +55,7 @@ struct TirraIced {
 enum Message {
     PeriodicTick,
     CtrlS,
+    CtrlP,
     Editor(editor::Message),
     Login(login::Message),
     IgnoredEvent(Event),
@@ -102,6 +103,12 @@ impl Application for TirraIced {
                     .as_mut()
                     .unwrap()
                     .update(editor::Message::SaveFile)
+                    .map(Message::Editor),
+                Message::CtrlP => self
+                    .editor_page
+                    .as_mut()
+                    .unwrap()
+                    .update(editor::Message::ShowCommandLine)
                     .map(Message::Editor),
                 Message::Editor(msg) => self
                     .editor_page
@@ -154,6 +161,7 @@ impl Application for TirraIced {
     fn subscription(&self) -> Subscription<Message> {
         let kb_event = keyboard::on_key_press(|key, modifiers| match key.as_ref() {
             keyboard::Key::Character("s") if modifiers.command() => Some(Message::CtrlS),
+            keyboard::Key::Character("p") if modifiers.command() => Some(Message::CtrlP),
             _ => None,
         });
 

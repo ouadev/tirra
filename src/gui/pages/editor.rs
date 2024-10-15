@@ -1,5 +1,7 @@
 use iced::theme::Theme;
-use iced::widget::{column, container, horizontal_space, row, scrollable, text, text_editor, Button};
+use iced::widget::{
+    column, container, horizontal_space, row, scrollable, text, text_editor, Button, TextInput,
+};
 use iced::Background;
 use iced::{theme, Command};
 use iced::{Element, Length};
@@ -17,6 +19,9 @@ pub struct EditorPage {
     pub entries: Vec<TirraEntry>,
     pub curr_entry_id: u32,
     pub db_location: String,
+    cmd_line_show: bool,
+    cmd_line_text: String,
+    load_request: String,
     pub crypto: TirraCrypto,
 }
 
@@ -24,8 +29,11 @@ pub struct EditorPage {
 pub enum Message {
     ActionPerformed(text_editor::Action),
     SaveFile,
+    ShowCommandLine,
     EntryButtonClicked(u32),
     NewEntryButtonClicked,
+    CommandLineSubmited,
+    CommandLineInputChanged(String),
 }
 impl EditorPage {
     pub fn new(db_location: &str, crypto_pwd: &[u8]) -> (Self, Command<Message>) {
@@ -37,7 +45,8 @@ impl EditorPage {
         }
 
         // Load all entries into memory and display the first one
-        let all_entries = db::tirra_db_get_all_entries(db_location, &tirra_crypto)
+        let def_req = db::tirra_db_default_read_req();
+        let all_entries = db::tirra_db_get_all_entries(db_location, &tirra_crypto, &def_req)
             .expect("Error loading entries from database");
         let init_content = text_editor::Content::with_text(&all_entries[0].text);
         let id = all_entries[0].id;
@@ -50,6 +59,9 @@ impl EditorPage {
                 is_dirty: false,
                 entries: all_entries,
                 db_location: String::from(db_location),
+                cmd_line_show: false,
+                cmd_line_text: def_req.clone(),
+                load_request: def_req,
                 crypto: tirra_crypto,
             },
             Command::none(),
@@ -66,35 +78,18 @@ impl EditorPage {
 
             Message::SaveFile => {
                 if self.is_dirty {
-                    db::tirra_db_update_entry(
-                        &self.db_location,
-                        &self.content.text(),
-                        self.curr_entry_id,
-                        &self.crypto,
-                    )
-                    .unwrap();
+                    self.save();
+                    self.entries = self.reload_all().unwrap();
                     self.is_dirty = false;
-
-                    // Load all entries into memory and display the first one
-                    self.entries = db::tirra_db_get_all_entries(&self.db_location, &self.crypto)
-                        .expect("Error loading entries from database");
                 }
                 Command::none()
             }
             Message::EntryButtonClicked(entry_id) => {
                 // Save first
                 if self.is_dirty {
-                    db::tirra_db_update_entry(
-                        &self.db_location,
-                        &self.content.text(),
-                        self.curr_entry_id,
-                        &self.crypto,
-                    )
-                    .unwrap();
+                    self.save();
+                    self.entries = self.reload_all().unwrap();
                     self.is_dirty = false;
-                    // Load all entries into memory and display the first one
-                    self.entries = db::tirra_db_get_all_entries(&self.db_location, &self.crypto)
-                        .expect("Error loading entries from database");
                 }
                 //
                 self.show_entry(entry_id);
@@ -105,26 +100,76 @@ impl EditorPage {
                 println!("New paper will be created");
                 // Save before creating a new entry
                 if self.is_dirty {
-                    db::tirra_db_update_entry(
-                        &self.db_location,
-                        &self.content.text(),
-                        self.curr_entry_id,
-                        &self.crypto,
-                    )
-                    .unwrap();
+                    self.save();
                     self.is_dirty = false;
                 }
                 db::tirra_db_add_entry(&self.db_location, "print your soul here >", &self.crypto)
                     .unwrap();
-                // Load all entries into memory and display the last added one
-                self.entries = db::tirra_db_get_all_entries(&self.db_location, &self.crypto)
-                    .expect("Error loading entries from database");
+                self.entries = self.reload_all().unwrap();
                 self.show_entry(self.entry_greatest_id());
+                Command::none()
+            }
+
+            Message::CommandLineInputChanged(s) => {
+                self.cmd_line_text = s;
+                Command::none()
+            }
+
+            Message::CommandLineSubmited => {
+                if self.is_dirty {
+                    self.save();
+                    self.is_dirty = false;
+                }
+                // check if the request would work !
+                let entries_opt = db::tirra_db_get_all_entries(
+                    &self.db_location,
+                    &self.crypto,
+                    &self.cmd_line_text,
+                )
+                .ok();
+                match entries_opt {
+                    Some(entries) => {
+                        self.entries = entries;
+                        self.show_entry(self.entry_greatest_id());
+                        self.load_request = self.cmd_line_text.clone();
+                    }
+                    _ => {
+                        println!("New Loader request failed !!!");
+                        self.cmd_line_text = self.load_request.clone();
+                    }
+                }
+
+                Command::none()
+            }
+
+            Message::ShowCommandLine => {
+                self.cmd_line_show = !self.cmd_line_show;
                 Command::none()
             }
         }
     }
     pub fn view(&self) -> Element<Message> {
+        // DIV : Command line experimentation
+        let div_cmd_input =
+            TextInput::new("> SELECT * FROM entries WHERE ...", &self.cmd_line_text)
+                .width(Length::Fill)
+                .on_submit(Message::CommandLineSubmited)
+                .on_input(Message::CommandLineInputChanged);
+
+        let mut div_command_cont;
+        if self.cmd_line_show {
+            div_command_cont = container(div_cmd_input).height(40);
+        } else {
+            div_command_cont = container("").height(10);
+        }
+
+        div_command_cont = div_command_cont
+            .width(Length::Fill)
+            .style(|_theme: &Theme| {
+                container::Appearance::default()
+                    .with_background(Background::Color(style_constants::STYLE_EDITOR_BG_COLOR))
+            });
+
         // DIV : Editor Text Zone
         let div_editor_text = text_editor(&self.content)
             .height(Length::Fill)
@@ -150,7 +195,7 @@ impl EditorPage {
         });
 
         //Editor
-        let div_editor = column![div_editor_text, div_editor_status];
+        let div_editor = column![div_command_cont, div_editor_text, div_editor_status];
 
         // DIV : ADD Button
         let div_add = Button::new(" + New paper ")
@@ -164,7 +209,7 @@ impl EditorPage {
         //DIV : list of entries
         let div_entries = column(
             self.entries.iter().map(|ent| {
-                let title = EditorPage::entry_title(ent, 20);
+                let title = EditorPage::entry_title(ent, 22);
                 let ent_button = Button::new(text(format!("{}", title)))
                     .width(Length::Fill)
                     .style(theme::Button::custom(TirraButtonStyle {
@@ -200,6 +245,22 @@ impl EditorPage {
         // BODY
         let body = row![div_leftpan, div_sep, div_editor];
         body.into()
+    }
+
+    fn save(&mut self) -> () {
+        db::tirra_db_update_entry(
+            &self.db_location,
+            &self.content.text(),
+            self.curr_entry_id,
+            &self.crypto,
+        )
+        .expect("Tirra+Error: failed to save current file");
+    }
+
+    fn reload_all(&mut self) -> Option<Vec<TirraEntry>> {
+        // Load all entries into memory:
+        // note: Error is discarded here
+        db::tirra_db_get_all_entries(&self.db_location, &self.crypto, &self.load_request).ok()
     }
 
     /**
@@ -252,6 +313,9 @@ impl EditorPage {
 
         //println!("last_index = {}", last_index);
         if collected != 0 {
+            while entry.text.is_char_boundary(last_index + 1) == false {
+                last_index += 1;
+            }
             &entry.text[first_index..last_index + 1]
         } else {
             &entry.text[0..0]

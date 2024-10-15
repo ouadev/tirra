@@ -158,19 +158,29 @@ pub fn tirra_db_update_entry(
     Ok(())
 }
 
+pub fn tirra_db_default_read_req() -> String {
+    String::from("WHERE id > 0 ORDER BY date DESC LIMIT 200")
+}
+
 /**
  * Retrieve all entries to memory. NO PAGING
  */
 pub fn tirra_db_get_all_entries(
     location: &str,
     crypto: &TirraCrypto,
+    filter: &str,
 ) -> Result<Vec<TirraEntry>, TirraDbError> {
     let db = tirra_db_access_start(location, crypto)?;
     let mut vec_entries = Vec::new();
 
     {
+        let sql = format!(
+            "SELECT id, datetime(date, 'unixepoch'), text FROM entries {}",
+            filter
+        );
+
         let mut stmt = db
-            .prepare("SELECT id, datetime(date, 'unixepoch'), text from entries ORDER BY date DESC")
+            .prepare(&sql)
             .map_err(|_e| TirraDbError::DbRequestError)?;
 
         let entry_iter = stmt
