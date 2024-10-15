@@ -1,5 +1,5 @@
 use iced::theme::Theme;
-use iced::widget::{column, container, horizontal_space, row, text, text_editor, Button};
+use iced::widget::{column, container, horizontal_space, row, scrollable, text, text_editor, Button};
 use iced::Background;
 use iced::{theme, Command};
 use iced::{Element, Length};
@@ -114,7 +114,7 @@ impl EditorPage {
                     .unwrap();
                     self.is_dirty = false;
                 }
-                db::tirra_db_add_entry(&self.db_location, "Pour your soul here >", &self.crypto)
+                db::tirra_db_add_entry(&self.db_location, "print your soul here >", &self.crypto)
                     .unwrap();
                 // Load all entries into memory and display the last added one
                 self.entries = db::tirra_db_get_all_entries(&self.db_location, &self.crypto)
@@ -178,6 +178,8 @@ impl EditorPage {
             }), //map
         ); //Column
 
+        let div_entries_scroll = scrollable(div_entries);
+
         //let div_sep: Rule = Rule::vertical(50);
         let div_sep = container("")
             .width(20)
@@ -187,7 +189,7 @@ impl EditorPage {
                     .with_background(Background::Color(style_constants::STYLE_EDITOR_BG_COLOR))
             });
         // DIV : Left Pan
-        let div_leftpan = container(column![div_add, div_entries])
+        let div_leftpan = container(column![div_add, div_entries_scroll])
             .width(250)
             .height(Length::Fill)
             .style(|theme: &Theme| {

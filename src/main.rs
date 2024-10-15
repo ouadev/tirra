@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::env;
 
 use iced::highlighter::{self};
 use iced::theme::Theme;
@@ -17,10 +18,21 @@ mod gui;
 mod tirracrypto;
 
 // Constants
-const TIRRA_DB_PATH: &str = "./test.db";
+const TIRRA_DB_PATH_TESTING: &str = "stuff/dbs/tirra.db";
+
+// String : database (plaintext) location
 
 pub fn main() -> iced::Result {
-    TirraIced::run(Settings {
+    let mut db_to_use = String::from(TIRRA_DB_PATH_TESTING);
+    // check arguments
+    let args: Vec<String> = env::args().collect();
+    if args.len() == 2 {
+        db_to_use = String::from(&args[1]);
+    }
+
+    // Run ICED
+    TirraIced::run(Settings::<String> {
+        flags: db_to_use,
         fonts: vec![Cow::Borrowed(FONT_DEJAVU_SANS_MONO_BYTES)],
         default_font: FONT_DEJAVU_SANS_MONO,
         window: window::Settings {
@@ -36,6 +48,7 @@ struct TirraIced {
     login_page: LoginPage,
     editor_page: Option<EditorPage>,
     logged_in: bool,
+    db_location: String,
 }
 
 #[derive(Debug, Clone)]
@@ -51,12 +64,10 @@ impl Application for TirraIced {
     type Message = Message;
     type Theme = Theme;
     type Executor = executor::Default;
-    type Flags = ();
+    type Flags = String;
 
-    fn new(_flags: Self::Flags) -> (Self, Command<Message>) {
-        //let (editor_page, command) = EditorPage::new(TIRRA_DB_PATH);
-
-        let (login_page, _login_cmd) = LoginPage::new(TIRRA_DB_PATH);
+    fn new(flags: Self::Flags) -> (Self, Command<Message>) {
+        let (login_page, _login_cmd) = LoginPage::new(&flags);
 
         //return
         (
@@ -65,6 +76,7 @@ impl Application for TirraIced {
                 editor_page: None,
                 login_page: login_page,
                 logged_in: false,
+                db_location: flags,
             },
             //command.map(Message::Editor),
             Command::none(),
@@ -110,7 +122,7 @@ impl Application for TirraIced {
                                 login::Message::LoginSuccess => {
                                     self.logged_in = true;
                                     let (editor_page, command) = EditorPage::new(
-                                        TIRRA_DB_PATH,
+                                        &self.db_location,
                                         self.login_page.password.as_bytes(),
                                     );
                                     self.editor_page = Some(editor_page);
