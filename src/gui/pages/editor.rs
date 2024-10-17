@@ -97,14 +97,12 @@ impl EditorPage {
                 Command::none()
             }
             Message::NewEntryButtonClicked => {
-                println!("New paper will be created");
                 // Save before creating a new entry
                 if self.is_dirty {
                     self.save();
                     self.is_dirty = false;
                 }
-                db::tirra_db_add_entry(&self.db_location, "print your soul here >", &self.crypto)
-                    .unwrap();
+                db::tirra_db_add_entry(&self.db_location, "print your soul", &self.crypto).unwrap();
                 self.entries = self.reload_all().unwrap();
                 self.show_entry(self.entry_greatest_id());
                 Command::none()
@@ -171,23 +169,26 @@ impl EditorPage {
             });
 
         // DIV : Editor Text Zone
-        let div_editor_text = text_editor(&self.content)
+        let mut div_editor_text = text_editor(&self.content)
             .height(Length::Fill)
-            .style(theme::TextEditor::Custom(Box::new(EditorStyle {})))
-            .on_action(Message::ActionPerformed);
+            .style(theme::TextEditor::Custom(Box::new(EditorStyle {})));
+        if self.curr_entry_id > 0 {
+            // let the editor disabled if there is no current entry.
+            div_editor_text = div_editor_text.on_action(Message::ActionPerformed);
+        }
 
         // DIV : Editor Status Zone
         let div_editor_status = container(row![
             text(format!(
                 "{}",
-                self.entry_by_id(self.curr_entry_id).unwrap().date
+                if self.curr_entry_id > 0 {
+                    &self.entry_by_id(self.curr_entry_id).unwrap().date
+                } else {
+                    "-"
+                }
             )),
             horizontal_space(),
-            text({
-                let (line, column) = self.content.cursor_position();
-
-                format!("{}:{}", line + 1, column + 1)
-            })
+            text(format!("C"))
         ])
         .style(|_theme: &Theme| {
             container::Appearance::default()
@@ -198,13 +199,17 @@ impl EditorPage {
         let div_editor = column![div_command_cont, div_editor_text, div_editor_status];
 
         // DIV : ADD Button
-        let div_add = Button::new(" + New paper ")
-            .width(Length::Fill)
-            .style(theme::Button::custom(TirraButtonStyle {
-                button_type: TirraButtonType::EntryAdd,
-                selected: false,
-            }))
-            .on_press(Message::NewEntryButtonClicked);
+        let mut div_add =
+            Button::new(" + New paper ")
+                .width(Length::Fill)
+                .style(theme::Button::custom(TirraButtonStyle {
+                    button_type: TirraButtonType::EntryAdd,
+                    selected: false,
+                }));
+
+        if self.curr_entry_id > 0 {
+            div_add = div_add.on_press(Message::NewEntryButtonClicked);
+        }
 
         //DIV : list of entries
         let div_entries = column(
@@ -268,7 +273,11 @@ impl EditorPage {
      */
     fn show_entry(&mut self, id: u32) {
         self.curr_entry_id = id;
-        self.content = text_editor::Content::with_text(&self.entry_by_id(id).unwrap().text);
+        if id > 0 {
+            self.content = text_editor::Content::with_text(&self.entry_by_id(id).unwrap().text);
+        } else {
+            self.content = text_editor::Content::with_text(" Nothing was found");
+        }
     }
 
     pub fn title(&self) -> String {
