@@ -24,8 +24,9 @@ pub enum TirraDbError {
 /**
  * Create new database
  */
-pub fn tirra_db_init(location: &str, crypto: &TirraCrypto) -> Result<(), TirraDbError> {
-    let db = Connection::open(location).map_err(|_e| TirraDbError::DbOpenFailure)?;
+pub fn tirra_db_init(crypto: &TirraCrypto) -> Result<(), TirraDbError> {
+    let db = Connection::open(crypto.plaintext_db_location())
+        .map_err(|_e| TirraDbError::DbOpenFailure)?;
 
     db.execute(
         "CREATE TABLE entries (
@@ -42,7 +43,7 @@ pub fn tirra_db_init(location: &str, crypto: &TirraCrypto) -> Result<(), TirraDb
         .tirra_encrypt_db()
         .map_err(|_e| TirraDbError::DbInitError)?;
 
-    fs::remove_file(location).map_err(|_e| TirraDbError::DbInitError)?;
+    fs::remove_file(crypto.plaintext_db_location()).map_err(|_e| TirraDbError::DbInitError)?;
 
     Ok(())
 }
@@ -68,14 +69,14 @@ pub fn tirra_db_try_access(crypto: &TirraCrypto) -> bool {
  * Start access to db.
  */
 
-fn tirra_db_access_start(location: &str, crypto: &TirraCrypto) -> Result<Connection, TirraDbError> {
+fn tirra_db_access_start(crypto: &TirraCrypto) -> Result<Connection, TirraDbError> {
     // decrypt the db
     crypto
         .tirra_decrypt_db()
         .map_err(|_e| TirraDbError::CryptoAccessFailure)?;
 
     // Open connection
-    let db_result = Connection::open(location);
+    let db_result = Connection::open(crypto.plaintext_db_location());
 
     match db_result {
         Ok(db) => {
@@ -90,18 +91,14 @@ fn tirra_db_access_start(location: &str, crypto: &TirraCrypto) -> Result<Connect
 /**
  * Stop access to db, close connection and remove plaintext file.
  */
-fn tirra_db_access_stop(
-    location: &str,
-    db: Connection,
-    crypto: &TirraCrypto,
-) -> Result<(), TirraDbError> {
+fn tirra_db_access_stop(db: Connection, crypto: &TirraCrypto) -> Result<(), TirraDbError> {
     db.close().map_err(|_e| TirraDbError::DbCloseFailure)?;
     //re-encrypt db
     crypto
         .tirra_encrypt_db()
         .map_err(|_e| TirraDbError::CryptoAccessFailure)?;
 
-    fs::remove_file(location).map_err(|_e| TirraDbError::DbCloseFailure)?;
+    fs::remove_file(crypto.plaintext_db_location()).map_err(|_e| TirraDbError::DbCloseFailure)?;
 
     Ok(())
 }
@@ -117,12 +114,8 @@ pub fn tirra_db_time_now() -> u64 {
 /**
  * Create a new entry in the database
  */
-pub fn tirra_db_add_entry(
-    location: &str,
-    text_entry: &str,
-    crypto: &TirraCrypto,
-) -> Result<(), TirraDbError> {
-    let db = tirra_db_access_start(location, crypto)?;
+pub fn tirra_db_add_entry(text_entry: &str, crypto: &TirraCrypto) -> Result<(), TirraDbError> {
+    let db = tirra_db_access_start(crypto)?;
     //save
     db.execute(
         "INSERT INTO entries (date, text) VALUES ( ?1, ?2)",
@@ -130,7 +123,7 @@ pub fn tirra_db_add_entry(
     )
     .map_err(|_e| TirraDbError::DbRequestError)?;
 
-    tirra_db_access_stop(location, db, crypto)?;
+    tirra_db_access_stop(db, crypto)?;
 
     Ok(())
 }
@@ -139,12 +132,11 @@ pub fn tirra_db_add_entry(
  * Save content to db
  */
 pub fn tirra_db_update_entry(
-    location: &str,
     text_entry: &str,
     entry_id: u32,
     crypto: &TirraCrypto,
 ) -> Result<(), TirraDbError> {
-    let db = tirra_db_access_start(location, crypto)?;
+    let db = tirra_db_access_start(crypto)?;
 
     //save
     db.execute(
@@ -153,7 +145,7 @@ pub fn tirra_db_update_entry(
     )
     .map_err(|_e| TirraDbError::DbRequestError)?;
 
-    tirra_db_access_stop(location, db, crypto)?;
+    tirra_db_access_stop(db, crypto)?;
 
     Ok(())
 }
@@ -166,11 +158,10 @@ pub fn tirra_db_default_read_req() -> String {
  * Retrieve all entries to memory. NO PAGING
  */
 pub fn tirra_db_get_all_entries(
-    location: &str,
     crypto: &TirraCrypto,
     filter: &str,
 ) -> Result<Vec<TirraEntry>, TirraDbError> {
-    let db = tirra_db_access_start(location, crypto)?;
+    let db = tirra_db_access_start(crypto)?;
     let mut vec_entries = Vec::new();
 
     {
@@ -199,7 +190,7 @@ pub fn tirra_db_get_all_entries(
         }
     }
 
-    tirra_db_access_stop(location, db, crypto)?;
+    tirra_db_access_stop(db, crypto)?;
 
     return Ok(vec_entries);
 }

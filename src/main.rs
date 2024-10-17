@@ -18,7 +18,7 @@ mod gui;
 mod tirracrypto;
 
 // Constants
-const TIRRA_DB_PATH_TESTING: &str = "stuff/dbs/test.db";
+const TIRRA_DB_PATH_TESTING: &str = "stuff/dbs/test.db.enc";
 
 // String : database (plaintext) location
 

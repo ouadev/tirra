@@ -26,18 +26,13 @@ impl LoginPage {
     pub fn new(db_location: &str) -> (Self, Command<Message>) {
         let focus_input = text_input::focus(text_input::Id::new("pwdinput-id"));
         // Check database file existence
-        let db_enc_loc = format!("{}.enc", db_location);
         let mut info_text = String::new();
-        info_text.push_str(&format!("+ db: {}\n", db_enc_loc));
+        info_text.push_str(&format!(" . db: {}\n", db_location));
         let db_found: bool;
-        if db::tirra_db_found(&db_enc_loc) == true {
-            info_text.push_str(&format!("+ database file is found\n"));
+        if db::tirra_db_found(db_location) == true {
             db_found = true;
         } else {
-            info_text.push_str(&format!("+ database NOT found.\n"));
-            info_text.push_str(&format!(
-                "+ pick a passphrase to initialise a new one at this location\n"
-            ));
+            info_text.push_str(&format!(" . DATABASE FILE NOT FOUND.\n"));
             db_found = false;
         }
         //return
@@ -68,9 +63,9 @@ impl LoginPage {
                     // intialize the backend
                     if crypto.enc_db_found() == false {
                         // create new db
-                        db::tirra_db_init(&self.db_location, &crypto).expect("database init error");
+                        db::tirra_db_init(&crypto).expect("database init error");
                         // insert first empty entry
-                        db::tirra_db_add_entry(&self.db_location, "Mar7baaaa ...", &crypto)
+                        db::tirra_db_add_entry("Mar7baaaa ...", &crypto)
                             .expect("first entry add failed");
                         Some(Message::LoginSuccess)
                     } else {

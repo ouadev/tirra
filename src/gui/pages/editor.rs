@@ -18,7 +18,6 @@ pub struct EditorPage {
     pub is_dirty: bool,
     pub entries: Vec<TirraEntry>,
     pub curr_entry_id: u32,
-    pub db_location: String,
     cmd_line_show: bool,
     cmd_line_text: String,
     load_request: String,
@@ -46,7 +45,7 @@ impl EditorPage {
 
         // Load all entries into memory and display the first one
         let def_req = db::tirra_db_default_read_req();
-        let all_entries = db::tirra_db_get_all_entries(db_location, &tirra_crypto, &def_req)
+        let all_entries = db::tirra_db_get_all_entries(&tirra_crypto, &def_req)
             .expect("Error loading entries from database");
         let init_content = text_editor::Content::with_text(&all_entries[0].text);
         let id = all_entries[0].id;
@@ -58,7 +57,6 @@ impl EditorPage {
                 content: init_content,
                 is_dirty: false,
                 entries: all_entries,
-                db_location: String::from(db_location),
                 cmd_line_show: false,
                 cmd_line_text: def_req.clone(),
                 load_request: def_req,
@@ -102,7 +100,7 @@ impl EditorPage {
                     self.save();
                     self.is_dirty = false;
                 }
-                db::tirra_db_add_entry(&self.db_location, "print your soul", &self.crypto).unwrap();
+                db::tirra_db_add_entry("print your soul", &self.crypto).unwrap();
                 self.entries = self.reload_all().unwrap();
                 self.show_entry(self.entry_greatest_id());
                 Command::none()
@@ -119,12 +117,8 @@ impl EditorPage {
                     self.is_dirty = false;
                 }
                 // check if the request would work !
-                let entries_opt = db::tirra_db_get_all_entries(
-                    &self.db_location,
-                    &self.crypto,
-                    &self.cmd_line_text,
-                )
-                .ok();
+                let entries_opt =
+                    db::tirra_db_get_all_entries(&self.crypto, &self.cmd_line_text).ok();
                 match entries_opt {
                     Some(entries) => {
                         self.entries = entries;
@@ -253,19 +247,14 @@ impl EditorPage {
     }
 
     fn save(&mut self) -> () {
-        db::tirra_db_update_entry(
-            &self.db_location,
-            &self.content.text(),
-            self.curr_entry_id,
-            &self.crypto,
-        )
-        .expect("Tirra+Error: failed to save current file");
+        db::tirra_db_update_entry(&self.content.text(), self.curr_entry_id, &self.crypto)
+            .expect("Tirra+Error: failed to save current file");
     }
 
     fn reload_all(&mut self) -> Option<Vec<TirraEntry>> {
         // Load all entries into memory:
         // note: Error is discarded here
-        db::tirra_db_get_all_entries(&self.db_location, &self.crypto, &self.load_request).ok()
+        db::tirra_db_get_all_entries(&self.crypto, &self.load_request).ok()
     }
 
     /**

@@ -26,7 +26,7 @@ pub struct TirraSecrets {
 
 pub struct TirraCrypto {
     db_location: String,
-    db_location_enc: String,
+    db_location_pt: String,
     secrets: TirraSecrets,
 }
 
@@ -34,7 +34,7 @@ impl TirraCrypto {
     pub fn new(location: &str, password: &[u8]) -> Self {
         Self {
             db_location: location.to_string(),
-            db_location_enc: format!("{}.{}", &location, "enc"),
+            db_location_pt: format!("{}.{}", &location, "plaintext"),
             secrets: TirraCrypto::key_and_nonce_from_pwd(password),
         }
     }
@@ -47,7 +47,7 @@ impl TirraCrypto {
 
         Self {
             db_location: location.to_string(),
-            db_location_enc: format!("{}.{}", &location, "enc"),
+            db_location_pt: format!("{}.{}", &location, "plaintext"),
             secrets: secret_struct,
         }
     }
@@ -78,7 +78,7 @@ impl TirraCrypto {
     }
 
     pub fn enc_db_found(&self) -> bool {
-        Path::new(&self.db_location_enc).exists()
+        Path::new(&self.db_location).exists()
     }
     /**
      * Encrypt Db
@@ -90,13 +90,13 @@ impl TirraCrypto {
         //encrypt small file
         let cipher = ChaCha20Poly1305::new(&secret_struct.key.into());
 
-        let file_data = fs::read(&self.db_location).expect("can't find database");
+        let file_data = fs::read(&self.db_location_pt).expect("can't find database");
         let enc_file = cipher
             .encrypt(&secret_struct.nonce.into(), file_data.as_ref())
             .map_err(|err| anyhow!("enc some file: {}", err))
             .expect("nothing");
 
-        fs::write(&self.db_location_enc, enc_file).expect("");
+        fs::write(&self.db_location, enc_file).expect("");
 
         Ok(true)
     }
@@ -112,13 +112,13 @@ impl TirraCrypto {
         //decrypt small file
         let cipher = ChaCha20Poly1305::new(&secret_struct.key.into());
 
-        let file_data = fs::read(&self.db_location_enc).expect("can't find database");
+        let file_data = fs::read(&self.db_location).expect("can't find database");
         let dec_file = cipher.decrypt(&secret_struct.nonce.into(), file_data.as_ref());
         //.map_err(|err| anyhow!("enc some file: {}", err))
         //.expect("Error Decrypting the database.");
         match dec_file {
             Ok(f) => {
-                fs::write(&self.db_location, f).expect("");
+                fs::write(&self.db_location_pt, f).expect("");
             }
             Err(_) => {
                 return Err(());
@@ -126,6 +126,10 @@ impl TirraCrypto {
         }
 
         Ok(true)
+    }
+
+    pub fn plaintext_db_location(&self) -> &str {
+        &self.db_location_pt
     }
 }
 //}
