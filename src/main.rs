@@ -1,10 +1,11 @@
 use std::borrow::Cow;
 use std::env;
 
+use crate::widget::text_input;
 use iced::highlighter::{self};
 use iced::theme::Theme;
 use iced::time::{self, every};
-use iced::{event, executor, Event};
+use iced::{event, executor, widget, Event};
 use iced::{keyboard, window};
 use iced::{Application, Command, Element, Settings, Subscription};
 
@@ -141,18 +142,23 @@ impl Application for TirraIced {
                         _ => Command::none(),
                     }
                 }
-                Message::IgnoredEvent(event) => {
-                    match event {
-                        Event::Window(_id, _ev) => {
-                            //if let window::Event::Opened { position, size } = ev {
-                            //    println!("Window Opened");
-                            //}
+                Message::IgnoredEvent(event) => match event {
+                    Event::Window(_id, win_ev) => {
+                        if let window::Event::Focused = win_ev {
+                            println!("Focus Event ... ");
+                            if self.logged_in == false {
+                                text_input::focus(text_input::Id::new(
+                                    login::LoginPage::text_input_id_to_focus(),
+                                ))
+                            } else {
+                                Command::none()
+                            }
+                        } else {
+                            Command::none()
                         }
-                        _ => {}
                     }
-                    //println!("other event");
-                    Command::none()
-                }
+                    _ => Command::none(),
+                },
                 _ => Command::none(),
             }
         }

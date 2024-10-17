@@ -9,6 +9,7 @@ use crate::gui::styles::button::TirraButtonType;
 use crate::gui::styles::style_constants;
 use crate::tirracrypto::TirraCrypto;
 
+const LOGIN_INPUT_ICED_ID: &str = "pwdinput-id";
 pub struct LoginPage {
     pub db_location: String,
     db_found: bool,
@@ -24,7 +25,6 @@ pub enum Message {
 }
 impl LoginPage {
     pub fn new(db_location: &str) -> (Self, Command<Message>) {
-        let focus_input = text_input::focus(text_input::Id::new("pwdinput-id"));
         // Check database file existence
         let mut info_text = String::new();
         info_text.push_str(&format!(" . db: {}\n", db_location));
@@ -43,8 +43,7 @@ impl LoginPage {
                 password: String::from(""),
                 info_text: info_text,
             },
-            //Command::none(),
-            focus_input,
+            Command::none(),
         )
     }
 
@@ -100,7 +99,7 @@ impl LoginPage {
             .secure(true)
             .on_submit(Message::LoginButtonPressed)
             .on_input(Message::PwdInputChanged)
-            .id(text_input::Id::new("pwdinput-id"));
+            .id(text_input::Id::new(LOGIN_INPUT_ICED_ID));
 
         let div_pwd_cont = container(div_pwd).width(Length::Fill).center_x();
         // DIV : Login Button
@@ -148,5 +147,12 @@ impl LoginPage {
 
     pub fn title(&self) -> String {
         format!("Tirra - Access ...")
+    }
+
+    /**
+     * returns the ID of the text input to gain focus when the program starts.
+     */
+    pub fn text_input_id_to_focus() -> &'static str {
+        &LOGIN_INPUT_ICED_ID
     }
 }
