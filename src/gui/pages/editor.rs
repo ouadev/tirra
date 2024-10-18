@@ -193,13 +193,12 @@ impl EditorPage {
         let div_editor = column![div_command_cont, div_editor_text, div_editor_status];
 
         // DIV : ADD Button
-        let mut div_add =
-            Button::new(text(format!(" + New paper ")))
-                .width(Length::Fill)
-                .style(theme::Button::custom(TirraButtonStyle {
-                    button_type: TirraButtonType::Main,
-                    selected: false,
-                }));
+        let mut div_add = Button::new(text(format!(" + New paper ")))
+            .width(Length::Fill)
+            .style(theme::Button::custom(TirraButtonStyle {
+                button_type: TirraButtonType::Main,
+                selected: false,
+            }));
 
         if self.curr_entry_id > 0 {
             div_add = div_add.on_press(Message::NewEntryButtonClicked);

@@ -100,24 +100,39 @@ impl Application for TirraIced {
 
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
-            Message::PeriodicTick | Message::CtrlS => self
-                .editor_page
-                .as_mut()
-                .unwrap()
-                .update(editor::Message::SaveFile)
-                .map(Message::Editor),
-            Message::CtrlP => self
-                .editor_page
-                .as_mut()
-                .unwrap()
-                .update(editor::Message::ShowCommandLine)
-                .map(Message::Editor),
-            Message::Editor(msg) => self
-                .editor_page
-                .as_mut()
-                .unwrap()
-                .update(msg)
-                .map(Message::Editor),
+            Message::PeriodicTick | Message::CtrlS => {
+                if self.logged_in {
+                    self.editor_page
+                        .as_mut()
+                        .unwrap()
+                        .update(editor::Message::SaveFile)
+                        .map(Message::Editor)
+                } else {
+                    Command::none()
+                }
+            }
+            Message::CtrlP => {
+                if self.logged_in {
+                    self.editor_page
+                        .as_mut()
+                        .unwrap()
+                        .update(editor::Message::ShowCommandLine)
+                        .map(Message::Editor)
+                } else {
+                    Command::none()
+                }
+            }
+            Message::Editor(msg) => {
+                if self.logged_in {
+                    self.editor_page
+                        .as_mut()
+                        .unwrap()
+                        .update(msg)
+                        .map(Message::Editor)
+                } else {
+                    Command::none()
+                }
+            }
             Message::Login(loginmsg) => {
                 //self.login_page.update(loginmsg).map(Message::Login)
                 match self.login_page.update(loginmsg) {
