@@ -33,11 +33,13 @@ pub fn main() -> iced::Result {
 
     // Run ICED
     TirraIced::run(Settings::<String> {
+        id: Some(String::from("win-tirra")),
         flags: db_to_use,
         fonts: vec![Cow::Borrowed(FONT_DEJAVU_SANS_MONO_BYTES)],
         default_font: FONT_DEJAVU_SANS_MONO,
         window: window::Settings {
             icon: None,
+            exit_on_close_request: false,
             ..Default::default()
         },
         ..Settings::default()
@@ -97,70 +99,70 @@ impl Application for TirraIced {
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {
-        if self.logged_in {
-            match message {
-                Message::PeriodicTick | Message::CtrlS => self
-                    .editor_page
-                    .as_mut()
-                    .unwrap()
-                    .update(editor::Message::SaveFile)
-                    .map(Message::Editor),
-                Message::CtrlP => self
-                    .editor_page
-                    .as_mut()
-                    .unwrap()
-                    .update(editor::Message::ShowCommandLine)
-                    .map(Message::Editor),
-                Message::Editor(msg) => self
-                    .editor_page
-                    .as_mut()
-                    .unwrap()
-                    .update(msg)
-                    .map(Message::Editor),
-                _ => Command::none(),
-            }
-        } else {
-            match message {
-                Message::Login(loginmsg) => {
-                    //self.login_page.update(loginmsg).map(Message::Login)
-                    match self.login_page.update(loginmsg) {
-                        Some(login_msg) => {
-                            // Login is successful
-                            match login_msg {
-                                login::Message::LoginSuccess => {
-                                    self.logged_in = true;
-                                    let (editor_page, command) = EditorPage::new(
-                                        &self.db_location,
-                                        self.login_page.password.as_bytes(),
-                                    );
-                                    self.editor_page = Some(editor_page);
-                                    command.map(Message::Editor)
-                                }
-                                _ => Command::none(),
+        match message {
+            Message::PeriodicTick | Message::CtrlS => self
+                .editor_page
+                .as_mut()
+                .unwrap()
+                .update(editor::Message::SaveFile)
+                .map(Message::Editor),
+            Message::CtrlP => self
+                .editor_page
+                .as_mut()
+                .unwrap()
+                .update(editor::Message::ShowCommandLine)
+                .map(Message::Editor),
+            Message::Editor(msg) => self
+                .editor_page
+                .as_mut()
+                .unwrap()
+                .update(msg)
+                .map(Message::Editor),
+            Message::Login(loginmsg) => {
+                //self.login_page.update(loginmsg).map(Message::Login)
+                match self.login_page.update(loginmsg) {
+                    Some(login_msg) => {
+                        // Login is successful
+                        match login_msg {
+                            login::Message::LoginSuccess => {
+                                self.logged_in = true;
+                                let (editor_page, command) = EditorPage::new(
+                                    &self.db_location,
+                                    self.login_page.password.as_bytes(),
+                                );
+                                self.editor_page = Some(editor_page);
+                                command.map(Message::Editor)
                             }
+                            _ => Command::none(),
                         }
-                        _ => Command::none(),
                     }
+                    _ => Command::none(),
                 }
-                Message::IgnoredEvent(event) => match event {
-                    Event::Window(_id, win_ev) => {
-                        if let window::Event::Focused = win_ev {
-                            println!("Focus Event ... ");
-                            if self.logged_in == false {
-                                text_input::focus(text_input::Id::new(
-                                    login::LoginPage::text_input_id_to_focus(),
-                                ))
-                            } else {
-                                Command::none()
-                            }
+            }
+            Message::IgnoredEvent(event) => match event {
+                Event::Window(_id, win_ev) => match win_ev {
+                    window::Event::Focused => {
+                        if self.logged_in == false {
+                            text_input::focus(text_input::Id::new(
+                                login::LoginPage::text_input_id_to_focus(),
+                            ))
                         } else {
                             Command::none()
                         }
                     }
+                    window::Event::CloseRequested => {
+                        let _ = self
+                            .editor_page
+                            .as_mut()
+                            .unwrap()
+                            .update(editor::Message::SaveFile)
+                            .map(Message::Editor);
+                        window::close(window::Id::MAIN)
+                    }
                     _ => Command::none(),
                 },
                 _ => Command::none(),
-            }
+            },
         }
     }
 

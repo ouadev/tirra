@@ -12,8 +12,8 @@ pub enum ButtonType {
     */
 
 pub enum TirraButtonType {
-    EntryOpen,
-    EntryAdd,
+    Entry,
+    Main,
 }
 
 pub struct TirraButtonStyle {
@@ -26,11 +26,11 @@ impl button::StyleSheet for TirraButtonStyle {
     fn active(&self, _style: &Self::Style) -> button::Appearance {
         let button_background: Background;
         match self.button_type {
-            TirraButtonType::EntryAdd => {
-                button_background = Background::Color(style_constants::STYLE_BUTTON_ADD_COLOR);
+            TirraButtonType::Main => {
+                button_background = Background::Color(style_constants::COLOR_BUTTON_MAIN);
             }
 
-            TirraButtonType::EntryOpen => {
+            TirraButtonType::Entry => {
                 if self.selected {
                     button_background =
                         Background::Color(style_constants::STYLE_BUTTON_ENTRY_COLOR_SELECTED);

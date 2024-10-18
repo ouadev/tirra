@@ -11,16 +11,16 @@ pub const FONT_DEJAVU_SANS_MONO: Font = Font {
 };
 
 pub const STYLE_EDITOR_BG_COLOR: iced::Color = Color {
-    r: 182.0 / 255.0,
-    g: 222.0 / 255.0,
-    b: 202.0 / 255.0,
+    r: 223. / 255.0,
+    g: 246. / 255.0,
+    b: 228. / 255.0,
     a: 1.0,
 };
 
-pub const STYLE_BUTTON_ADD_COLOR: iced::Color = Color {
-    r: 160. / 255.0,
-    g: 160. / 255.0,
-    b: 160. / 255.0,
+pub const COLOR_BUTTON_MAIN: iced::Color = Color {
+    r: 182.0 / 255.0,
+    g: 222.0 / 255.0,
+    b: 202.0 / 255.0,
     a: 1.0,
 };
 

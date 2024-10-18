@@ -194,10 +194,10 @@ impl EditorPage {
 
         // DIV : ADD Button
         let mut div_add =
-            Button::new(" + New paper ")
+            Button::new(text(format!(" + New paper ")))
                 .width(Length::Fill)
                 .style(theme::Button::custom(TirraButtonStyle {
-                    button_type: TirraButtonType::EntryAdd,
+                    button_type: TirraButtonType::Main,
                     selected: false,
                 }));
 
@@ -212,7 +212,7 @@ impl EditorPage {
                 let ent_button = Button::new(text(format!("{}", title)))
                     .width(Length::Fill)
                     .style(theme::Button::custom(TirraButtonStyle {
-                        button_type: TirraButtonType::EntryOpen,
+                        button_type: TirraButtonType::Entry,
                         selected: (ent.id == self.curr_entry_id),
                     }))
                     .clip(true)

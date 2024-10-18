@@ -111,7 +111,7 @@ impl LoginPage {
         let div_decrypt_button = Button::new(button_text)
             .width(Length::Shrink)
             .style(theme::Button::custom(TirraButtonStyle {
-                button_type: TirraButtonType::EntryAdd,
+                button_type: TirraButtonType::Main,
                 selected: false,
             }))
             .on_press(Message::LoginButtonPressed);
