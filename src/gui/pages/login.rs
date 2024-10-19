@@ -125,12 +125,13 @@ impl LoginPage {
         let div_login =
             container(column![div_sep, div_pwd_cont, div_dec_cont, div_info_cont].spacing(10))
                 .width(400)
-                .height(Length::Fill)
+                .height(400)
                 .center_x()
                 .style(|theme: &Theme| {
                     let palette = theme.extended_palette();
                     container::Appearance::default()
                         .with_background(palette.background.strong.color)
+                    //.with_border( Color::BLACK, 1)
                 });
 
         let body = container(div_login)
@@ -146,7 +147,7 @@ impl LoginPage {
     }
 
     pub fn title(&self) -> String {
-        format!("Tirra - Access ...")
+        format!("Tirra - Open")
     }
 
     /**

@@ -166,12 +166,14 @@ impl Application for TirraIced {
                         }
                     }
                     window::Event::CloseRequested => {
-                        let _ = self
-                            .editor_page
-                            .as_mut()
-                            .unwrap()
-                            .update(editor::Message::SaveFile)
-                            .map(Message::Editor);
+                        if self.logged_in {
+                            let _ = self
+                                .editor_page
+                                .as_mut()
+                                .unwrap()
+                                .update(editor::Message::SaveFile)
+                                .map(Message::Editor);
+                        }
                         window::close(window::Id::MAIN)
                     }
                     _ => Command::none(),
