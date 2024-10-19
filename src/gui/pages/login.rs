@@ -64,8 +64,12 @@ impl LoginPage {
                         // create new db
                         db::tirra_db_init(&crypto).expect("database init error");
                         // insert first empty entry
-                        db::tirra_db_add_entry("Mar7baaaa ...", &crypto)
-                            .expect("first entry add failed");
+                        db::tirra_db_add_entry(
+                            db::TIRRA_ENTRY_TYPE_GENERAL,
+                            "Mr7ba.\nHere are some usefuli info about Tirra.",
+                            &crypto,
+                        )
+                        .expect("first entry add failed");
                         Some(Message::LoginSuccess)
                     } else {
                         panic!("something is up. database is not supposed to be found");

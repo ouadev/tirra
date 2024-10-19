@@ -100,7 +100,12 @@ impl EditorPage {
                     self.save();
                     self.is_dirty = false;
                 }
-                db::tirra_db_add_entry("print your soul", &self.crypto).unwrap();
+                db::tirra_db_add_entry(
+                    db::TIRRA_ENTRY_TYPE_GENERAL,
+                    "print your soul",
+                    &self.crypto,
+                )
+                .unwrap();
                 self.entries = self.reload_all().unwrap();
                 self.show_entry(self.entry_greatest_id());
                 Command::none()
@@ -173,16 +178,20 @@ impl EditorPage {
 
         // DIV : Editor Status Zone
         let div_editor_status = container(row![
+            if self.curr_entry_id > 0 {
+                text(format!(
+                    "created: {} - modified: {}",
+                    &self.entry_by_id(self.curr_entry_id).unwrap().date_create,
+                    &self.entry_by_id(self.curr_entry_id).unwrap().date_modify,
+                ))
+            } else {
+                text("")
+            },
+            horizontal_space(),
             text(format!(
                 "{}",
-                if self.curr_entry_id > 0 {
-                    &self.entry_by_id(self.curr_entry_id).unwrap().date
-                } else {
-                    "-"
-                }
-            )),
-            horizontal_space(),
-            text(format!("C"))
+                &self.entry_by_id(self.curr_entry_id).unwrap().type_entry
+            ))
         ])
         .style(|_theme: &Theme| {
             container::Appearance::default()

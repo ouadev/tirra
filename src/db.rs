@@ -6,9 +6,12 @@ use std::path::Path;
 use std::result::Result;
 use std::time::SystemTime;
 
+pub const TIRRA_ENTRY_TYPE_GENERAL: u8 = 0;
 pub struct TirraEntry {
     pub id: u32,
-    pub date: String,
+    pub date_create: String,
+    pub date_modify: String,
+    pub type_entry: u8,
     pub text: String,
 }
 
@@ -30,9 +33,11 @@ pub fn tirra_db_init(crypto: &TirraCrypto) -> Result<(), TirraDbError> {
 
     db.execute(
         "CREATE TABLE entries (
-            id INTEGER PRIMARY KEY,
-            date INTEGER NOT NULL,
-            text BLOB
+            id          INTEGER PRIMARY KEY,
+            date_create INTEGER NOT NULL,
+            date_modify INTEGER NOT NULL,
+            type        INTEGER,
+            text        BLOB
         )",
         (),
     )
@@ -114,12 +119,19 @@ pub fn tirra_db_time_now() -> u64 {
 /**
  * Create a new entry in the database
  */
-pub fn tirra_db_add_entry(text_entry: &str, crypto: &TirraCrypto) -> Result<(), TirraDbError> {
+pub fn tirra_db_add_entry(
+    type_entry: u8,
+    text_entry: &str,
+    crypto: &TirraCrypto,
+) -> Result<(), TirraDbError> {
     let db = tirra_db_access_start(crypto)?;
+    let now = tirra_db_time_now();
     //save
     db.execute(
-        "INSERT INTO entries (date, text) VALUES ( ?1, ?2)",
-        params![tirra_db_time_now(), text_entry],
+        "INSERT INTO entries 
+        (date_create, date_modify, type, text) VALUES 
+        ( ?1, ?2, ?3, ?4)",
+        params![now, now, type_entry, text_entry],
     )
     .map_err(|_e| TirraDbError::DbRequestError)?;
 
@@ -137,11 +149,15 @@ pub fn tirra_db_update_entry(
     crypto: &TirraCrypto,
 ) -> Result<(), TirraDbError> {
     let db = tirra_db_access_start(crypto)?;
+    let now = tirra_db_time_now();
 
     //save
     db.execute(
-        "UPDATE entries SET date = ?1, text = ?2 WHERE id = ?3",
-        (tirra_db_time_now(), text_entry, entry_id),
+        "UPDATE entries SET 
+        date_modify = ?1,
+        text        = ?2 
+        WHERE id    = ?3",
+        (now, text_entry, entry_id),
     )
     .map_err(|_e| TirraDbError::DbRequestError)?;
 
@@ -151,7 +167,7 @@ pub fn tirra_db_update_entry(
 }
 
 pub fn tirra_db_default_read_req() -> String {
-    String::from("WHERE id > 0 ORDER BY date DESC LIMIT 200")
+    String::from("WHERE id > 0 ORDER BY date_modify DESC LIMIT 200")
 }
 
 /**
@@ -166,7 +182,14 @@ pub fn tirra_db_get_all_entries(
 
     {
         let sql = format!(
-            "SELECT id, datetime(date, 'unixepoch'), text FROM entries {}",
+            "SELECT 
+            id, 
+            datetime(date_create, 'unixepoch'), 
+            datetime(date_create, 'unixepoch'), 
+            type, 
+            text 
+            FROM entries 
+            {}",
             filter
         );
 
@@ -178,8 +201,10 @@ pub fn tirra_db_get_all_entries(
             .query_map([], |row| {
                 Ok(TirraEntry {
                     id: row.get(0)?,
-                    date: row.get(1)?,
-                    text: row.get(2)?,
+                    date_create: row.get(1)?,
+                    date_modify: row.get(2)?,
+                    type_entry: row.get(3)?,
+                    text: row.get(4)?,
                 })
             })
             .map_err(|_e| TirraDbError::DbRequestError)?;
