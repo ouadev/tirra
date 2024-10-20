@@ -5,6 +5,7 @@ use crate::widget::text_input;
 use iced::highlighter::{self};
 use iced::theme::Theme;
 use iced::time::{self, every};
+use iced::window::settings::PlatformSpecific;
 use iced::{event, executor, widget, Event};
 use iced::{keyboard, window};
 use iced::{Application, Command, Element, Settings, Subscription};
@@ -40,6 +41,9 @@ pub fn main() -> iced::Result {
         window: window::Settings {
             icon: None,
             exit_on_close_request: false,
+            platform_specific: PlatformSpecific {
+                application_id: String::from("win-tirra-lnx"),
+            },
             ..Default::default()
         },
         ..Settings::default()
