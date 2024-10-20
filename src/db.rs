@@ -185,7 +185,7 @@ pub fn tirra_db_get_all_entries(
             "SELECT 
             id, 
             datetime(date_create, 'unixepoch'), 
-            datetime(date_create, 'unixepoch'), 
+            datetime(date_modify, 'unixepoch'), 
             type, 
             text 
             FROM entries 
