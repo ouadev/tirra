@@ -1,7 +1,7 @@
 #!/bin/bash
 set -x
 
-src=typewriter.png
+src=icon.png
 
 conv_opts="-colors 256 -background none -density 300"
 
