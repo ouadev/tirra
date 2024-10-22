@@ -10,14 +10,11 @@ use iced::{event, executor, widget, Event};
 use iced::{keyboard, window};
 use iced::{Application, Command, Element, Settings, Subscription};
 
-use crate::gui::pages::editor::{self, EditorPage};
-use crate::gui::pages::login::{self, LoginPage};
-use crate::gui::styles::style_constants::FONT_DEJAVU_SANS_MONO;
-use crate::gui::styles::style_constants::FONT_DEJAVU_SANS_MONO_BYTES;
-
-mod db;
-mod gui;
-mod tirracrypto;
+extern crate tirra;
+use tirra::gui::pages::editor::{self, EditorPage};
+use tirra::gui::pages::login::{self, LoginPage};
+use tirra::gui::styles::style_constants::FONT_DEJAVU_SANS_MONO;
+use tirra::gui::styles::style_constants::FONT_DEJAVU_SANS_MONO_BYTES;
 
 // Constants
 const TIRRA_DB_PATH_TESTING: &str = "stuff/dbs/test.db.enc";

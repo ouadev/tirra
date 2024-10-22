@@ -3,6 +3,14 @@ name = "tirra"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "gui"
+path = "src/bin/gui.rs"
+
+[[bin]]
+name = "cli"
+path = "src/bin/cli.rs"
+
 [dependencies]
 # ICED
 iced = {version = "0.12.1", features = ["highlighter", "tokio", "debug"]}

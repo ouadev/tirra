@@ -6,12 +6,12 @@ use iced::Background;
 use iced::{theme, Command};
 use iced::{Element, Length};
 
-use crate::db::{self, TirraEntry};
+use crate::storage::db::{self, TirraEntry};
 use crate::gui::styles::button::TirraButtonStyle;
 use crate::gui::styles::button::TirraButtonType;
 use crate::gui::styles::style_constants;
 use crate::gui::styles::text_editor::EditorStyle;
-use crate::tirracrypto::TirraCrypto;
+use crate::storage::tirracrypto::TirraCrypto;
 
 pub struct EditorPage {
     pub content: text_editor::Content,

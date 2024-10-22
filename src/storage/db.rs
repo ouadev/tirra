@@ -1,4 +1,4 @@
-use crate::tirracrypto::TirraCrypto;
+use crate::storage::tirracrypto::TirraCrypto;
 use rusqlite::params;
 use rusqlite::Connection;
 use std::fs;
@@ -132,6 +132,31 @@ pub fn tirra_db_add_entry(
         (date_create, date_modify, type, text) VALUES 
         ( ?1, ?2, ?3, ?4)",
         params![now, now, type_entry, text_entry],
+    )
+    .map_err(|_e| TirraDbError::DbRequestError)?;
+
+    tirra_db_access_stop(db, crypto)?;
+
+    Ok(())
+}
+
+
+/**
+ * Create a new entry in the database
+ */
+pub fn tirra_db_add_entry_migration(
+    type_entry: u8,
+    text_entry: &str,
+    create_date: u64,
+    crypto: &TirraCrypto,
+) -> Result<(), TirraDbError> {
+    let db = tirra_db_access_start(crypto)?;
+    //save
+    db.execute(
+        "INSERT INTO entries 
+        (date_create, date_modify, type, text) VALUES 
+        ( ?1, ?2, ?3, ?4)",
+        params![create_date, create_date, type_entry, text_entry],
     )
     .map_err(|_e| TirraDbError::DbRequestError)?;
 

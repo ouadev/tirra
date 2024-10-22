@@ -3,11 +3,11 @@ use iced::widget::{column, container, text_input, Button, Text, TextInput};
 use iced::{theme, Background, Command};
 use iced::{Element, Length};
 
-use crate::db;
 use crate::gui::styles::button::TirraButtonStyle;
 use crate::gui::styles::button::TirraButtonType;
 use crate::gui::styles::style_constants;
-use crate::tirracrypto::TirraCrypto;
+use crate::storage::db;
+use crate::storage::tirracrypto::TirraCrypto;
 
 const LOGIN_INPUT_ICED_ID: &str = "pwdinput-id";
 pub struct LoginPage {
