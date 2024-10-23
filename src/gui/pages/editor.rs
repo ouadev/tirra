@@ -195,6 +195,7 @@ impl EditorPage {
                 "{}",
                 &self.entry_by_id(self.curr_entry_id).unwrap().type_entry
             ))
+            .size(style_constants::STYLE_TEXT_SIZE_BUTTON)
         ])
         .style(|_theme: &Theme| {
             container::Appearance::default()

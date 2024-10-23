@@ -1,7 +1,7 @@
 #!/bin/bash
 set -x
 
-src=icon.png
+src=icon-2.png
 
 conv_opts="-colors 256 -background none -density 300"
 
