@@ -245,6 +245,16 @@ pub fn tirra_db_get_all_entries(
     return Ok(vec_entries);
 }
 
+/**
+ * decrypt db file and write it to disk for possible manual analysis
+ */
+pub fn tirra_db_reveal_to_disk(crypto: &TirraCrypto) -> Result<bool, TirraDbError> {
+    // decrypt the db
+    crypto
+        .tirra_decrypt_db()
+        .map_err(|_e| TirraDbError::CryptoAccessFailure)
+}
+
 pub fn tirra_db_found(db_enc_loc: &str) -> bool {
     Path::new(db_enc_loc).exists()
 }
