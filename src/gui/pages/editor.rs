@@ -193,7 +193,7 @@ impl EditorPage {
             horizontal_space(),
             text(format!(
                 "{}",
-                &self.entry_by_id(self.curr_entry_id).unwrap().type_entry
+                &self.entry_by_id(self.curr_entry_id).unwrap().id
             ))
             .size(style_constants::STYLE_TEXT_SIZE_BUTTON)
         ])
