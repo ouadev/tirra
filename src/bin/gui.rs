@@ -6,20 +6,20 @@ use iced::highlighter::{self};
 use iced::theme::Theme;
 use iced::time::{self, every};
 use iced::window::settings::PlatformSpecific;
-use iced::{event, executor, widget, Event, Pixels};
+use iced::{event, executor, widget, Event};
 use iced::{keyboard, window};
 use iced::{Application, Command, Element, Settings, Subscription};
 
 extern crate tirra;
 use tirra::gui::pages::editor::{self, EditorPage};
 use tirra::gui::pages::login::{self, LoginPage};
-use tirra::gui::styles::style_constants::FONT_EDITOR;
 use tirra::gui::styles::style_constants::FONT_EXTERNAL_BYTES;
+use tirra::gui::styles::style_constants::{self, FONT_EDITOR};
 
 // Constants
 const TIRRA_DB_PATH_TESTING: &str = "stuff/dbs/test.db.enc";
 
-// String : database (plaintext) location
+// String : database (plaintext) locationPixels
 
 pub fn main() -> iced::Result {
     let mut db_to_use = String::from(TIRRA_DB_PATH_TESTING);
@@ -35,7 +35,7 @@ pub fn main() -> iced::Result {
         flags: db_to_use,
         fonts: vec![Cow::Borrowed(FONT_EXTERNAL_BYTES)],
         default_font: FONT_EDITOR,
-        default_text_size: Pixels(25.0),
+        default_text_size: style_constants::STYLE_TEXT_SIZE_DEFAULT,
         window: window::Settings {
             icon: None,
             exit_on_close_request: false,

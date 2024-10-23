@@ -36,6 +36,7 @@ pub const STYLE_BUTTON_ENTRY_COLOR_SELECTED: iced::Color = STYLE_EDITOR_BG_COLOR
 
 pub const STYLE_BUTTON_ENTRY_COLOR: iced::Color = Color::TRANSPARENT;
 
+pub const STYLE_TEXT_SIZE_DEFAULT: iced::Pixels = iced::Pixels(25.0);
 pub const STYLE_TEXT_SIZE_BUTTON: iced::Pixels = iced::Pixels(18.);
 pub const STYLE_TEXT_SIZE_ENTRY_LINK: iced::Pixels = iced::Pixels(18.);
 pub const STYLE_TEXT_SIZE_COMMAND: iced::Pixels = iced::Pixels(20.);
