@@ -1,5 +1,5 @@
 use iced::theme::Theme;
-use iced::widget::{column, container, text_input, Button, Text, TextInput};
+use iced::widget::{column, container, text, text_input, Button, Text, TextInput};
 use iced::{theme, Background, Command};
 use iced::{Element, Length};
 
@@ -112,17 +112,18 @@ impl LoginPage {
         } else {
             "New Database"
         };
-        let div_decrypt_button = Button::new(button_text)
-            .width(Length::Shrink)
-            .style(theme::Button::custom(TirraButtonStyle {
-                button_type: TirraButtonType::Main,
-                selected: false,
-            }))
-            .on_press(Message::LoginButtonPressed);
+        let div_decrypt_button =
+            Button::new(text(button_text).size(style_constants::STYLE_TEXT_SIZE_BUTTON))
+                .width(Length::Shrink)
+                .style(theme::Button::custom(TirraButtonStyle {
+                    button_type: TirraButtonType::Main,
+                    selected: false,
+                }))
+                .on_press(Message::LoginButtonPressed);
         let div_dec_cont = container(div_decrypt_button).width(Length::Fill).center_x();
 
         // DIV : Information box
-        let div_info = Text::new(&self.info_text);
+        let div_info = Text::new(&self.info_text).size(style_constants::STYLE_TEXT_SIZE_BUTTON);
         let div_info_cont = container(div_info).center_x().padding(20);
 
         // DIV : LoginContainer

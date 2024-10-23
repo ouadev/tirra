@@ -6,11 +6,11 @@ use iced::Background;
 use iced::{theme, Command};
 use iced::{Element, Length};
 
-use crate::storage::db::{self, TirraEntry};
 use crate::gui::styles::button::TirraButtonStyle;
 use crate::gui::styles::button::TirraButtonType;
 use crate::gui::styles::style_constants;
 use crate::gui::styles::text_editor::EditorStyle;
+use crate::storage::db::{self, TirraEntry};
 use crate::storage::tirracrypto::TirraCrypto;
 
 pub struct EditorPage {
@@ -150,6 +150,8 @@ impl EditorPage {
         let div_cmd_input =
             TextInput::new("> SELECT * FROM entries WHERE ...", &self.cmd_line_text)
                 .width(Length::Fill)
+                .size(style_constants::STYLE_TEXT_SIZE_COMMAND)
+                .font(style_constants::FONT_COMMAND_LINE)
                 .on_submit(Message::CommandLineSubmited)
                 .on_input(Message::CommandLineInputChanged);
 
@@ -184,6 +186,7 @@ impl EditorPage {
                     &self.entry_by_id(self.curr_entry_id).unwrap().date_create,
                     &self.entry_by_id(self.curr_entry_id).unwrap().date_modify,
                 ))
+                .size(style_constants::STYLE_TEXT_SIZE_BUTTON)
             } else {
                 text("")
             },
@@ -202,12 +205,14 @@ impl EditorPage {
         let div_editor = column![div_command_cont, div_editor_text, div_editor_status];
 
         // DIV : ADD Button
-        let mut div_add = Button::new(text(format!(" + New paper ")))
-            .width(Length::Fill)
-            .style(theme::Button::custom(TirraButtonStyle {
-                button_type: TirraButtonType::Main,
-                selected: false,
-            }));
+        let mut div_add = Button::new(
+            text(format!(" + New paper ")).size(style_constants::STYLE_TEXT_SIZE_BUTTON),
+        )
+        .width(Length::Fill)
+        .style(theme::Button::custom(TirraButtonStyle {
+            button_type: TirraButtonType::Main,
+            selected: false,
+        }));
 
         if self.curr_entry_id > 0 {
             div_add = div_add.on_press(Message::NewEntryButtonClicked);
@@ -216,8 +221,10 @@ impl EditorPage {
         //DIV : list of entries
         let div_entries = column(
             self.entries.iter().map(|ent| {
-                let title = EditorPage::entry_title(ent, 22);
-                let ent_button = Button::new(text(format!("{}", title)))
+                let title = EditorPage::entry_title(ent, 23);
+                let link_text =
+                    text(format!("{}", title)).size(style_constants::STYLE_TEXT_SIZE_ENTRY_LINK);
+                let ent_button = Button::new(link_text)
                     .width(Length::Fill)
                     .style(theme::Button::custom(TirraButtonStyle {
                         button_type: TirraButtonType::Entry,
