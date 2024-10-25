@@ -166,6 +166,20 @@ pub fn tirra_db_add_entry_migration(
 }
 
 /**
+ * Create a new entry in the database
+ */
+pub fn tirra_db_remove_entry(id_entry: u32, crypto: &TirraCrypto) -> Result<(), TirraDbError> {
+    let db = tirra_db_access_start(crypto)?;
+    //save
+    db.execute("DELETE FROM entries WHERE id = ?1", params![id_entry])
+        .map_err(|_e| TirraDbError::DbRequestError)?;
+
+    tirra_db_access_stop(db, crypto)?;
+
+    Ok(())
+}
+
+/**
  * Save content to db
  */
 pub fn tirra_db_update_entry(

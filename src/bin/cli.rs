@@ -7,12 +7,14 @@ use tirra::storage::{db, tirracrypto::TirraCrypto};
 
 const USAGE_STR: &str = "Usage:
 cli add    DB_FILE PWD DATE
+cli delete DB_FILE PWD ID
 cli stat   DB_FILE PWD
 cli reveal DB_FILE PWD";
 
 #[derive(PartialEq)]
 enum CliAction {
     Add,
+    Delete,
     Stat,
     Reveal,
 }
@@ -23,6 +25,7 @@ pub fn main() -> () {
     let db_to_use;
     let pwd: String;
     let timestamp: u64;
+    let id: u32;
     // check arguments
     let cli_action: CliAction;
     let args: Vec<String> = env::args().collect();
@@ -34,6 +37,7 @@ pub fn main() -> () {
 
     match args[1].as_str() {
         "add" => cli_action = CliAction::Add,
+        "delete" => cli_action = CliAction::Delete,
         "stat" => cli_action = CliAction::Stat,
         "reveal" => cli_action = CliAction::Reveal,
         _ => panic!("{}", USAGE_STR),
@@ -67,6 +71,24 @@ pub fn main() -> () {
             timestamp,
             &tirra_crypto,
         );
+    } else if cli_action == CliAction::Delete {
+        if args_count != 5 {
+            panic!("{}", USAGE_STR);
+        }
+
+        db_to_use = String::from(&args[2]);
+        pwd = String::from(&args[3]);
+        id = args[4].parse().unwrap();
+
+        //Init Crypto
+        let tirra_crypto = TirraCrypto::new(&db_to_use, &pwd.into_bytes());
+
+        //check if the database if found.
+        if tirra_crypto.enc_db_found() == false {
+            panic!("we are not supposed to be here without an encrypted database");
+        }
+
+        let _ = db::tirra_db_remove_entry(id, &tirra_crypto);
     } else if cli_action == CliAction::Stat {
         if args_count != 4 {
             panic!("{}", USAGE_STR);
