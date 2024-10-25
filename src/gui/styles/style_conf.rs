@@ -11,6 +11,13 @@ pub const FONT_EDITOR: Font = Font {
     style: Style::Normal,
 };
 
+pub const FONT_DEFAULT: Font = Font {
+    family: Family::Name("Arial"),
+    weight: Weight::Normal,
+    stretch: Stretch::Normal,
+    style: Style::Normal,
+};
+
 pub const FONT_COMMAND_LINE: Font = Font {
     family: Family::Monospace,
     weight: Weight::Normal,
@@ -32,11 +39,17 @@ pub const COLOR_BUTTON_MAIN: iced::Color = Color {
     a: 1.0,
 };
 
+pub const STYLE_COLOR_PAN_BG: iced::Color = Color {
+    r: 217.0 / 255.0,
+    g: 217.0 / 255.0,
+    b: 217.0 / 255.0,
+    a: 1.0,
+};
+
 pub const STYLE_BUTTON_ENTRY_COLOR_SELECTED: iced::Color = STYLE_EDITOR_BG_COLOR;
 
 pub const STYLE_BUTTON_ENTRY_COLOR: iced::Color = Color::TRANSPARENT;
 
-pub const STYLE_TEXT_SIZE_DEFAULT: iced::Pixels = iced::Pixels(25.0);
-pub const STYLE_TEXT_SIZE_BUTTON: iced::Pixels = iced::Pixels(18.);
-pub const STYLE_TEXT_SIZE_ENTRY_LINK: iced::Pixels = iced::Pixels(18.);
+pub const STYLE_TEXT_SIZE_EDITOR: iced::Pixels = iced::Pixels(23.0);
+pub const STYLE_TEXT_SIZE_NORMAL: iced::Pixels = iced::Pixels(15.);
 pub const STYLE_TEXT_SIZE_COMMAND: iced::Pixels = iced::Pixels(20.);

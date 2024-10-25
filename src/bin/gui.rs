@@ -13,8 +13,7 @@ use iced::{Application, Command, Element, Settings, Subscription};
 extern crate tirra;
 use tirra::gui::pages::editor::{self, EditorPage};
 use tirra::gui::pages::login::{self, LoginPage};
-use tirra::gui::styles::style_constants::FONT_EXTERNAL_BYTES;
-use tirra::gui::styles::style_constants::{self, FONT_EDITOR};
+use tirra::gui::styles::style_conf;
 
 // Constants
 const TIRRA_DB_PATH_TESTING: &str = "stuff/dbs/test.db.enc";
@@ -33,9 +32,9 @@ pub fn main() -> iced::Result {
     TirraIced::run(Settings::<String> {
         id: Some(String::from("win-tirra")),
         flags: db_to_use,
-        fonts: vec![Cow::Borrowed(FONT_EXTERNAL_BYTES)],
-        default_font: FONT_EDITOR,
-        default_text_size: style_constants::STYLE_TEXT_SIZE_DEFAULT,
+        fonts: vec![Cow::Borrowed(style_conf::FONT_EXTERNAL_BYTES)],
+        default_font: style_conf::FONT_DEFAULT,
+        default_text_size: style_conf::STYLE_TEXT_SIZE_EDITOR,
         window: window::Settings {
             icon: None,
             exit_on_close_request: false,

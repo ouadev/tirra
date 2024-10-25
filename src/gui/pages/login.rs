@@ -5,7 +5,7 @@ use iced::{Element, Length};
 
 use crate::gui::styles::button::TirraButtonStyle;
 use crate::gui::styles::button::TirraButtonType;
-use crate::gui::styles::style_constants;
+use crate::gui::styles::style_conf;
 use crate::storage::db;
 use crate::storage::tirracrypto::TirraCrypto;
 
@@ -93,13 +93,15 @@ impl LoginPage {
         let div_sep = container("")
             .width(Length::Fill)
             .height(50)
-            .style(|theme: &Theme| {
-                let palette = theme.extended_palette();
-                container::Appearance::default().with_background(palette.background.strong.color)
+            .style(|_theme: &Theme| {
+                //let palette = theme.extended_palette();
+                container::Appearance::default()
+                    .with_background(style_conf::STYLE_COLOR_PAN_BG)
             });
         // DIV : Text Input
         let div_pwd = TextInput::new("Passphrase", &self.password)
             .width(300)
+            .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
             .secure(true)
             .on_submit(Message::LoginButtonPressed)
             .on_input(Message::PwdInputChanged)
@@ -113,7 +115,7 @@ impl LoginPage {
             "New Database"
         };
         let div_decrypt_button =
-            Button::new(text(button_text).size(style_constants::STYLE_TEXT_SIZE_BUTTON))
+            Button::new(text(button_text).size(style_conf::STYLE_TEXT_SIZE_NORMAL))
                 .width(Length::Shrink)
                 .style(theme::Button::custom(TirraButtonStyle {
                     button_type: TirraButtonType::Main,
@@ -123,7 +125,7 @@ impl LoginPage {
         let div_dec_cont = container(div_decrypt_button).width(Length::Fill).center_x();
 
         // DIV : Information box
-        let div_info = Text::new(&self.info_text).size(style_constants::STYLE_TEXT_SIZE_BUTTON);
+        let div_info = Text::new(&self.info_text).size(style_conf::STYLE_TEXT_SIZE_NORMAL);
         let div_info_cont = container(div_info).center_x().padding(20);
 
         // DIV : LoginContainer
@@ -132,10 +134,10 @@ impl LoginPage {
                 .width(400)
                 .height(400)
                 .center_x()
-                .style(|theme: &Theme| {
-                    let palette = theme.extended_palette();
+                .style(|_theme: &Theme| {
+                    //let palette = theme.extended_palette();
                     container::Appearance::default()
-                        .with_background(palette.background.strong.color)
+                        .with_background(style_conf::STYLE_COLOR_PAN_BG)
                     //.with_border( Color::BLACK, 1)
                 });
 
@@ -145,7 +147,7 @@ impl LoginPage {
             .center_x()
             .style(|_theme: &Theme| {
                 container::Appearance::default()
-                    .with_background(Background::Color(style_constants::STYLE_EDITOR_BG_COLOR))
+                    .with_background(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR))
             });
 
         body.into()

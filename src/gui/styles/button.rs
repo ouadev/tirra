@@ -1,7 +1,7 @@
 use iced::widget::button;
 use iced::{theme, Background, Border, Color, Shadow, Vector};
 
-use super::style_constants;
+use super::style_conf;
 
 //#[derive(Clone, Copy, Default)]
 /*
@@ -27,16 +27,16 @@ impl button::StyleSheet for TirraButtonStyle {
         let button_background: Background;
         match self.button_type {
             TirraButtonType::Main => {
-                button_background = Background::Color(style_constants::COLOR_BUTTON_MAIN);
+                button_background = Background::Color(style_conf::COLOR_BUTTON_MAIN);
             }
 
             TirraButtonType::Entry => {
                 if self.selected {
                     button_background =
-                        Background::Color(style_constants::STYLE_BUTTON_ENTRY_COLOR_SELECTED);
+                        Background::Color(style_conf::STYLE_BUTTON_ENTRY_COLOR_SELECTED);
                 } else {
                     button_background =
-                        Background::Color(style_constants::STYLE_BUTTON_ENTRY_COLOR);
+                        Background::Color(style_conf::STYLE_BUTTON_ENTRY_COLOR);
                 }
             }
         }
@@ -51,7 +51,7 @@ impl button::StyleSheet for TirraButtonStyle {
 
     fn hovered(&self, _style: &Self::Style) -> button::Appearance {
         let mut appear = button::Appearance::default();
-        appear.background = Some(Background::Color(style_constants::STYLE_EDITOR_BG_COLOR));
+        appear.background = Some(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR));
 
         appear
     }

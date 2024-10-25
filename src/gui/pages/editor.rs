@@ -1,6 +1,7 @@
 use iced::theme::Theme;
 use iced::widget::{
-    column, container, horizontal_space, row, scrollable, text, text_editor, Button, TextInput,
+    column, container, horizontal_rule, horizontal_space, row, scrollable, text, text_editor,
+    Button, Rule, TextInput,
 };
 use iced::Background;
 use iced::{theme, Command};
@@ -8,7 +9,7 @@ use iced::{Element, Length};
 
 use crate::gui::styles::button::TirraButtonStyle;
 use crate::gui::styles::button::TirraButtonType;
-use crate::gui::styles::style_constants;
+use crate::gui::styles::style_conf;
 use crate::gui::styles::text_editor::EditorStyle;
 use crate::storage::db::{self, TirraEntry};
 use crate::storage::tirracrypto::TirraCrypto;
@@ -150,8 +151,8 @@ impl EditorPage {
         let div_cmd_input =
             TextInput::new("> SELECT * FROM entries WHERE ...", &self.cmd_line_text)
                 .width(Length::Fill)
-                .size(style_constants::STYLE_TEXT_SIZE_COMMAND)
-                .font(style_constants::FONT_COMMAND_LINE)
+                .size(style_conf::STYLE_TEXT_SIZE_COMMAND)
+                .font(style_conf::FONT_COMMAND_LINE)
                 .on_submit(Message::CommandLineSubmited)
                 .on_input(Message::CommandLineInputChanged);
 
@@ -166,12 +167,14 @@ impl EditorPage {
             .width(Length::Fill)
             .style(|_theme: &Theme| {
                 container::Appearance::default()
-                    .with_background(Background::Color(style_constants::STYLE_EDITOR_BG_COLOR))
+                    .with_background(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR))
             });
 
         // DIV : Editor Text Zone
         let mut div_editor_text = text_editor(&self.content)
             .height(Length::Fill)
+            .padding(20)
+            .font(style_conf::FONT_EDITOR)
             .style(theme::TextEditor::Custom(Box::new(EditorStyle {})));
         if self.curr_entry_id > 0 {
             // let the editor disabled if there is no current entry.
@@ -186,7 +189,7 @@ impl EditorPage {
                     &self.entry_by_id(self.curr_entry_id).unwrap().date_create,
                     &self.entry_by_id(self.curr_entry_id).unwrap().date_modify,
                 ))
-                .size(style_constants::STYLE_TEXT_SIZE_BUTTON)
+                .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
             } else {
                 text("")
             },
@@ -195,11 +198,11 @@ impl EditorPage {
                 "{}",
                 &self.entry_by_id(self.curr_entry_id).unwrap().id
             ))
-            .size(style_constants::STYLE_TEXT_SIZE_BUTTON)
+            .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
         ])
         .style(|_theme: &Theme| {
             container::Appearance::default()
-                .with_background(Background::Color(style_constants::STYLE_EDITOR_BG_COLOR))
+                .with_background(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR))
         });
 
         //Editor
@@ -207,7 +210,7 @@ impl EditorPage {
 
         // DIV : ADD Button
         let mut div_add = Button::new(
-            text(format!(" + New paper ")).size(style_constants::STYLE_TEXT_SIZE_BUTTON),
+            text(format!(" + New paper ")).size(style_conf::STYLE_TEXT_SIZE_NORMAL),
         )
         .width(Length::Fill)
         .style(theme::Button::custom(TirraButtonStyle {
@@ -222,9 +225,9 @@ impl EditorPage {
         //DIV : list of entries
         let div_entries = column(
             self.entries.iter().map(|ent| {
-                let title = EditorPage::entry_title(ent, 23);
+                let title = EditorPage::entry_title(ent, 30);
                 let link_text =
-                    text(format!("{}", title)).size(style_constants::STYLE_TEXT_SIZE_ENTRY_LINK);
+                    text(format!("{}", title)).size(style_conf::STYLE_TEXT_SIZE_NORMAL);
                 let ent_button = Button::new(link_text)
                     .width(Length::Fill)
                     .style(theme::Button::custom(TirraButtonStyle {
@@ -233,8 +236,9 @@ impl EditorPage {
                     }))
                     .clip(true)
                     .on_press(Message::EntryButtonClicked(ent.id));
+                let ent_separator: Rule = horizontal_rule(1);
 
-                ent_button.into()
+                column![ent_button, ent_separator].into()
             }), //map
         ); //Column
 
@@ -246,15 +250,16 @@ impl EditorPage {
             .height(Length::Fill)
             .style(|_theme: &Theme| {
                 container::Appearance::default()
-                    .with_background(Background::Color(style_constants::STYLE_EDITOR_BG_COLOR))
+                    .with_background(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR))
             });
         // DIV : Left Pan
         let div_leftpan = container(column![div_add, div_entries_scroll])
             .width(250)
             .height(Length::Fill)
-            .style(|theme: &Theme| {
-                let palette = theme.extended_palette();
-                container::Appearance::default().with_background(palette.background.strong.color)
+            .style(|_theme: &Theme| {
+                //let palette = theme.extended_palette();
+                container::Appearance::default()
+                    .with_background(style_conf::STYLE_COLOR_PAN_BG)
             });
 
         // BODY

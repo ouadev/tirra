@@ -1,7 +1,7 @@
 use iced::widget::text_editor;
 use iced::{theme, Background, Border, Color};
 
-use super::style_constants;
+use super::style_conf;
 
 /// The style of a text input.
 /*
@@ -23,7 +23,7 @@ impl text_editor::StyleSheet for EditorStyle {
         let palette = style.extended_palette();
 
         text_editor::Appearance {
-            background: Background::Color(style_constants::STYLE_EDITOR_BG_COLOR),
+            background: Background::Color(style_conf::STYLE_EDITOR_BG_COLOR),
             border: Border {
                 radius: 0.0.into(),
                 width: 0.,
@@ -36,7 +36,7 @@ impl text_editor::StyleSheet for EditorStyle {
         let palette = style.extended_palette();
 
         text_editor::Appearance {
-            background: Background::Color(style_constants::STYLE_EDITOR_BG_COLOR),
+            background: Background::Color(style_conf::STYLE_EDITOR_BG_COLOR),
             border: Border {
                 radius: 0.0.into(),
                 width: 0.,
@@ -49,7 +49,7 @@ impl text_editor::StyleSheet for EditorStyle {
         let palette = style.extended_palette();
 
         text_editor::Appearance {
-            background: Background::Color(style_constants::STYLE_EDITOR_BG_COLOR),
+            background: Background::Color(style_conf::STYLE_EDITOR_BG_COLOR),
             border: Border {
                 radius: 0.0.into(),
                 width: 0.,
@@ -80,7 +80,7 @@ impl text_editor::StyleSheet for EditorStyle {
         let palette = style.extended_palette();
 
         text_editor::Appearance {
-            background: Background::Color(style_constants::STYLE_EDITOR_BG_COLOR),
+            background: Background::Color(style_conf::STYLE_EDITOR_BG_COLOR),
             border: Border {
                 radius: 0.0.into(),
                 width: 0.0,
