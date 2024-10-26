@@ -35,8 +35,7 @@ impl button::StyleSheet for TirraButtonStyle {
                     button_background =
                         Background::Color(style_conf::STYLE_BUTTON_ENTRY_COLOR_SELECTED);
                 } else {
-                    button_background =
-                        Background::Color(style_conf::STYLE_BUTTON_ENTRY_COLOR);
+                    button_background = Background::Color(style_conf::STYLE_BUTTON_ENTRY_COLOR);
                 }
             }
         }

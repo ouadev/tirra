@@ -103,7 +103,7 @@ impl EditorPage {
                 }
                 db::tirra_db_add_entry(
                     db::TIRRA_ENTRY_TYPE_GENERAL,
-                    "print your soul",
+                    "",
                     &self.crypto,
                 )
                 .unwrap();
@@ -329,14 +329,13 @@ impl EditorPage {
             last_index = i;
         }
 
-        //println!("last_index = {}", last_index);
         if collected != 0 {
             while entry.text.is_char_boundary(last_index + 1) == false {
                 last_index += 1;
             }
             &entry.text[first_index..last_index + 1]
         } else {
-            &entry.text[0..0]
+            "..."
         }
     }
 }
