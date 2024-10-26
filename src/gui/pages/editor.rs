@@ -1,18 +1,14 @@
+use crate::gui::styles::{self, style_conf};
+use crate::storage::db::{self, TirraEntry};
+use crate::storage::tirracrypto::TirraCrypto;
 use iced::theme::Theme;
 use iced::widget::{
     column, container, horizontal_rule, horizontal_space, row, scrollable, text, text_editor,
     Button, Rule, TextInput,
 };
 use iced::Background;
-use iced::{theme, Command};
+use iced::Task;
 use iced::{Element, Length};
-
-use crate::gui::styles::button::TirraButtonStyle;
-use crate::gui::styles::button::TirraButtonType;
-use crate::gui::styles::style_conf;
-use crate::gui::styles::text_editor::EditorStyle;
-use crate::storage::db::{self, TirraEntry};
-use crate::storage::tirracrypto::TirraCrypto;
 
 pub struct EditorPage {
     pub content: text_editor::Content,
@@ -36,7 +32,7 @@ pub enum Message {
     CommandLineInputChanged(String),
 }
 impl EditorPage {
-    pub fn new(db_location: &str, crypto_pwd: &[u8]) -> (Self, Command<Message>) {
+    pub fn new(db_location: &str, crypto_pwd: &[u8]) -> (Self, Task<Message>) {
         //Init Crypto
         let tirra_crypto = TirraCrypto::new(db_location, crypto_pwd);
         // intialize the backend
@@ -63,16 +59,16 @@ impl EditorPage {
                 load_request: def_req,
                 crypto: tirra_crypto,
             },
-            Command::none(),
+            Task::none(),
         )
     }
 
-    pub fn update(&mut self, message: Message) -> Command<Message> {
+    pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::ActionPerformed(action) => {
                 self.is_dirty = self.is_dirty || action.is_edit();
                 self.content.perform(action);
-                Command::none()
+                Task::none()
             }
 
             Message::SaveFile => {
@@ -81,7 +77,7 @@ impl EditorPage {
                     self.entries = self.reload_all().unwrap();
                     self.is_dirty = false;
                 }
-                Command::none()
+                Task::none()
             }
             Message::EntryButtonClicked(entry_id) => {
                 // Save first
@@ -93,7 +89,7 @@ impl EditorPage {
                 //
                 self.show_entry(entry_id);
 
-                Command::none()
+                Task::none()
             }
             Message::NewEntryButtonClicked => {
                 // Save before creating a new entry
@@ -101,20 +97,15 @@ impl EditorPage {
                     self.save();
                     self.is_dirty = false;
                 }
-                db::tirra_db_add_entry(
-                    db::TIRRA_ENTRY_TYPE_GENERAL,
-                    "",
-                    &self.crypto,
-                )
-                .unwrap();
+                db::tirra_db_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", &self.crypto).unwrap();
                 self.entries = self.reload_all().unwrap();
                 self.show_entry(self.entry_greatest_id());
-                Command::none()
+                Task::none()
             }
 
             Message::CommandLineInputChanged(s) => {
                 self.cmd_line_text = s;
-                Command::none()
+                Task::none()
             }
 
             Message::CommandLineSubmited => {
@@ -137,12 +128,12 @@ impl EditorPage {
                     }
                 }
 
-                Command::none()
+                Task::none()
             }
 
             Message::ShowCommandLine => {
                 self.cmd_line_show = !self.cmd_line_show;
-                Command::none()
+                Task::none()
             }
         }
     }
@@ -166,8 +157,8 @@ impl EditorPage {
         div_command_cont = div_command_cont
             .width(Length::Fill)
             .style(|_theme: &Theme| {
-                container::Appearance::default()
-                    .with_background(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR))
+                container::Style::default()
+                    .background(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR))
             });
 
         // DIV : Editor Text Zone
@@ -175,7 +166,7 @@ impl EditorPage {
             .height(Length::Fill)
             .padding(20)
             .font(style_conf::FONT_EDITOR)
-            .style(theme::TextEditor::Custom(Box::new(EditorStyle {})));
+            .style(styles::text_editor::main_style);
         if self.curr_entry_id > 0 {
             // let the editor disabled if there is no current entry.
             div_editor_text = div_editor_text.on_action(Message::ActionPerformed);
@@ -201,8 +192,8 @@ impl EditorPage {
             .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
         ])
         .style(|_theme: &Theme| {
-            container::Appearance::default()
-                .with_background(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR))
+            container::Style::default()
+                .background(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR))
         });
 
         //Editor
@@ -212,10 +203,7 @@ impl EditorPage {
         let mut div_add =
             Button::new(text(format!(" + New paper ")).size(style_conf::STYLE_TEXT_SIZE_NORMAL))
                 .width(Length::Fill)
-                .style(theme::Button::custom(TirraButtonStyle {
-                    button_type: TirraButtonType::Main,
-                    selected: false,
-                }));
+                .style(styles::button::button_main);
 
         if self.curr_entry_id > 0 {
             div_add = div_add.on_press(Message::NewEntryButtonClicked);
@@ -230,10 +218,11 @@ impl EditorPage {
                     .shaping(text::Shaping::Advanced);
                 let ent_button = Button::new(link_text)
                     .width(Length::Fill)
-                    .style(theme::Button::custom(TirraButtonStyle {
-                        button_type: TirraButtonType::Entry,
-                        selected: (ent.id == self.curr_entry_id),
-                    }))
+                    .style(if ent.id == self.curr_entry_id {
+                        styles::button::button_entry_selected
+                    } else {
+                        styles::button::button_entry
+                    })
                     .clip(true)
                     .on_press(Message::EntryButtonClicked(ent.id));
                 let ent_separator: Rule = horizontal_rule(1);
@@ -249,8 +238,8 @@ impl EditorPage {
             .width(20)
             .height(Length::Fill)
             .style(|_theme: &Theme| {
-                container::Appearance::default()
-                    .with_background(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR))
+                container::Style::default()
+                    .background(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR))
             });
         // DIV : Left Pan
         let div_leftpan = container(column![div_add, div_entries_scroll])
@@ -258,7 +247,7 @@ impl EditorPage {
             .height(Length::Fill)
             .style(|_theme: &Theme| {
                 //let palette = theme.extended_palette();
-                container::Appearance::default().with_background(style_conf::STYLE_COLOR_PAN_BG)
+                container::Style::default().background(style_conf::STYLE_COLOR_PAN_BG)
             });
 
         // BODY

@@ -1,11 +1,9 @@
 use iced::theme::Theme;
 use iced::widget::{column, container, text, text_input, Button, Text, TextInput};
-use iced::{theme, Background, Command};
+use iced::{Background, Task};
 use iced::{Element, Length};
 
-use crate::gui::styles::button::TirraButtonStyle;
-use crate::gui::styles::button::TirraButtonType;
-use crate::gui::styles::style_conf;
+use crate::gui::styles::{self, style_conf};
 use crate::storage::db;
 use crate::storage::tirracrypto::TirraCrypto;
 
@@ -24,7 +22,7 @@ pub enum Message {
     LoginSuccess,
 }
 impl LoginPage {
-    pub fn new(db_location: &str) -> (Self, Command<Message>) {
+    pub fn new(db_location: &str) -> (Self, Task<Message>) {
         // Check database file existence
         let mut info_text = String::new();
         //info_text.push_str(&format!(" . db: {}\n", db_location));
@@ -43,7 +41,7 @@ impl LoginPage {
                 password: String::from(""),
                 info_text: info_text,
             },
-            Command::none(),
+            Task::none(),
         )
     }
 
@@ -86,7 +84,6 @@ impl LoginPage {
             _ => None,
         }
     }
-    //Command::none()
 
     pub fn view(&self) -> Element<Message> {
         //DIV : margin-top
@@ -95,15 +92,15 @@ impl LoginPage {
             .height(50)
             .style(|_theme: &Theme| {
                 //let palette = theme.extended_palette();
-                container::Appearance::default().with_background(style_conf::STYLE_EDITOR_BG_COLOR)
+                container::Style::default().background(style_conf::STYLE_EDITOR_BG_COLOR)
             });
 
         // DIV : target Db
         let div_db = Text::new(&self.db_location)
             .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
             .width(Length::Fill)
-            .horizontal_alignment(iced::alignment::Horizontal::Center);
-        let div_db_cont = container(div_db).center_x().padding(20);
+            .align_x(iced::alignment::Horizontal::Center);
+        let div_db_cont = container(div_db).center_x(Length::Fill).padding(20);
         // DIV : Text Input
         let div_pwd = TextInput::new("Passphrase", &self.password)
             .width(300)
@@ -113,7 +110,7 @@ impl LoginPage {
             .on_input(Message::PwdInputChanged)
             .id(text_input::Id::new(LOGIN_INPUT_ICED_ID));
 
-        let div_pwd_cont = container(div_pwd).width(Length::Fill).center_x();
+        let div_pwd_cont = container(div_pwd).center_x(Length::Fill);
         // DIV : Login Button
         let button_text = if self.db_found {
             "Decrypt & Access"
@@ -123,19 +120,16 @@ impl LoginPage {
         let div_decrypt_button =
             Button::new(text(button_text).size(style_conf::STYLE_TEXT_SIZE_NORMAL))
                 .width(Length::Shrink)
-                .style(theme::Button::custom(TirraButtonStyle {
-                    button_type: TirraButtonType::Main,
-                    selected: false,
-                }))
+                .style(styles::button::button_main)
                 .on_press(Message::LoginButtonPressed);
-        let div_dec_cont = container(div_decrypt_button).width(Length::Fill).center_x();
+        let div_dec_cont = container(div_decrypt_button).center_x(Length::Fill);
 
         // DIV : Information box
         let div_info = Text::new(&self.info_text)
             .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
             .width(Length::Fill)
-            .horizontal_alignment(iced::alignment::Horizontal::Center);
-        let div_info_cont = container(div_info).center_x().padding(20);
+            .align_x(iced::alignment::Horizontal::Center);
+        let div_info_cont = container(div_info).center_x(Length::Fill).padding(20);
 
         // DIV : LoginContainer
         let div_login = container(
@@ -148,22 +142,20 @@ impl LoginPage {
             ]
             .spacing(10),
         )
-        .width(400)
+        .center_x(400)
         .height(400)
-        .center_x()
         .style(|_theme: &Theme| {
             //let palette = theme.extended_palette();
-            container::Appearance::default().with_background(style_conf::STYLE_EDITOR_BG_COLOR)
+            container::Style::default().background(style_conf::STYLE_EDITOR_BG_COLOR)
             //.with_border( Color::BLACK, 1)
         });
 
         let body = container(div_login)
-            .width(Length::Fill)
+            .center_x(Length::Fill)
             .height(Length::Fill)
-            .center_x()
             .style(|_theme: &Theme| {
-                container::Appearance::default()
-                    .with_background(Background::Color(style_conf::STYLE_COLOR_PAN_BG))
+                container::Style::default()
+                    .background(Background::Color(style_conf::STYLE_COLOR_PAN_BG))
             });
 
         body.into()

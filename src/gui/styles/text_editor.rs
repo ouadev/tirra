@@ -1,19 +1,45 @@
-use iced::widget::text_editor;
-use iced::{theme, Background, Border, Color};
+use iced::widget::text_editor::default;
+use iced::widget::text_editor::Status;
+use iced::widget::text_editor::Style;
+use iced::{Background, Border, Theme};
 
 use super::style_conf;
 
-/// The style of a text input.
-/*
-#[derive(Default)]
-pub enum TextEditor {
-    /// The default style.
-    #[default]
-    Default,
-    /// A custom style.
-    Custom(Box<dyn text_editor::StyleSheet<Style = Theme>>),
+pub fn main_style(theme: &Theme, status: Status) -> Style {
+    let palette = theme.extended_palette();
+    let base = Style {
+        background: Background::Color(style_conf::STYLE_EDITOR_BG_COLOR),
+        border: Border {
+            radius: 0.0.into(),
+            width: 0.,
+            color: palette.background.strong.color,
+        },
+        ..default(theme, status)
+    };
+
+    match status {
+        Status::Active => base,
+        Status::Hovered => Style {
+            border: Border {
+                radius: 0.0.into(),
+                width: 0.,
+                color: palette.background.base.text,
+            },
+            ..base
+        },
+        Status::Focused => Style {
+            border: Border {
+                radius: 0.0.into(),
+                width: 0.,
+                color: palette.primary.strong.color,
+            },
+            ..base
+        },
+        Status::Disabled => base,
+    }
 }
-    */
+
+/*
 pub struct EditorStyle {}
 
 impl text_editor::StyleSheet for EditorStyle {
@@ -93,3 +119,4 @@ impl text_editor::StyleSheet for EditorStyle {
         self.placeholder_color(style)
     }
 }
+    */

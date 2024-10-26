@@ -32,6 +32,13 @@ pub const STYLE_EDITOR_BG_COLOR: iced::Color = Color {
     a: 1.0,
 };
 
+pub const STYLE_DISABLED_BUTTON_COLOR: iced::Color = Color {
+    r: 75. / 255.0,
+    g: 75. / 255.0,
+    b: 75. / 255.0,
+    a: 1.0,
+};
+
 pub const COLOR_BUTTON_MAIN: iced::Color = Color {
     r: 182.0 / 255.0,
     g: 222.0 / 255.0,

@@ -6,9 +6,9 @@ use iced::highlighter::{self};
 use iced::theme::Theme;
 use iced::time::{self, every};
 use iced::window::settings::PlatformSpecific;
-use iced::{event, executor, widget, Event};
+use iced::{event, widget, Event, Task};
 use iced::{keyboard, window};
-use iced::{Application, Command, Element, Settings, Subscription};
+use iced::{Element, Settings, Subscription};
 
 extern crate tirra;
 use tirra::gui::pages::editor::{self, EditorPage};
@@ -21,30 +21,45 @@ const TIRRA_DB_PATH_TESTING: &str = "stuff/dbs/test.db.enc";
 // String : database (plaintext) locationPixels
 
 pub fn main() -> iced::Result {
-    let mut db_to_use = String::from(TIRRA_DB_PATH_TESTING);
-    // check arguments
-    let args: Vec<String> = env::args().collect();
-    if args.len() == 2 {
-        db_to_use = String::from(&args[1]);
-    }
-
     // Run ICED
-    TirraIced::run(Settings::<String> {
-        id: Some(String::from("win-tirra")),
-        flags: db_to_use,
-        fonts: vec![Cow::Borrowed(style_conf::FONT_EXTERNAL_BYTES)],
-        default_font: style_conf::FONT_DEFAULT,
-        default_text_size: style_conf::STYLE_TEXT_SIZE_EDITOR,
-        window: window::Settings {
+    iced::application(TirraIced::title, TirraIced::update, TirraIced::view)
+        .subscription(TirraIced::subscription)
+        .theme(TirraIced::theme)
+        .settings(Settings {
+            id: Some(String::from("win-tirra")),
+            fonts: vec![Cow::Borrowed(style_conf::FONT_EXTERNAL_BYTES)],
+            default_font: style_conf::FONT_DEFAULT,
+            default_text_size: style_conf::STYLE_TEXT_SIZE_EDITOR,
+            ..Settings::default()
+        })
+        .window(window::Settings {
             icon: None,
             exit_on_close_request: false,
             platform_specific: PlatformSpecific {
                 application_id: String::from("win-tirra-lnx"),
+                override_redirect: false,
             },
             ..Default::default()
-        },
-        ..Settings::default()
-    })
+        })
+        .run_with(TirraIced::new)
+    /*
+        TirraIced::run(Settings::<String> {
+            id: Some(String::from("win-tirra")),
+            flags: db_to_use,
+            fonts: vec![Cow::Borrowed(style_conf::FONT_EXTERNAL_BYTES)],
+            default_font: style_conf::FONT_DEFAULT,
+            default_text_size: style_conf::STYLE_TEXT_SIZE_EDITOR,
+            window: window::Settings {
+                icon: None,
+                exit_on_close_request: false,
+                platform_specific: PlatformSpecific {
+                    application_id: String::from("win-tirra-lnx"),
+                },
+                ..Default::default()
+            },
+            ..Settings::default()
+        })
+    */
 }
 
 struct TirraIced {
@@ -65,14 +80,16 @@ enum Message {
     IgnoredEvent(Event),
 }
 
-impl Application for TirraIced {
-    type Message = Message;
-    type Theme = Theme;
-    type Executor = executor::Default;
-    type Flags = String;
+impl TirraIced {
+    fn new() -> (Self, Task<Message>) {
+        let mut db_to_use = String::from(TIRRA_DB_PATH_TESTING);
+        // check arguments
+        let args: Vec<String> = env::args().collect();
+        if args.len() == 2 {
+            db_to_use = String::from(&args[1]);
+        }
 
-    fn new(flags: Self::Flags) -> (Self, Command<Message>) {
-        let (login_page, _login_cmd) = LoginPage::new(&flags);
+        let (login_page, _login_cmd) = LoginPage::new(&db_to_use);
 
         //return
         (
@@ -81,10 +98,10 @@ impl Application for TirraIced {
                 editor_page: None,
                 login_page: login_page,
                 logged_in: false,
-                db_location: flags,
+                db_location: db_to_use,
             },
             //command.map(Message::Editor),
-            Command::none(),
+            Task::none(),
         )
     }
 
@@ -99,7 +116,7 @@ impl Application for TirraIced {
         }
     }
 
-    fn update(&mut self, message: Message) -> Command<Message> {
+    fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::PeriodicTick | Message::CtrlS => {
                 if self.logged_in {
@@ -109,7 +126,7 @@ impl Application for TirraIced {
                         .update(editor::Message::SaveFile)
                         .map(Message::Editor)
                 } else {
-                    Command::none()
+                    Task::none()
                 }
             }
             Message::CtrlP => {
@@ -120,7 +137,7 @@ impl Application for TirraIced {
                         .update(editor::Message::ShowCommandLine)
                         .map(Message::Editor)
                 } else {
-                    Command::none()
+                    Task::none()
                 }
             }
             Message::Editor(msg) => {
@@ -131,7 +148,7 @@ impl Application for TirraIced {
                         .update(msg)
                         .map(Message::Editor)
                 } else {
-                    Command::none()
+                    Task::none()
                 }
             }
             Message::Login(loginmsg) => {
@@ -149,21 +166,21 @@ impl Application for TirraIced {
                                 self.editor_page = Some(editor_page);
                                 command.map(Message::Editor)
                             }
-                            _ => Command::none(),
+                            _ => Task::none(),
                         }
                     }
-                    _ => Command::none(),
+                    _ => Task::none(),
                 }
             }
             Message::IgnoredEvent(event) => match event {
-                Event::Window(_id, win_ev) => match win_ev {
+                Event::Window(win_ev) => match win_ev {
                     window::Event::Focused => {
                         if self.logged_in == false {
                             text_input::focus(text_input::Id::new(
                                 login::LoginPage::text_input_id_to_focus(),
                             ))
                         } else {
-                            Command::none()
+                            Task::none()
                         }
                     }
                     window::Event::CloseRequested => {
@@ -175,11 +192,12 @@ impl Application for TirraIced {
                                 .update(editor::Message::SaveFile)
                                 .map(Message::Editor);
                         }
-                        window::close(window::Id::MAIN)
+                        //window::close(window::Id::MAIN)
+                        window::get_latest().and_then(window::close)
                     }
-                    _ => Command::none(),
+                    _ => Task::none(),
                 },
-                _ => Command::none(),
+                _ => Task::none(),
             },
         }
     }
