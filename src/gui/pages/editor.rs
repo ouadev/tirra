@@ -209,14 +209,13 @@ impl EditorPage {
         let div_editor = column![div_command_cont, div_editor_text, div_editor_status];
 
         // DIV : ADD Button
-        let mut div_add = Button::new(
-            text(format!(" + New paper ")).size(style_conf::STYLE_TEXT_SIZE_NORMAL),
-        )
-        .width(Length::Fill)
-        .style(theme::Button::custom(TirraButtonStyle {
-            button_type: TirraButtonType::Main,
-            selected: false,
-        }));
+        let mut div_add =
+            Button::new(text(format!(" + New paper ")).size(style_conf::STYLE_TEXT_SIZE_NORMAL))
+                .width(Length::Fill)
+                .style(theme::Button::custom(TirraButtonStyle {
+                    button_type: TirraButtonType::Main,
+                    selected: false,
+                }));
 
         if self.curr_entry_id > 0 {
             div_add = div_add.on_press(Message::NewEntryButtonClicked);
@@ -226,8 +225,9 @@ impl EditorPage {
         let div_entries = column(
             self.entries.iter().map(|ent| {
                 let title = EditorPage::entry_title(ent, 30);
-                let link_text =
-                    text(format!("{}", title)).size(style_conf::STYLE_TEXT_SIZE_NORMAL);
+                let link_text = text(format!("{}", title))
+                    .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
+                    .shaping(text::Shaping::Advanced);
                 let ent_button = Button::new(link_text)
                     .width(Length::Fill)
                     .style(theme::Button::custom(TirraButtonStyle {
@@ -258,8 +258,7 @@ impl EditorPage {
             .height(Length::Fill)
             .style(|_theme: &Theme| {
                 //let palette = theme.extended_palette();
-                container::Appearance::default()
-                    .with_background(style_conf::STYLE_COLOR_PAN_BG)
+                container::Appearance::default().with_background(style_conf::STYLE_COLOR_PAN_BG)
             });
 
         // BODY

@@ -27,12 +27,12 @@ impl LoginPage {
     pub fn new(db_location: &str) -> (Self, Command<Message>) {
         // Check database file existence
         let mut info_text = String::new();
-        info_text.push_str(&format!(" . db: {}\n", db_location));
+        //info_text.push_str(&format!(" . db: {}\n", db_location));
         let db_found: bool;
         if db::tirra_db_found(db_location) == true {
             db_found = true;
         } else {
-            info_text.push_str(&format!(" . DATABASE FILE NOT FOUND.\n"));
+            info_text.push_str(&format!(" Database file was not found.\n"));
             db_found = false;
         }
         //return
@@ -95,9 +95,15 @@ impl LoginPage {
             .height(50)
             .style(|_theme: &Theme| {
                 //let palette = theme.extended_palette();
-                container::Appearance::default()
-                    .with_background(style_conf::STYLE_COLOR_PAN_BG)
+                container::Appearance::default().with_background(style_conf::STYLE_EDITOR_BG_COLOR)
             });
+
+        // DIV : target Db
+        let div_db = Text::new(&self.db_location)
+            .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
+            .width(Length::Fill)
+            .horizontal_alignment(iced::alignment::Horizontal::Center);
+        let div_db_cont = container(div_db).center_x().padding(20);
         // DIV : Text Input
         let div_pwd = TextInput::new("Passphrase", &self.password)
             .width(300)
@@ -125,21 +131,31 @@ impl LoginPage {
         let div_dec_cont = container(div_decrypt_button).width(Length::Fill).center_x();
 
         // DIV : Information box
-        let div_info = Text::new(&self.info_text).size(style_conf::STYLE_TEXT_SIZE_NORMAL);
+        let div_info = Text::new(&self.info_text)
+            .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
+            .width(Length::Fill)
+            .horizontal_alignment(iced::alignment::Horizontal::Center);
         let div_info_cont = container(div_info).center_x().padding(20);
 
         // DIV : LoginContainer
-        let div_login =
-            container(column![div_sep, div_pwd_cont, div_dec_cont, div_info_cont].spacing(10))
-                .width(400)
-                .height(400)
-                .center_x()
-                .style(|_theme: &Theme| {
-                    //let palette = theme.extended_palette();
-                    container::Appearance::default()
-                        .with_background(style_conf::STYLE_COLOR_PAN_BG)
-                    //.with_border( Color::BLACK, 1)
-                });
+        let div_login = container(
+            column![
+                div_sep,
+                div_db_cont,
+                div_pwd_cont,
+                div_dec_cont,
+                div_info_cont
+            ]
+            .spacing(10),
+        )
+        .width(400)
+        .height(400)
+        .center_x()
+        .style(|_theme: &Theme| {
+            //let palette = theme.extended_palette();
+            container::Appearance::default().with_background(style_conf::STYLE_EDITOR_BG_COLOR)
+            //.with_border( Color::BLACK, 1)
+        });
 
         let body = container(div_login)
             .width(Length::Fill)
@@ -147,7 +163,7 @@ impl LoginPage {
             .center_x()
             .style(|_theme: &Theme| {
                 container::Appearance::default()
-                    .with_background(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR))
+                    .with_background(Background::Color(style_conf::STYLE_COLOR_PAN_BG))
             });
 
         body.into()
