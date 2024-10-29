@@ -1,15 +1,8 @@
-//pub mod tirracrypto {
-
-use anyhow::anyhow;
 use chacha20poly1305::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
     ChaCha20Poly1305,
 };
-//use std::Result;
-use serde::{Deserialize, Serialize};
 use std::fs;
-use std::fs::File;
-use std::io::Read;
 use std::path::Path;
 
 const NONCE: [u8; 12] = [
@@ -18,7 +11,7 @@ const NONCE: [u8; 12] = [
 const PBKDF2_SALT: [u8; 8] = [0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0x65];
 const PBKDF2_ITERATIONS: u32 = 600u32;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug)]
 pub struct TirraSecrets {
     pub key: [u8; 32],
     pub nonce: [u8; 12],
@@ -38,6 +31,7 @@ impl TirraCrypto {
             secrets: TirraCrypto::key_and_nonce_from_pwd(password),
         }
     }
+    /*
     #[allow(dead_code)]
     pub fn from_key(location: &str, secrets_file: &str) -> Self {
         let mut secrets_file = File::open(secrets_file).unwrap();
@@ -51,6 +45,8 @@ impl TirraCrypto {
             secrets: secret_struct,
         }
     }
+    */
+
     /**
      * PBKDF2(user_password + salt) => 32 Bytes key
      */
@@ -93,7 +89,7 @@ impl TirraCrypto {
         let file_data = fs::read(&self.db_location_pt).expect("can't find database");
         let enc_file = cipher
             .encrypt(&secret_struct.nonce.into(), file_data.as_ref())
-            .map_err(|err| anyhow!("enc some file: {}", err))
+            //.map_err(|err| anyhow!("enc some file: {}", err))
             .expect("nothing");
 
         fs::write(&self.db_location, enc_file).expect("");
@@ -132,4 +128,3 @@ impl TirraCrypto {
         &self.db_location_pt
     }
 }
-//}

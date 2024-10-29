@@ -155,7 +155,7 @@ impl LoginPage {
             .height(Length::Fill)
             .style(|_theme: &Theme| {
                 container::Style::default()
-                    .background(Background::Color(style_conf::STYLE_COLOR_PAN_BG))
+                    .background(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR))
             });
 
         body.into()
