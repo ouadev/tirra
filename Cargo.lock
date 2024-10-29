@@ -116,12 +116,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anyhow"
-version = "1.0.87"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10f00e1f6e58a40e807377c75c6a7f97bf9044fab57816f2414e6f5f4499d7b8"
-
-[[package]]
 name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3404,7 +3398,6 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 name = "tirra"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "chacha20poly1305",
  "chrono",
  "iced",

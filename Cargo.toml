@@ -27,8 +27,9 @@ rand = "0.8.5"
 pbkdf2 = { version = "0.12", features = ["simple"] }
 sha2 = "0.10.8"
 
-# Error management
-anyhow = "1.0.86"
+
+
+
 
 [profile.release]
 strip = true  # Automatically strip symbols from the binary.
