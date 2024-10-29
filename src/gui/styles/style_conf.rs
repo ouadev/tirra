@@ -25,6 +25,13 @@ pub const FONT_COMMAND_LINE: Font = Font {
     style: Style::Normal,
 };
 
+pub const FONT_COMMAND_LINE_BOLD: Font = Font {
+    family: Family::Monospace,
+    weight: Weight::Medium,
+    stretch: Stretch::Normal,
+    style: Style::Normal,
+};
+
 pub const STYLE_EDITOR_BG_COLOR: iced::Color = Color {
     r: 255. / 255.0,
     g: 255. / 255.0,
@@ -60,3 +67,5 @@ pub const STYLE_BUTTON_ENTRY_COLOR: iced::Color = Color::TRANSPARENT;
 pub const STYLE_TEXT_SIZE_EDITOR: iced::Pixels = iced::Pixels(23.0);
 pub const STYLE_TEXT_SIZE_NORMAL: iced::Pixels = iced::Pixels(15.);
 pub const STYLE_TEXT_SIZE_COMMAND: iced::Pixels = iced::Pixels(20.);
+pub const STYLE_TEXT_SIZE_EDITOR_STATUS_HIGHLIGHT: iced::Pixels = iced::Pixels(15.);
+pub const STYLE_TEXT_SIZE_EDITOR_STATUS: iced::Pixels = iced::Pixels(15.);

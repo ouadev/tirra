@@ -10,6 +10,10 @@ use iced::Background;
 use iced::Task;
 use iced::{Element, Length};
 
+use chrono::Datelike;
+use chrono::Timelike;
+use chrono::{DateTime, Utc};
+
 pub struct EditorPage {
     pub content: text_editor::Content,
     pub is_dirty: bool,
@@ -138,6 +142,146 @@ impl EditorPage {
         }
     }
     pub fn view(&self) -> Element<Message> {
+        // DIV : Editor Text Zone + Command bar
+        let div_editor = self.view_editor();
+        // DIV : Separator
+        let div_sep = container("")
+            .width(20)
+            .height(Length::Fill)
+            .style(|_theme: &Theme| {
+                container::Style::default()
+                    .background(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR))
+            });
+        // DIV : Left Pan
+        let div_leftpan = self.view_left_pan();
+        // All
+        row![div_leftpan, div_sep, div_editor].into()
+    }
+
+    /**
+     * VIEW : Left Pan
+     */
+    fn view_left_pan(&self) -> Element<Message> {
+        // DIV : ADD Button
+        let mut div_add =
+            Button::new(text(format!(" + New paper ")).size(style_conf::STYLE_TEXT_SIZE_NORMAL))
+                .width(Length::Fill)
+                .style(styles::button::button_main);
+
+        if self.curr_entry_id > 0 {
+            div_add = div_add.on_press(Message::NewEntryButtonClicked);
+        }
+
+        //DIV : list of entries
+        let div_entries = column(
+            self.entries.iter().map(|ent| {
+                let title = EditorPage::entry_title(ent, 30);
+                let link_text = text(format!("{}", title))
+                    .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
+                    .shaping(text::Shaping::Advanced);
+                let ent_button = Button::new(link_text)
+                    .width(Length::Fill)
+                    .style(if ent.id == self.curr_entry_id {
+                        styles::button::button_entry_selected
+                    } else {
+                        styles::button::button_entry
+                    })
+                    .clip(true)
+                    .on_press(Message::EntryButtonClicked(ent.id));
+                let ent_separator: Rule = horizontal_rule(1);
+
+                column![ent_button, ent_separator].into()
+            }), //map
+        ); //Column
+
+        let div_entries_scroll = scrollable(div_entries);
+
+        // DIV : Left Pan
+        container(column![div_add, div_entries_scroll])
+            .width(250)
+            .height(Length::Fill)
+            .style(|_theme: &Theme| {
+                //let palette = theme.extended_palette();
+                container::Style::default().background(style_conf::STYLE_COLOR_PAN_BG)
+            })
+            .into()
+    }
+
+    /**
+     * VIEW : editor status zone
+     */
+    fn view_editor_status(&self) -> Element<Message> {
+        // Closure : generate datetime formatting
+        let dt_format = |dt: DateTime<Utc>| {
+            let year_month_day = format!(
+                "{} {} {}",
+                dt.date_naive().year_ce().1,
+                EditorPage::month_abr(dt.month()),
+                dt.date_naive().day(),
+            );
+
+            let weekday_time = format!(
+                "{}.{:02}:{:02}",
+                dt.date_naive().weekday(),
+                dt.time().hour(),
+                dt.time().minute(),
+            );
+
+            let text_ymd = text(year_month_day)
+                .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS_HIGHLIGHT)
+                .font(style_conf::FONT_COMMAND_LINE_BOLD);
+
+            let text_space = text("  ");
+
+            let text_wdm = text(weekday_time)
+                .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
+                .font(style_conf::FONT_COMMAND_LINE);
+
+            row![text_ymd, text_space, text_wdm]
+        };
+
+        // dates
+        let div_date_create;
+        let div_date_modify;
+        if self.curr_entry_id > 0 {
+            let date_create_ts = self.entry_by_id(self.curr_entry_id).unwrap().date_create;
+            let date_modify_ts = self.entry_by_id(self.curr_entry_id).unwrap().date_modify;
+            let dt_create = EditorPage::datetime_from_unix(date_create_ts.try_into().unwrap());
+            let dt_modify = EditorPage::datetime_from_unix(date_modify_ts.try_into().unwrap());
+
+            div_date_create = dt_format(dt_create);
+            div_date_modify = dt_format(dt_modify);
+        } else {
+            div_date_create = row![];
+            div_date_modify = row![];
+        }
+
+        // id
+        let div_id = text(format!(
+            "{}",
+            &self.entry_by_id(self.curr_entry_id).unwrap().id
+        ))
+        .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS);
+
+        // status bar
+        container(row![
+            div_date_create,
+            text("   -   ").size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS),
+            div_date_modify,
+            horizontal_space(),
+            div_id
+        ])
+        .style(|_theme: &Theme| {
+            container::Style::default()
+                .background(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR))
+        })
+        .into()
+    }
+
+    /**
+     * VIEW : editor
+     */
+    fn view_editor(&self) -> Element<Message> {
         // DIV : Command line experimentation
         let div_cmd_input =
             TextInput::new("> SELECT * FROM entries WHERE ...", &self.cmd_line_text)
@@ -173,86 +317,10 @@ impl EditorPage {
         }
 
         // DIV : Editor Status Zone
-        let div_editor_status = container(row![
-            if self.curr_entry_id > 0 {
-                text(format!(
-                    "created: {} - modified: {}",
-                    &self.entry_by_id(self.curr_entry_id).unwrap().date_create,
-                    &self.entry_by_id(self.curr_entry_id).unwrap().date_modify,
-                ))
-                .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
-            } else {
-                text("")
-            },
-            horizontal_space(),
-            text(format!(
-                "{}",
-                &self.entry_by_id(self.curr_entry_id).unwrap().id
-            ))
-            .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
-        ])
-        .style(|_theme: &Theme| {
-            container::Style::default()
-                .background(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR))
-        });
+        let div_editor_status = self.view_editor_status();
 
         //Editor
-        let div_editor = column![div_command_cont, div_editor_text, div_editor_status];
-
-        // DIV : ADD Button
-        let mut div_add =
-            Button::new(text(format!(" + New paper ")).size(style_conf::STYLE_TEXT_SIZE_NORMAL))
-                .width(Length::Fill)
-                .style(styles::button::button_main);
-
-        if self.curr_entry_id > 0 {
-            div_add = div_add.on_press(Message::NewEntryButtonClicked);
-        }
-
-        //DIV : list of entries
-        let div_entries = column(
-            self.entries.iter().map(|ent| {
-                let title = EditorPage::entry_title(ent, 30);
-                let link_text = text(format!("{}", title))
-                    .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
-                    .shaping(text::Shaping::Advanced);
-                let ent_button = Button::new(link_text)
-                    .width(Length::Fill)
-                    .style(if ent.id == self.curr_entry_id {
-                        styles::button::button_entry_selected
-                    } else {
-                        styles::button::button_entry
-                    })
-                    .clip(true)
-                    .on_press(Message::EntryButtonClicked(ent.id));
-                let ent_separator: Rule = horizontal_rule(1);
-
-                column![ent_button, ent_separator].into()
-            }), //map
-        ); //Column
-
-        let div_entries_scroll = scrollable(div_entries);
-
-        //let div_sep: Rule = Rule::vertical(50);
-        let div_sep = container("")
-            .width(20)
-            .height(Length::Fill)
-            .style(|_theme: &Theme| {
-                container::Style::default()
-                    .background(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR))
-            });
-        // DIV : Left Pan
-        let div_leftpan = container(column![div_add, div_entries_scroll])
-            .width(250)
-            .height(Length::Fill)
-            .style(|_theme: &Theme| {
-                //let palette = theme.extended_palette();
-                container::Style::default().background(style_conf::STYLE_COLOR_PAN_BG)
-            });
-
-        // BODY
-        let body = row![div_leftpan, div_sep, div_editor];
-        body.into()
+        column![div_command_cont, div_editor_text, div_editor_status].into()
     }
 
     fn save(&mut self) -> () {
@@ -264,6 +332,33 @@ impl EditorPage {
         // Load all entries into memory:
         // note: Error is discarded here
         db::tirra_db_get_all_entries(&self.crypto, &self.load_request).ok()
+    }
+
+    /**
+     * convert a timestamp into a datatime structure
+     */
+    fn datetime_from_unix(unix_ts: i64) -> DateTime<Utc> {
+        DateTime::from_timestamp(unix_ts, 0).expect("invalid timestamp")
+    }
+    /**
+     * generate an abreviated string for the name of a month
+     */
+    fn month_abr(month: u32) -> &'static str {
+        match month {
+            1 => "Jan",
+            2 => "Feb",
+            3 => "Mar",
+            4 => "Apr",
+            5 => "May",
+            6 => "Jun",
+            7 => "Jul",
+            8 => "Aug",
+            9 => "Sep",
+            10 => "Oct",
+            11 => "Nov",
+            12 => "Dec",
+            _ => "-",
+        }
     }
 
     /**

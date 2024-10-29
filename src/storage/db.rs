@@ -9,8 +9,8 @@ use std::time::SystemTime;
 pub const TIRRA_ENTRY_TYPE_GENERAL: u8 = 0;
 pub struct TirraEntry {
     pub id: u32,
-    pub date_create: String,
-    pub date_modify: String,
+    pub date_create: u64,
+    pub date_modify: u64,
     pub type_entry: u8,
     pub text: String,
 }
@@ -140,7 +140,6 @@ pub fn tirra_db_add_entry(
     Ok(())
 }
 
-
 /**
  * Create a new entry in the database
  */
@@ -223,8 +222,8 @@ pub fn tirra_db_get_all_entries(
         let sql = format!(
             "SELECT 
             id, 
-            datetime(date_create, 'unixepoch'), 
-            datetime(date_modify, 'unixepoch'), 
+            date_create, 
+            date_modify, 
             type, 
             text 
             FROM entries 
