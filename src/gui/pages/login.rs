@@ -92,7 +92,7 @@ impl LoginPage {
             .height(50)
             .style(|_theme: &Theme| {
                 //let palette = theme.extended_palette();
-                container::Style::default().background(style_conf::STYLE_EDITOR_BG_COLOR)
+                container::Style::default().background(style_conf::STYLE_COLOR_PAN_BG)
             });
 
         // DIV : target Db
@@ -143,10 +143,10 @@ impl LoginPage {
             .spacing(10),
         )
         .center_x(400)
-        .height(400)
+        .height(Length::Fill)
         .style(|_theme: &Theme| {
             //let palette = theme.extended_palette();
-            container::Style::default().background(style_conf::STYLE_EDITOR_BG_COLOR)
+            container::Style::default().background(style_conf::STYLE_COLOR_PAN_BG)
             //.with_border( Color::BLACK, 1)
         });
 

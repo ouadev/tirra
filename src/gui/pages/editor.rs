@@ -231,13 +231,15 @@ impl EditorPage {
                 .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS_HIGHLIGHT)
                 .font(style_conf::FONT_COMMAND_LINE_BOLD);
 
-            let text_space = text("  ");
+            let text_space = text("  ")
+                .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
+                .font(style_conf::FONT_COMMAND_LINE);
 
             let text_wdm = text(weekday_time)
                 .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
                 .font(style_conf::FONT_COMMAND_LINE);
 
-            row![text_ymd, text_space, text_wdm]
+            row![text_ymd, text_space, text_wdm].height(Length::Shrink)
         };
 
         // dates
