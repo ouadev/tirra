@@ -21,6 +21,24 @@ const TIRRA_DB_PATH_TESTING: &str = "stuff/dbs/test.db.enc";
 // String : database (plaintext) locationPixels
 
 pub fn main() -> iced::Result {
+    #[cfg(target_os = "linux")]
+    let platform_specific = PlatformSpecific {
+        application_id: String::from("win-tirra-lnx"),
+        override_redirect: false,
+    };
+    #[cfg(target_os = "macos")]
+    let platform_specific = PlatformSpecific {
+        title_hidden: false,
+        titlebar_transparent: false,
+        fullsize_content_view: false,
+    };
+    #[cfg(target_os = "windows")]
+    let platform_specific = PlatformSpecific {
+        drag_and_drop: true,
+        skip_taskbar: false,
+        undecorated_shadow: false,
+    };
+
     // Run ICED
     iced::application(TirraIced::title, TirraIced::update, TirraIced::view)
         .subscription(TirraIced::subscription)
@@ -35,10 +53,7 @@ pub fn main() -> iced::Result {
         .window(window::Settings {
             icon: None,
             exit_on_close_request: false,
-            platform_specific: PlatformSpecific {
-                application_id: String::from("win-tirra-lnx"),
-                override_redirect: false,
-            },
+            platform_specific: platform_specific,
             ..Default::default()
         })
         .run_with(TirraIced::new)
