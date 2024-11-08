@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::env;
 
 use crate::widget::text_input;
@@ -16,7 +15,7 @@ use tirra::gui::pages::login::{self, LoginPage};
 use tirra::gui::styles::style_conf;
 
 // Constants
-const TIRRA_DB_PATH_TESTING: &str = "stuff/dbs/test.db.enc";
+const TIRRA_DB_PATH_TESTING: &str = "/tmp/test.tirra.db"; // will work for Unixes
 
 // String : database (plaintext) locationPixels
 
@@ -45,7 +44,7 @@ pub fn main() -> iced::Result {
         .theme(TirraIced::theme)
         .settings(Settings {
             id: Some(String::from("win-tirra")),
-            fonts: vec![Cow::Borrowed(style_conf::FONT_EXTERNAL_BYTES)],
+            //fonts: vec![Cow::Borrowed(style_conf::FONT_EXTERNAL_BYTES)],
             default_font: style_conf::FONT_DEFAULT,
             default_text_size: style_conf::STYLE_TEXT_SIZE_EDITOR,
             ..Settings::default()

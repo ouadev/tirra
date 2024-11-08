@@ -1,11 +1,12 @@
 use iced::font::{Family, Stretch, Style, Weight};
 use iced::{Color, Font};
-
+/*
 pub const FONT_EXTERNAL_BYTES: &[u8] =
     include_bytes!("../../../resources/dejavu-serif/DejaVuSerif.ttf");
+*/
 
 pub const FONT_EDITOR: Font = Font {
-    family: Family::Name("DejaVu Serif"),
+    family: Family::Name("Arial"),
     weight: Weight::Normal,
     stretch: Stretch::Normal,
     style: Style::Normal,
