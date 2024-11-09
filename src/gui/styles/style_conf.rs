@@ -6,7 +6,7 @@ pub const FONT_EXTERNAL_BYTES: &[u8] =
 */
 
 pub const FONT_EDITOR: Font = Font {
-    family: Family::Name("Arial"),
+    family: Family::Name("DejaVu Serif"),
     weight: Weight::Normal,
     stretch: Stretch::Normal,
     style: Style::Normal,
