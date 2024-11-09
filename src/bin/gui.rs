@@ -15,7 +15,7 @@ use tirra::gui::pages::login::{self, LoginPage};
 use tirra::gui::styles::style_conf;
 
 // Constants
-const TIRRA_DB_PATH_TESTING: &str = "/tmp/test.tirra.db"; // will work for Unixes
+const TIRRA_DB_PATH_TESTING: &str = "test.tirra.db"; // will work for Unixes
 
 // String : database (plaintext) locationPixels
 
