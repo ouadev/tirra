@@ -229,15 +229,15 @@ impl EditorPage {
 
             let text_ymd = text(year_month_day)
                 .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS_HIGHLIGHT)
-                .font(style_conf::FONT_COMMAND_LINE_BOLD);
+                .font(style_conf::FONT_STATUS_DATE_BOLD);
 
             let text_space = text("  ")
                 .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
-                .font(style_conf::FONT_COMMAND_LINE);
+                .font(style_conf::FONT_STATUS_DATE);
 
             let text_wdm = text(weekday_time)
                 .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
-                .font(style_conf::FONT_COMMAND_LINE);
+                .font(style_conf::FONT_STATUS_DATE);
 
             row![text_ymd, text_space, text_wdm].height(Length::Shrink)
         };

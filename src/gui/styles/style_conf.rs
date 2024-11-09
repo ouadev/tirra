@@ -26,8 +26,15 @@ pub const FONT_COMMAND_LINE: Font = Font {
     style: Style::Normal,
 };
 
-pub const FONT_COMMAND_LINE_BOLD: Font = Font {
-    family: Family::Monospace,
+pub const FONT_STATUS_DATE: Font = Font {
+    family: Family::Name("DejaVu Serif"),
+    weight: Weight::Normal,
+    stretch: Stretch::Normal,
+    style: Style::Normal,
+};
+
+pub const FONT_STATUS_DATE_BOLD: Font = Font {
+    family: Family::Name("DejaVu Serif"),
     weight: Weight::Medium,
     stretch: Stretch::Normal,
     style: Style::Normal,
