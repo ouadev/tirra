@@ -1,6 +1,7 @@
 use std::env;
 
 use crate::widget::text_input;
+use chrono::Utc;
 use iced::highlighter::{self};
 use iced::theme::Theme;
 use iced::time::{self, every};
@@ -16,6 +17,7 @@ use tirra::gui::styles::style_conf;
 
 // Constants
 const TIRRA_DB_PATH_TESTING: &str = "test.tirra.db"; // will work for Unixes
+const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
 
 // String : database (plaintext) locationPixels
 
@@ -56,24 +58,6 @@ pub fn main() -> iced::Result {
             ..Default::default()
         })
         .run_with(TirraIced::new)
-    /*
-        TirraIced::run(Settings::<String> {
-            id: Some(String::from("win-tirra")),
-            flags: db_to_use,
-            fonts: vec![Cow::Borrowed(style_conf::FONT_EXTERNAL_BYTES)],
-            default_font: style_conf::FONT_DEFAULT,
-            default_text_size: style_conf::STYLE_TEXT_SIZE_EDITOR,
-            window: window::Settings {
-                icon: None,
-                exit_on_close_request: false,
-                platform_specific: PlatformSpecific {
-                    application_id: String::from("win-tirra-lnx"),
-                },
-                ..Default::default()
-            },
-            ..Settings::default()
-        })
-    */
 }
 
 struct TirraIced {
@@ -82,6 +66,7 @@ struct TirraIced {
     editor_page: Option<EditorPage>,
     logged_in: bool,
     db_location: String,
+    last_act: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -113,6 +98,7 @@ impl TirraIced {
                 login_page: login_page,
                 logged_in: false,
                 db_location: db_to_use,
+                last_act: current_timestamp(),
             },
             //command.map(Message::Editor),
             Task::none(),
@@ -131,9 +117,16 @@ impl TirraIced {
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {
+        //process message
         match message {
             Message::PeriodicTick | Message::CtrlS => {
                 if self.logged_in {
+                    if current_timestamp() - self.last_act > TIRRA_INACTIVITY_SECONDS {
+                        println!("Inactivity: logging out");
+                        self.logged_in = false;
+                        let (login_page, _login_cmd) = LoginPage::new(&self.db_location);
+                        self.login_page = login_page;
+                    }
                     self.editor_page
                         .as_mut()
                         .unwrap()
@@ -211,7 +204,10 @@ impl TirraIced {
                     }
                     _ => Task::none(),
                 },
-                _ => Task::none(),
+                _ => {
+                    self.last_act = current_timestamp();
+                    Task::none()
+                }
             },
         }
     }
@@ -251,4 +247,8 @@ impl TirraIced {
             Theme::Light
         }
     }
+}
+
+fn current_timestamp() -> i64 {
+    Utc::now().timestamp()
 }
