@@ -205,7 +205,7 @@ pub fn tirra_db_update_entry(
 }
 
 pub fn tirra_db_default_read_req() -> String {
-    String::from("WHERE id > 0 ORDER BY date_modify DESC LIMIT 200")
+    String::from("WHERE id > 0 ORDER BY date_modify DESC LIMIT 20")
 }
 
 /**

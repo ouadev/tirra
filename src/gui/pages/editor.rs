@@ -4,7 +4,7 @@ use crate::storage::tirracrypto::TirraCrypto;
 use iced::theme::Theme;
 use iced::widget::{
     column, container, horizontal_rule, horizontal_space, row, scrollable, text, text_editor,
-    Button, Rule, TextInput,
+    Button, Rule, Space, TextInput,
 };
 use iced::Background;
 use iced::Task;
@@ -267,6 +267,7 @@ impl EditorPage {
 
         // status bar
         container(row![
+            Space::with_width(20),
             div_date_create,
             text("   -   ").size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS),
             div_date_modify,
