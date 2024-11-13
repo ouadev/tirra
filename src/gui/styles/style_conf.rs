@@ -1,45 +1,48 @@
 use iced::font::{Family, Stretch, Style, Weight};
 use iced::{Color, Font};
-/*
-pub const FONT_EXTERNAL_BYTES: &[u8] =
-    include_bytes!("../../../resources/dejavu-serif/DejaVuSerif.ttf");
-*/
 
-pub const FONT_EDITOR: Font = Font {
-    family: Family::Name("DejaVu Serif"),
+// Font families for different use cases.
+pub const FONT_FAMILY_DEFAULT: Family = Family::Name("Arial");
+pub const FONT_FAMILY_EDIITING: Family = Family::Name("DejaVu Serif");
+pub const FONT_FAMILY_STATUS: Family = Family::Name("DejaVu Serif");
+pub const FONT_FAMILY_COMMAND: Family = Family::Monospace;
+
+// Acutal used fonts
+pub const FONT_DEFAULT: Font = Font {
+    family: FONT_FAMILY_DEFAULT,
     weight: Weight::Normal,
     stretch: Stretch::Normal,
     style: Style::Normal,
 };
-
-pub const FONT_DEFAULT: Font = Font {
-    family: Family::Name("Arial"),
+pub const FONT_EDITOR: Font = Font {
+    family: FONT_FAMILY_EDIITING,
     weight: Weight::Normal,
     stretch: Stretch::Normal,
     style: Style::Normal,
 };
 
 pub const FONT_COMMAND_LINE: Font = Font {
-    family: Family::Monospace,
+    family: FONT_FAMILY_COMMAND,
     weight: Weight::Normal,
     stretch: Stretch::Normal,
     style: Style::Normal,
 };
 
 pub const FONT_STATUS_DATE: Font = Font {
-    family: Family::Name("DejaVu Serif"),
+    family: FONT_FAMILY_STATUS,
     weight: Weight::Normal,
     stretch: Stretch::Normal,
     style: Style::Normal,
 };
 
 pub const FONT_STATUS_DATE_BOLD: Font = Font {
-    family: Family::Name("DejaVu Serif"),
+    family: FONT_FAMILY_STATUS,
     weight: Weight::Medium,
     stretch: Stretch::Normal,
     style: Style::Normal,
 };
 
+// Colors
 pub const STYLE_EDITOR_BG_COLOR: iced::Color = Color {
     r: 255. / 255.0,
     g: 255. / 255.0,
@@ -72,6 +75,7 @@ pub const STYLE_BUTTON_ENTRY_COLOR_SELECTED: iced::Color = STYLE_EDITOR_BG_COLOR
 
 pub const STYLE_BUTTON_ENTRY_COLOR: iced::Color = Color::TRANSPARENT;
 
+// Text Sizes
 pub const STYLE_TEXT_SIZE_EDITOR: iced::Pixels = iced::Pixels(23.0);
 pub const STYLE_TEXT_SIZE_NORMAL: iced::Pixels = iced::Pixels(15.);
 pub const STYLE_TEXT_SIZE_COMMAND: iced::Pixels = iced::Pixels(20.);
