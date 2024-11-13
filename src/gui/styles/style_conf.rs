@@ -3,8 +3,11 @@ use iced::{Color, Font};
 
 // Font families for different use cases.
 pub const FONT_FAMILY_DEFAULT: Family = Family::Name("Arial");
+#[cfg(target_os = "macos")]
+pub const FONT_FAMILY_EDIITING: Family = Family::Name("Georgia");
+#[cfg(target_os = "linux")]
 pub const FONT_FAMILY_EDIITING: Family = Family::Name("DejaVu Serif");
-pub const FONT_FAMILY_STATUS: Family = Family::Name("DejaVu Serif");
+pub const FONT_FAMILY_STATUS: Family = FONT_FAMILY_DEFAULT;
 pub const FONT_FAMILY_COMMAND: Family = Family::Monospace;
 
 // Acutal used fonts
