@@ -2,7 +2,7 @@ use iced::font::{Family, Stretch, Style, Weight};
 use iced::{Color, Font};
 
 // Font families for different use cases.
-pub const FONT_FAMILY_DEFAULT: Family = Family::Name("Arial");
+pub const FONT_FAMILY_DEFAULT: Family = Family::SansSerif;
 #[cfg(target_os = "macos")]
 pub const FONT_FAMILY_EDIITING: Family = Family::Name("Georgia");
 #[cfg(target_os = "linux")]
