@@ -40,7 +40,7 @@ pub const FONT_STATUS_DATE: Font = Font {
 
 pub const FONT_STATUS_DATE_BOLD: Font = Font {
     family: FONT_FAMILY_STATUS,
-    weight: Weight::Medium,
+    weight: Weight::Bold,
     stretch: Stretch::Normal,
     style: Style::Normal,
 };
