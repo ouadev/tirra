@@ -98,6 +98,27 @@ impl TirraCrypto {
     }
 
     /**
+     * Encrypt Db
+     */
+    pub fn tirra_encrypt_db_file(&self, plain_db: &str) -> Result<bool, ()> {
+        // PASSPHRASE
+        let secret_struct = &self.secrets;
+
+        //encrypt small file
+        let cipher = ChaCha20Poly1305::new(&secret_struct.key.into());
+
+        let file_data = fs::read(plain_db).expect("can't find database");
+        let enc_file = cipher
+            .encrypt(&secret_struct.nonce.into(), file_data.as_ref())
+            //.map_err(|err| anyhow!("enc some file: {}", err))
+            .expect("nothing");
+
+        fs::write(&self.db_location, enc_file).expect("");
+
+        Ok(true)
+    }
+
+    /**
      *
      *
      */

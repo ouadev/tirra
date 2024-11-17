@@ -268,6 +268,16 @@ pub fn tirra_db_reveal_to_disk(crypto: &TirraCrypto) -> Result<bool, TirraDbErro
         .map_err(|_e| TirraDbError::CryptoAccessFailure)
 }
 
+pub fn tirra_db_encrypt_plain_db_file(
+    crypto: &TirraCrypto,
+    db_plain: &str,
+) -> Result<bool, TirraDbError> {
+    // encrypt the db
+    crypto
+        .tirra_encrypt_db_file(db_plain)
+        .map_err(|_e| TirraDbError::CryptoAccessFailure)
+}
+
 pub fn tirra_db_found(db_enc_loc: &str) -> bool {
     Path::new(db_enc_loc).exists()
 }
