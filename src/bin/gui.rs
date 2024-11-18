@@ -16,7 +16,6 @@ use tirra::gui::pages::login::{self, LoginPage};
 use tirra::gui::styles::style_conf;
 
 // Constants
-const TIRRA_DB_PATH_TESTING: &str = "test.tirra.db"; // will work for Unixes
 const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
 
 // String : database (plaintext) locationPixels
@@ -81,7 +80,7 @@ enum Message {
 
 impl TirraIced {
     fn new() -> (Self, Task<Message>) {
-        let mut db_to_use = String::from(TIRRA_DB_PATH_TESTING);
+        let mut db_to_use = default_user_db_path();
         // check arguments
         let args: Vec<String> = env::args().collect();
         if args.len() == 2 {
@@ -251,4 +250,10 @@ impl TirraIced {
 
 fn current_timestamp() -> i64 {
     Utc::now().timestamp()
+}
+
+fn default_user_db_path() -> String {
+    // pick up HOME environment variable.
+    let home_path = env::var("HOME").unwrap();
+    format!("{}/awal.tirra", home_path)
 }
