@@ -1,3 +1,3 @@
-./package-linux.sh  package
+./package.sh
 sudo apt remove tirra
-sudo dpkg -i target/release/tirra_0.0-1.deb
+sudo dpkg -i packages/linux-release/tirra_0.0.1.deb

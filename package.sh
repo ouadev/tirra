@@ -7,9 +7,9 @@ package_macos() {
 }
 
 CURRENT_PLATFORM=$(uname)
-echo $CURRENT_PLATFORM
+
 case "$CURRENT_PLATFORM" in
-  "linux") package_linux;;
+  "Linux") package_linux;;
   "Darwin") package_macos;;
   *)
     echo "unknown current platform: $CURRENT_PLATFORM"

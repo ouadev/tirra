@@ -24,7 +24,7 @@ if [ ! -d "$SDK_DIRECTORY" ]; then
 fi
 
 WLVERSION="0.0.12"
-DESTINATION="packages/TirraRelease"
+DESTINATION="packages/macos-release"
 SOURCE_DIR="target/release"
 RESOURCES="resources"
 
