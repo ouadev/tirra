@@ -94,7 +94,7 @@ function MakeAppPackage {
    CFBundleShortVersionString = "$WLVERSION";
    CFBundleInfoDictionaryVersion = "6.0";
    CFBundlePackageType = APPL;
-   CFBundleSignature = wdld;
+   CFBundleSignature = trra;
    CFBundleExecutable = tirra;
    CFBundleIconFile = "Tirra.icns";
 }
