@@ -24,7 +24,7 @@ if [ ! -d "$SDK_DIRECTORY" ]; then
 fi
 
 WLVERSION="0.0.12"
-DESTINATION="TirraRelease"
+DESTINATION="packages/TirraRelease"
 SOURCE_DIR="target/release"
 RESOURCES="resources"
 
@@ -50,7 +50,7 @@ function MakeDMG {
 
    echo "Creating DMG ..."
 
-   rm $UP/tirra_${OSX_MIN_VERSION}_${WLVERSION}.dmg
+   rm -Rf $UP/*.dmg
 
     HDI_MAX_TRIES=1
 

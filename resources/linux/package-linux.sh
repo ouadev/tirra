@@ -34,9 +34,6 @@ package() {
   echo "Packaged Deb Created ..."
 }
 
-case "$1" in
-  "package") package;;
-  *)
-    echo "avaiable commands: package"
-    ;;
-esac
+# call main function
+
+package
