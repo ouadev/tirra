@@ -32,6 +32,10 @@ impl Palette {
         text: color!(0xFFFFFF),
     };
 }
+
+pub fn palette() -> Palette {
+    Palette::LIGHT
+}
 // Font families for different use cases.
 pub const FONT_FAMILY_DEFAULT: Family = Family::SansSerif;
 #[cfg(target_os = "macos")]

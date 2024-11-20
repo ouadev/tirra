@@ -7,7 +7,7 @@ use super::style_conf;
 
 pub fn main_style(theme: &Theme, status: Status) -> Style {
     let palette = theme.extended_palette();
-    let palette_tirra = style_conf::Palette::LIGHT;
+    let palette_tirra = style_conf::palette();
     let base = Style {
         background: Background::Color(palette_tirra.background_main),
         border: Border {

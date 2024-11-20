@@ -7,7 +7,7 @@ use super::style_conf;
 
 pub fn button_main(_theme: &Theme, status: Status) -> Style {
     //let palette = theme.extended_palette();
-    let palette = style_conf::Palette::LIGHT;
+    let palette = style_conf::palette();
     let base = Style {
         background: Some(Background::Color(palette.control_main)),
         text_color: palette.text,
@@ -29,7 +29,7 @@ pub fn button_main(_theme: &Theme, status: Status) -> Style {
 }
 
 pub fn button_entry(_theme: &Theme, status: button::Status) -> button::Style {
-    let palette = style_conf::Palette::LIGHT;
+    let palette = style_conf::palette();
     let base = Style {
         background: Some(Background::Color(Color::TRANSPARENT)),
         text_color: palette.text,
@@ -52,7 +52,7 @@ pub fn button_entry(_theme: &Theme, status: button::Status) -> button::Style {
 
 pub fn button_entry_selected(_theme: &Theme, status: button::Status) -> button::Style {
     //let palette = theme.extended_palette();
-    let palette = style_conf::Palette::LIGHT;
+    let palette = style_conf::palette();
     let base = Style {
         background: Some(Background::Color(palette.background_main)),
         text_color: palette.text,

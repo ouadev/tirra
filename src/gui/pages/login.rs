@@ -92,7 +92,7 @@ impl LoginPage {
             .height(50)
             .style(|_theme: &Theme| {
                 //let palette = theme.extended_palette();
-                let palette = style_conf::Palette::LIGHT;
+                let palette = style_conf::palette();
                 container::Style::default().background(palette.background_secondary)
             });
 
@@ -103,7 +103,7 @@ impl LoginPage {
             .align_x(iced::alignment::Horizontal::Center)
             .style(|_theme: &Theme| {
                 //let palette = theme.extended_palette();
-                let palette = style_conf::Palette::LIGHT;
+                let palette = style_conf::palette();
                 text::Style {
                     color: Some(palette.text),
                 }
@@ -154,7 +154,7 @@ impl LoginPage {
         .height(Length::Fill)
         .style(|_theme: &Theme| {
             //let palette = theme.extended_palette();
-            let palette = style_conf::Palette::LIGHT;
+            let palette = style_conf::palette();
             container::Style::default().background(palette.background_secondary)
             //.with_border( Color::BLACK, 1)
         });
@@ -163,7 +163,7 @@ impl LoginPage {
             .center_x(Length::Fill)
             .height(Length::Fill)
             .style(|_theme: &Theme| {
-                let palette = style_conf::Palette::LIGHT;
+                let palette = style_conf::palette();
                 container::Style::default().background(Background::Color(palette.background_main))
             });
 
