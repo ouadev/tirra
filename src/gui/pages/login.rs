@@ -100,7 +100,14 @@ impl LoginPage {
         let div_db = Text::new(&self.db_location)
             .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
             .width(Length::Fill)
-            .align_x(iced::alignment::Horizontal::Center);
+            .align_x(iced::alignment::Horizontal::Center)
+            .style(|_theme: &Theme| {
+                //let palette = theme.extended_palette();
+                let palette = style_conf::Palette::LIGHT;
+                text::Style {
+                    color: Some(palette.text),
+                }
+            });
         let div_db_cont = container(div_db).center_x(Length::Fill).padding(20);
         // DIV : Text Input
         let div_pwd = TextInput::new("Passphrase", &self.password)

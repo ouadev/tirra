@@ -15,6 +15,7 @@ pub fn main_style(theme: &Theme, status: Status) -> Style {
             width: 0.,
             color: palette.background.strong.color,
         },
+        value: palette_tirra.text,
         ..default(theme, status)
     };
 

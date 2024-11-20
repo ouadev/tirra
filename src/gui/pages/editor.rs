@@ -3,8 +3,8 @@ use crate::storage::db::{self, TirraEntry};
 use crate::storage::tirracrypto::TirraCrypto;
 use iced::theme::Theme;
 use iced::widget::{
-    column, container, horizontal_rule, horizontal_space, row, scrollable, text, text_editor,
-    Button, Rule, Space, TextInput,
+    column, container, horizontal_space, row, scrollable, text, text_editor, Button, Space,
+    TextInput,
 };
 use iced::Background;
 use iced::Task;
@@ -188,9 +188,8 @@ impl EditorPage {
                     })
                     .clip(true)
                     .on_press(Message::EntryButtonClicked(ent.id));
-                let ent_separator: Rule = horizontal_rule(1);
-
-                column![ent_button, ent_separator].into()
+                //let ent_separator: Rule = horizontal_rule(1);
+                column![ent_button].into()
             }), //map
         ); //Column
 
@@ -231,15 +230,36 @@ impl EditorPage {
 
             let text_ymd = text(year_month_day)
                 .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS_HIGHLIGHT)
-                .font(style_conf::FONT_STATUS_DATE_BOLD);
+                .font(style_conf::FONT_STATUS_DATE_BOLD)
+                .style(|_theme: &Theme| {
+                    //let palette = theme.extended_palette();
+                    let palette = style_conf::Palette::LIGHT;
+                    text::Style {
+                        color: Some(palette.text),
+                    }
+                });
 
             let text_space = text("  ")
                 .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
-                .font(style_conf::FONT_STATUS_DATE);
+                .font(style_conf::FONT_STATUS_DATE)
+                .style(|_theme: &Theme| {
+                    //let palette = theme.extended_palette();
+                    let palette = style_conf::Palette::LIGHT;
+                    text::Style {
+                        color: Some(palette.text),
+                    }
+                });
 
             let text_wdm = text(weekday_time)
                 .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
-                .font(style_conf::FONT_STATUS_DATE);
+                .font(style_conf::FONT_STATUS_DATE)
+                .style(|_theme: &Theme| {
+                    //let palette = theme.extended_palette();
+                    let palette = style_conf::Palette::LIGHT;
+                    text::Style {
+                        color: Some(palette.text),
+                    }
+                });
 
             row![text_ymd, text_space, text_wdm].height(Length::Shrink)
         };
@@ -265,13 +285,28 @@ impl EditorPage {
             "{}",
             &self.entry_by_id(self.curr_entry_id).unwrap().id
         ))
-        .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS);
+        .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
+        .style(|_theme: &Theme| {
+            //let palette = theme.extended_palette();
+            let palette = style_conf::Palette::LIGHT;
+            text::Style {
+                color: Some(palette.text),
+            }
+        });
 
         // status bar
         container(row![
             Space::with_width(20),
             div_date_create,
-            text("   -   ").size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS),
+            text("   -   ")
+                .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
+                .style(|_theme: &Theme| {
+                    //let palette = theme.extended_palette();
+                    let palette = style_conf::Palette::LIGHT;
+                    text::Style {
+                        color: Some(palette.text),
+                    }
+                }),
             div_date_modify,
             horizontal_space(),
             div_id

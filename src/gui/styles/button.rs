@@ -5,31 +5,12 @@ use iced::{Background, Border, Color, Shadow, Theme};
 
 use super::style_conf;
 
-//#[derive(Clone, Copy, Default)]
-/*
-pub enum ButtonType {
-    #[default]
-    Standard,
-}
-    */
-/*
-pub enum TirraButtonType {
-    Entry,
-    Main,
-}
-
-pub struct TirraButtonStyle {
-    pub button_type: TirraButtonType,
-    pub selected: bool,
-}
-*/
-
 pub fn button_main(_theme: &Theme, status: Status) -> Style {
     //let palette = theme.extended_palette();
     let palette = style_conf::Palette::LIGHT;
     let base = Style {
         background: Some(Background::Color(palette.control_main)),
-        text_color: Color::BLACK,
+        text_color: palette.text,
         border: Border::default(),
         shadow: Shadow::default(),
     };
@@ -50,8 +31,8 @@ pub fn button_main(_theme: &Theme, status: Status) -> Style {
 pub fn button_entry(_theme: &Theme, status: button::Status) -> button::Style {
     let palette = style_conf::Palette::LIGHT;
     let base = Style {
-        background: Some(Background::Color(palette.background_secondary)),
-        text_color: Color::BLACK,
+        background: Some(Background::Color(Color::TRANSPARENT)),
+        text_color: palette.text,
         border: Border::default(),
         shadow: Shadow::default(),
     };
@@ -74,7 +55,7 @@ pub fn button_entry_selected(_theme: &Theme, status: button::Status) -> button::
     let palette = style_conf::Palette::LIGHT;
     let base = Style {
         background: Some(Background::Color(palette.background_main)),
-        text_color: Color::BLACK,
+        text_color: palette.text,
         border: Border::default(),
         shadow: Shadow::default(),
     };

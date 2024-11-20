@@ -22,6 +22,15 @@ impl Palette {
         control_disabled: color!(0x000000),
         text: color!(0x000000),
     };
+
+    pub const DARK: Self = Self {
+        background_main: color!(0x282A36),
+        background_secondary: color!(0x44475a),
+        control_main: color!(0x6272a4),
+        control_secondary: color!(0xb6deca),
+        control_disabled: color!(0x000000),
+        text: color!(0xFFFFFF),
+    };
 }
 // Font families for different use cases.
 pub const FONT_FAMILY_DEFAULT: Family = Family::SansSerif;
@@ -66,9 +75,6 @@ pub const FONT_STATUS_DATE_BOLD: Font = Font {
     stretch: Stretch::Normal,
     style: Style::Normal,
 };
-
-pub const STYLE_BUTTON_ENTRY_COLOR_SELECTED: iced::Color = Palette::LIGHT.background_main;
-pub const STYLE_BUTTON_ENTRY_COLOR: iced::Color = Color::TRANSPARENT;
 
 // Text Sizes
 pub const STYLE_TEXT_SIZE_EDITOR: iced::Pixels = iced::Pixels(23.0);
