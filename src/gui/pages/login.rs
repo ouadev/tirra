@@ -136,7 +136,14 @@ impl LoginPage {
         let div_info = Text::new(&self.info_text)
             .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
             .width(Length::Fill)
-            .align_x(iced::alignment::Horizontal::Center);
+            .align_x(iced::alignment::Horizontal::Center)
+            .style(|_theme: &Theme| {
+                //let palette = theme.extended_palette();
+                let palette = style_conf::palette();
+                text::Style {
+                    color: Some(palette.text),
+                }
+            });
         let div_info_cont = container(div_info).center_x(Length::Fill).padding(20);
 
         // DIV : LoginContainer
