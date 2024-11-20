@@ -3,7 +3,7 @@ use iced::font::{Family, Stretch, Style, Weight};
 use iced::{Color, Font};
 
 //
-pub struct TirraPalette {
+pub struct Palette {
     pub background_main: Color,
     pub background_secondary: Color,
     pub control_main: Color,
@@ -13,7 +13,7 @@ pub struct TirraPalette {
     // ...
 }
 
-impl TirraPalette {
+impl Palette {
     pub const LIGHT: Self = Self {
         background_main: color!(0xffffff),
         background_secondary: color!(0xd9d9d9),
@@ -67,7 +67,7 @@ pub const FONT_STATUS_DATE_BOLD: Font = Font {
     style: Style::Normal,
 };
 
-pub const STYLE_BUTTON_ENTRY_COLOR_SELECTED: iced::Color = TirraPalette::LIGHT.background_main;
+pub const STYLE_BUTTON_ENTRY_COLOR_SELECTED: iced::Color = Palette::LIGHT.background_main;
 pub const STYLE_BUTTON_ENTRY_COLOR: iced::Color = Color::TRANSPARENT;
 
 // Text Sizes
