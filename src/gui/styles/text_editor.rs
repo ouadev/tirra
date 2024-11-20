@@ -7,8 +7,9 @@ use super::style_conf;
 
 pub fn main_style(theme: &Theme, status: Status) -> Style {
     let palette = theme.extended_palette();
+    let palette_tirra = style_conf::TirraPalette::LIGHT;
     let base = Style {
-        background: Background::Color(style_conf::STYLE_EDITOR_BG_COLOR),
+        background: Background::Color(palette_tirra.background_main),
         border: Border {
             radius: 0.0.into(),
             width: 0.,
@@ -38,4 +39,3 @@ pub fn main_style(theme: &Theme, status: Status) -> Style {
         Status::Disabled => base,
     }
 }
-

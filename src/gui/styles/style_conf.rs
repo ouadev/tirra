@@ -1,6 +1,28 @@
+use iced::color;
 use iced::font::{Family, Stretch, Style, Weight};
 use iced::{Color, Font};
 
+//
+pub struct TirraPalette {
+    pub background_main: Color,
+    pub background_secondary: Color,
+    pub control_main: Color,
+    pub control_secondary: Color,
+    pub control_disabled: Color,
+    pub text: Color,
+    // ...
+}
+
+impl TirraPalette {
+    pub const LIGHT: Self = Self {
+        background_main: color!(0xffffff),
+        background_secondary: color!(0xd9d9d9),
+        control_main: color!(0xb6deca),
+        control_secondary: color!(0xb6deca),
+        control_disabled: color!(0x000000),
+        text: color!(0x000000),
+    };
+}
 // Font families for different use cases.
 pub const FONT_FAMILY_DEFAULT: Family = Family::SansSerif;
 #[cfg(target_os = "macos")]
@@ -45,37 +67,7 @@ pub const FONT_STATUS_DATE_BOLD: Font = Font {
     style: Style::Normal,
 };
 
-// Colors
-pub const STYLE_EDITOR_BG_COLOR: iced::Color = Color {
-    r: 255. / 255.0,
-    g: 255. / 255.0,
-    b: 255. / 255.0,
-    a: 1.0,
-};
-
-pub const STYLE_DISABLED_BUTTON_COLOR: iced::Color = Color {
-    r: 75. / 255.0,
-    g: 75. / 255.0,
-    b: 75. / 255.0,
-    a: 1.0,
-};
-
-pub const COLOR_BUTTON_MAIN: iced::Color = Color {
-    r: 182.0 / 255.0,
-    g: 222.0 / 255.0,
-    b: 202.0 / 255.0,
-    a: 1.0,
-};
-
-pub const STYLE_COLOR_PAN_BG: iced::Color = Color {
-    r: 217.0 / 255.0,
-    g: 217.0 / 255.0,
-    b: 217.0 / 255.0,
-    a: 1.0,
-};
-
-pub const STYLE_BUTTON_ENTRY_COLOR_SELECTED: iced::Color = STYLE_EDITOR_BG_COLOR;
-
+pub const STYLE_BUTTON_ENTRY_COLOR_SELECTED: iced::Color = TirraPalette::LIGHT.background_main;
 pub const STYLE_BUTTON_ENTRY_COLOR: iced::Color = Color::TRANSPARENT;
 
 // Text Sizes

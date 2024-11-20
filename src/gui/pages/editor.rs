@@ -149,8 +149,8 @@ impl EditorPage {
             .width(20)
             .height(Length::Fill)
             .style(|_theme: &Theme| {
-                container::Style::default()
-                    .background(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR))
+                let palette = style_conf::TirraPalette::LIGHT;
+                container::Style::default().background(Background::Color(palette.background_main))
             });
         // DIV : Left Pan
         let div_leftpan = self.view_left_pan();
@@ -202,7 +202,9 @@ impl EditorPage {
             .height(Length::Fill)
             .style(|_theme: &Theme| {
                 //let palette = theme.extended_palette();
-                container::Style::default().background(style_conf::STYLE_COLOR_PAN_BG)
+                let palette = style_conf::TirraPalette::LIGHT;
+
+                container::Style::default().background(palette.background_secondary)
             })
             .into()
     }
@@ -275,8 +277,8 @@ impl EditorPage {
             div_id
         ])
         .style(|_theme: &Theme| {
-            container::Style::default()
-                .background(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR))
+            let palette = style_conf::TirraPalette::LIGHT;
+            container::Style::default().background(Background::Color(palette.background_main))
         })
         .into()
     }
@@ -304,8 +306,8 @@ impl EditorPage {
         div_command_cont = div_command_cont
             .width(Length::Fill)
             .style(|_theme: &Theme| {
-                container::Style::default()
-                    .background(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR))
+                let palette = style_conf::TirraPalette::LIGHT;
+                container::Style::default().background(Background::Color(palette.background_main))
             });
 
         // DIV : Editor Text Zone

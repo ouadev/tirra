@@ -92,7 +92,8 @@ impl LoginPage {
             .height(50)
             .style(|_theme: &Theme| {
                 //let palette = theme.extended_palette();
-                container::Style::default().background(style_conf::STYLE_COLOR_PAN_BG)
+                let palette = style_conf::TirraPalette::LIGHT;
+                container::Style::default().background(palette.background_secondary)
             });
 
         // DIV : target Db
@@ -146,7 +147,8 @@ impl LoginPage {
         .height(Length::Fill)
         .style(|_theme: &Theme| {
             //let palette = theme.extended_palette();
-            container::Style::default().background(style_conf::STYLE_COLOR_PAN_BG)
+            let palette = style_conf::TirraPalette::LIGHT;
+            container::Style::default().background(palette.background_secondary)
             //.with_border( Color::BLACK, 1)
         });
 
@@ -154,8 +156,8 @@ impl LoginPage {
             .center_x(Length::Fill)
             .height(Length::Fill)
             .style(|_theme: &Theme| {
-                container::Style::default()
-                    .background(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR))
+                let palette = style_conf::TirraPalette::LIGHT;
+                container::Style::default().background(Background::Color(palette.background_main))
             });
 
         body.into()

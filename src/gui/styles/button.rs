@@ -26,8 +26,9 @@ pub struct TirraButtonStyle {
 
 pub fn button_main(_theme: &Theme, status: Status) -> Style {
     //let palette = theme.extended_palette();
+    let palette = style_conf::TirraPalette::LIGHT;
     let base = Style {
-        background: Some(Background::Color(style_conf::COLOR_BUTTON_MAIN)),
+        background: Some(Background::Color(palette.control_main)),
         text_color: Color::BLACK,
         border: Border::default(),
         shadow: Shadow::default(),
@@ -36,20 +37,20 @@ pub fn button_main(_theme: &Theme, status: Status) -> Style {
     match status {
         Status::Active | Status::Pressed => base,
         Status::Hovered => Style {
-            background: Some(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR)),
+            background: Some(Background::Color(palette.background_main)),
             ..base
         },
         Status::Disabled => Style {
-            background: Some(Background::Color(style_conf::STYLE_DISABLED_BUTTON_COLOR)),
+            background: Some(Background::Color(palette.control_disabled)),
             ..base
         },
     }
 }
 
 pub fn button_entry(_theme: &Theme, status: button::Status) -> button::Style {
-    //let palette = theme.extended_palette();
+    let palette = style_conf::TirraPalette::LIGHT;
     let base = Style {
-        background: Some(Background::Color(style_conf::STYLE_BUTTON_ENTRY_COLOR)),
+        background: Some(Background::Color(palette.background_secondary)),
         text_color: Color::BLACK,
         border: Border::default(),
         shadow: Shadow::default(),
@@ -58,11 +59,11 @@ pub fn button_entry(_theme: &Theme, status: button::Status) -> button::Style {
     match status {
         Status::Active | Status::Pressed => base,
         Status::Hovered => Style {
-            background: Some(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR)),
+            background: Some(Background::Color(palette.background_main)),
             ..base
         },
         Status::Disabled => Style {
-            background: Some(Background::Color(style_conf::STYLE_DISABLED_BUTTON_COLOR)),
+            background: Some(Background::Color(palette.control_disabled)),
             ..base
         },
     }
@@ -70,10 +71,9 @@ pub fn button_entry(_theme: &Theme, status: button::Status) -> button::Style {
 
 pub fn button_entry_selected(_theme: &Theme, status: button::Status) -> button::Style {
     //let palette = theme.extended_palette();
+    let palette = style_conf::TirraPalette::LIGHT;
     let base = Style {
-        background: Some(Background::Color(
-            style_conf::STYLE_BUTTON_ENTRY_COLOR_SELECTED,
-        )),
+        background: Some(Background::Color(palette.background_main)),
         text_color: Color::BLACK,
         border: Border::default(),
         shadow: Shadow::default(),
@@ -82,11 +82,11 @@ pub fn button_entry_selected(_theme: &Theme, status: button::Status) -> button::
     match status {
         Status::Active | Status::Pressed => base,
         Status::Hovered => Style {
-            background: Some(Background::Color(style_conf::STYLE_EDITOR_BG_COLOR)),
+            background: Some(Background::Color(palette.background_main)),
             ..base
         },
         Status::Disabled => Style {
-            background: Some(Background::Color(style_conf::STYLE_DISABLED_BUTTON_COLOR)),
+            background: Some(Background::Color(palette.control_disabled)),
             ..base
         },
     }
