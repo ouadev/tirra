@@ -1,10 +1,40 @@
 use super::palette::Palette;
+use chrono::{Datelike, Local, Timelike};
 use iced::font::{Family, Stretch, Style, Weight};
 use iced::Font;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 static DARK_MODE_ENABLED: AtomicBool = AtomicBool::new(false);
 
+pub fn dark_mode_in_paris() -> () {
+    let paris = [
+        (8, 17),
+        (8, 18),
+        (7, 19),
+        (7, 21),
+        (6, 22),
+        (5, 22),
+        (6, 22),
+        (6, 22),
+        (7, 20),
+        (8, 19),
+        (7, 17),
+        (8, 17),
+    ];
+    // Calculate theme
+    let timenow = Local::now();
+    let month = timenow.month0() as usize;
+    let light = paris.get(month).unwrap();
+    let now_hour = timenow.hour();
+
+    let dark_mode = if now_hour > light.0 && now_hour < light.1 {
+        false
+    } else {
+        true
+    };
+
+    DARK_MODE_ENABLED.store(dark_mode, Ordering::Relaxed);
+}
 /**
 * set light/dark mode for the whole application.
 */

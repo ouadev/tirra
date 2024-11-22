@@ -90,6 +90,9 @@ impl TirraIced {
 
         let (login_page, _login_cmd) = LoginPage::new(&db_to_use);
 
+        // decide if dark_mode should be used by default.
+        style_conf::dark_mode_in_paris();
+
         //return
         (
             Self {
