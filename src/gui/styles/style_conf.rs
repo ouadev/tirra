@@ -1,12 +1,26 @@
 use super::palette::Palette;
 use iced::font::{Family, Stretch, Style, Weight};
 use iced::Font;
+use std::sync::atomic::{AtomicBool, Ordering};
 
+static DARK_MODE_ENABLED: AtomicBool = AtomicBool::new(false);
+
+/**
+* set light/dark mode for the whole application.
+*/
+pub fn toggle_theme() {
+    let current = DARK_MODE_ENABLED.load(Ordering::Relaxed);
+    DARK_MODE_ENABLED.store(!current, Ordering::Relaxed);
+}
 /**
 * Return the current Palette of colors to paint the UI.
 */
 pub fn palette() -> Palette {
-    Palette::DARK
+    if DARK_MODE_ENABLED.load(Ordering::Relaxed) {
+        Palette::DARK
+    } else {
+        Palette::LIGHT_CATPPUCCIN
+    }
 }
 // Font families for different use cases.
 pub const FONT_FAMILY_DEFAULT: Family = Family::SansSerif;
@@ -53,7 +67,7 @@ pub const FONT_STATUS_DATE_BOLD: Font = Font {
 };
 
 // Text Sizes
-pub const STYLE_TEXT_SIZE_EDITOR: iced::Pixels = iced::Pixels(23.0);
+pub const STYLE_TEXT_SIZE_EDITOR: iced::Pixels = iced::Pixels(21.0);
 pub const STYLE_TEXT_SIZE_NORMAL: iced::Pixels = iced::Pixels(15.);
 pub const STYLE_TEXT_SIZE_COMMAND: iced::Pixels = iced::Pixels(20.);
 pub const STYLE_TEXT_SIZE_EDITOR_STATUS_HIGHLIGHT: iced::Pixels = iced::Pixels(15.);

@@ -73,6 +73,7 @@ enum Message {
     PeriodicTick,
     CtrlS,
     CtrlP,
+    CtrlN,
     Editor(editor::Message),
     Login(login::Message),
     IgnoredEvent(Event),
@@ -146,6 +147,10 @@ impl TirraIced {
                     Task::none()
                 }
             }
+            Message::CtrlN => {
+                style_conf::toggle_theme();
+                Task::none()
+            }
             Message::Editor(msg) => {
                 if self.logged_in {
                     self.editor_page
@@ -215,6 +220,7 @@ impl TirraIced {
         let kb_event = keyboard::on_key_press(|key, modifiers| match key.as_ref() {
             keyboard::Key::Character("s") if modifiers.command() => Some(Message::CtrlS),
             keyboard::Key::Character("p") if modifiers.command() => Some(Message::CtrlP),
+            keyboard::Key::Character("n") if modifiers.command() => Some(Message::CtrlN),
             _ => None,
         });
 
