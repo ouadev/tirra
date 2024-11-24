@@ -13,7 +13,7 @@ path = "src/bin/cli.rs"
 
 [dependencies]
 # ICED
-iced = {version = "0.13.1", features = ["highlighter", "tokio", "debug"]}
+iced = { version = "0.13.1", features = ["highlighter", "tokio", "debug"] }
 
 # Sqlite Database
 rusqlite = { version = "0.32.0", features = ["bundled"] }
@@ -27,12 +27,12 @@ rand = "0.8.5"
 pbkdf2 = { version = "0.12", features = ["simple"] }
 sha2 = "0.10.8"
 
-
-
+# Unicode Text Handling
+unicode-segmentation = "1.12.0"
 
 
 [profile.release]
-strip = true  # Automatically strip symbols from the binary.
+strip = true    # Automatically strip symbols from the binary.
 panic = "abort"
 opt-level = "z"
 lto = true
