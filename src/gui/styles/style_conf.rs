@@ -58,6 +58,8 @@ pub const FONT_FAMILY_DEFAULT: Family = Family::SansSerif;
 pub const FONT_FAMILY_EDIITING: Family = Family::Name("Georgia");
 #[cfg(target_os = "linux")]
 pub const FONT_FAMILY_EDIITING: Family = Family::Name("DejaVu Serif");
+#[cfg(target_os = "windows")]
+pub const FONT_FAMILY_EDIITING: Family = Family::Name("Arial");
 pub const FONT_FAMILY_STATUS: Family = FONT_FAMILY_DEFAULT;
 pub const FONT_FAMILY_COMMAND: Family = Family::Monospace;
 

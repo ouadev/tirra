@@ -21,6 +21,7 @@ pub enum TirraDbError {
     DbOpenFailure,
     DbCloseFailure,
     DbInitError,
+    DbRemoveFileError,
     DbRequestError,
 }
 
@@ -43,12 +44,15 @@ pub fn tirra_db_init(crypto: &TirraCrypto) -> Result<(), TirraDbError> {
     )
     .map_err(|_e| TirraDbError::DbInitError)?;
 
+    db.close().map_err(|_e| TirraDbError::DbInitError)?;
+
     //encrypt db
     crypto
         .tirra_encrypt_db()
         .map_err(|_e| TirraDbError::DbInitError)?;
 
-    fs::remove_file(crypto.plaintext_db_location()).map_err(|_e| TirraDbError::DbInitError)?;
+    fs::remove_file(crypto.plaintext_db_location())
+        .map_err(|_e| TirraDbError::DbRemoveFileError)?;
 
     Ok(())
 }
@@ -128,8 +132,8 @@ pub fn tirra_db_add_entry(
     let now = tirra_db_time_now();
     //save
     db.execute(
-        "INSERT INTO entries 
-        (date_create, date_modify, type, text) VALUES 
+        "INSERT INTO entries
+        (date_create, date_modify, type, text) VALUES
         ( ?1, ?2, ?3, ?4)",
         params![now, now, type_entry, text_entry],
     )
@@ -152,8 +156,8 @@ pub fn tirra_db_add_entry_migration(
     let db = tirra_db_access_start(crypto)?;
     //save
     db.execute(
-        "INSERT INTO entries 
-        (date_create, date_modify, type, text) VALUES 
+        "INSERT INTO entries
+        (date_create, date_modify, type, text) VALUES
         ( ?1, ?2, ?3, ?4)",
         params![create_date, create_date, type_entry, text_entry],
     )
@@ -191,9 +195,9 @@ pub fn tirra_db_update_entry(
 
     //save
     db.execute(
-        "UPDATE entries SET 
+        "UPDATE entries SET
         date_modify = ?1,
-        text        = ?2 
+        text        = ?2
         WHERE id    = ?3",
         (now, text_entry, entry_id),
     )
@@ -220,13 +224,13 @@ pub fn tirra_db_get_all_entries(
 
     {
         let sql = format!(
-            "SELECT 
-            id, 
-            date_create, 
-            date_modify, 
-            type, 
-            text 
-            FROM entries 
+            "SELECT
+            id,
+            date_create,
+            date_modify,
+            type,
+            text
+            FROM entries
             {}",
             filter
         );

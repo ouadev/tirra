@@ -1,0 +1,5 @@
+Instruction to cross-compile Tirra for Windows on MacOS.
+
+. use rustup to add windows target files. [missing command]
+. Install build tools : brew install mingw-w64
+. Build : cargo build --target x86_64-pc-windows-gnu --profile release --bin gui

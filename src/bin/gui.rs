@@ -17,6 +17,12 @@ use tirra::gui::styles::style_conf;
 
 // Constants
 const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
+#[cfg(target_os = "linux")]
+const TIRRA_HOME_DIR_PATH: &str = "HOME";
+#[cfg(target_os = "macos")]
+const TIRRA_HOME_DIR_PATH: &str = "HOME";
+#[cfg(target_os = "windows")]
+const TIRRA_HOME_DIR_PATH: &str = "USERPROFILE";
 
 // String : database (plaintext) locationPixels
 
@@ -263,6 +269,6 @@ fn current_timestamp() -> i64 {
 
 fn default_user_db_path() -> String {
     // pick up HOME environment variable.
-    let home_path = env::var("HOME").unwrap();
+    let home_path = env::var(TIRRA_HOME_DIR_PATH).unwrap();
     format!("{}/awal.tirra", home_path)
 }
