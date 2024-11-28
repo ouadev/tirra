@@ -22,3 +22,7 @@ done
 #mv $output_path ~/Desktop/icon.iconset
 iconutil -c icns $macos_out_dir
 #rm -r ~/Desktop/icon.iconset
+
+
+# Generate Windows icon
+convert $src -define icon:auto-resize=512,256,128,64,48,32,16 -flatten -colors 256 -background transparent windows/tirra.exe.ico

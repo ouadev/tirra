@@ -1,3 +1,4 @@
+#![windows_subsystem = "windows"]
 use std::env;
 
 use crate::widget::text_input;
