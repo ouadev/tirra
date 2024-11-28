@@ -14,7 +14,7 @@ use chrono::Datelike;
 use chrono::Timelike;
 use chrono::{DateTime, Utc};
 
-use unicode_segmentation::UnicodeSegmentation;
+//use unicode_segmentation::UnicodeSegmentation;
 
 pub struct EditorPage {
     pub content: text_editor::Content,
@@ -177,8 +177,7 @@ impl EditorPage {
         //DIV : list of entries
         let div_entries = column(
             self.entries.iter().map(|ent| {
-                let title = EditorPage::calc_title(ent, 30);
-                println!("title in cli: {}", title);
+                let title = EditorPage::entry_title(ent, 30);
                 let link_text = text(title)
                     .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
                     .shaping(text::Shaping::Advanced);
@@ -435,40 +434,41 @@ impl EditorPage {
         id
     }
 
-    fn calc_title(entry: &TirraEntry, max_chars: usize) -> &str {
-        let mut last_index: usize = 0;
-        let mut first_index: usize = 0;
-        let mut first_found = false;
-        let mut collected: usize = 0;
-        let text_str = entry.text.as_str();
-        let graphems = UnicodeSegmentation::grapheme_indices(text_str, true);
-        //
+    /*
+        fn calc_title(entry: &TirraEntry, max_chars: usize) -> &str {
+            let mut last_index: usize = 0;
+            let mut first_index: usize = 0;
+            let mut first_found = false;
+            let mut collected: usize = 0;
+            let text_str = entry.text.as_str();
+            let graphems = UnicodeSegmentation::grapheme_indices(text_str, true);
+            //
 
-        for (i, gr_ind) in graphems.enumerate() {
-            if !first_found && gr_ind.1 != " " && gr_ind.1 != "\n" {
-                first_found = true;
-                first_index = i;
+            for (i, gr_ind) in graphems.enumerate() {
+                if !first_found && gr_ind.1 != " " && gr_ind.1 != "\n" {
+                    first_found = true;
+                    first_index = i;
+                }
+
+                if first_found && (collected == max_chars || gr_ind.1 == "\n") {
+                    break;
+                }
+
+                if first_found {
+                    collected += 1;
+                }
+
+                last_index = gr_ind.0;
             }
 
-            if first_found && (collected == max_chars || gr_ind.1 == "\n") {
-                break;
+            if collected != 0 {
+                &entry.text[first_index..last_index]
+            } else {
+                "..."
             }
-
-            if first_found {
-                collected += 1;
-            }
-
-            last_index = gr_ind.0;
+            //
         }
-
-        if collected != 0 {
-            &entry.text[first_index..last_index]
-        } else {
-            "..."
-        }
-        //
-    }
-
+    */
     fn entry_title(entry: &TirraEntry, max_chars: u8) -> &str {
         let mut last_index: usize = 0;
         let mut first_index: usize = 0;
