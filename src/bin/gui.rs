@@ -1,5 +1,6 @@
 #![windows_subsystem = "windows"]
 use std::env;
+use std::path::Path;
 
 use crate::widget::text_input;
 use chrono::Utc;
@@ -24,6 +25,7 @@ const TIRRA_HOME_DIR_PATH: &str = "HOME";
 const TIRRA_HOME_DIR_PATH: &str = "HOME";
 #[cfg(target_os = "windows")]
 const TIRRA_HOME_DIR_PATH: &str = "USERPROFILE";
+const TIRRA_DEFAULT_DB_NAME: &str = "awal.tirra";
 
 // String : database (plaintext) locationPixels
 
@@ -271,5 +273,10 @@ fn current_timestamp() -> i64 {
 fn default_user_db_path() -> String {
     // pick up HOME environment variable.
     let home_path = env::var(TIRRA_HOME_DIR_PATH).unwrap();
-    format!("{}/awal.tirra", home_path)
+    let db_path = Path::new(home_path.as_str()).join(TIRRA_DEFAULT_DB_NAME);
+    format!("{}/awal.tirra", home_path);
+    match db_path.to_str() {
+        None => String::from(TIRRA_DEFAULT_DB_NAME), // create default db in the same directory as the binary file.
+        Some(path) => String::from(path),
+    }
 }
