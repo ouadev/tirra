@@ -1,4 +1,5 @@
 #![windows_subsystem = "windows"]
+use std::collections::HashMap;
 use std::env;
 use std::path::Path;
 
@@ -83,9 +84,11 @@ enum Message {
     CtrlS,
     CtrlP,
     CtrlN,
+    CtrlK,
     Editor(editor::Message),
     Login(login::Message),
     IgnoredEvent(Event),
+    HttpsGetDone(String),
 }
 
 impl TirraIced {
@@ -163,6 +166,31 @@ impl TirraIced {
                 style_conf::toggle_theme();
                 Task::none()
             }
+
+            Message::CtrlK => {
+                return Task::perform(
+                    async move {
+                        // Build the client using the builder pattern
+                        let client = reqwest::Client::builder().build().unwrap();
+                        // Perform the actual execution of the network request
+                        let res = client.get("https://httpbin.org/ip").send().await.unwrap();
+                        // Parse the response body as Json in this case
+                        let ip = res.json::<HashMap<String, String>>().await.unwrap();
+
+                        match ip.get("origin") {
+                            Some(val) => val.clone(),
+                            None => String::from("voidip"),
+                        }
+                    },
+                    |value: String| Message::HttpsGetDone(value),
+                );
+            }
+
+            Message::HttpsGetDone(str_ip) => {
+                println!("Retrieved IP = {}", str_ip);
+                Task::none()
+            }
+
             Message::Editor(msg) => {
                 if self.logged_in {
                     self.editor_page
@@ -233,6 +261,7 @@ impl TirraIced {
             keyboard::Key::Character("s") if modifiers.command() => Some(Message::CtrlS),
             keyboard::Key::Character("p") if modifiers.command() => Some(Message::CtrlP),
             keyboard::Key::Character("n") if modifiers.command() => Some(Message::CtrlN),
+            keyboard::Key::Character("k") if modifiers.command() => Some(Message::CtrlK),
             _ => None,
         });
 
