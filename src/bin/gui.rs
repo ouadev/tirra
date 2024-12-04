@@ -1,5 +1,4 @@
 #![windows_subsystem = "windows"]
-use std::collections::HashMap;
 use std::env;
 use std::path::Path;
 
@@ -17,6 +16,7 @@ extern crate tirra;
 use tirra::gui::pages::editor::{self, EditorPage};
 use tirra::gui::pages::login::{self, LoginPage};
 use tirra::gui::styles::style_conf;
+use tirra::storage::sync::sync_download;
 
 // Constants
 const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
@@ -168,22 +168,9 @@ impl TirraIced {
             }
 
             Message::CtrlK => {
-                return Task::perform(
-                    async move {
-                        // Build the client using the builder pattern
-                        let client = reqwest::Client::builder().build().unwrap();
-                        // Perform the actual execution of the network request
-                        let res = client.get("https://httpbin.org/ip").send().await.unwrap();
-                        // Parse the response body as Json in this case
-                        let ip = res.json::<HashMap<String, String>>().await.unwrap();
-
-                        match ip.get("origin") {
-                            Some(val) => val.clone(),
-                            None => String::from("voidip"),
-                        }
-                    },
-                    |value: String| Message::HttpsGetDone(value),
-                );
+                return Task::perform(sync_download(), |value: String| {
+                    Message::HttpsGetDone(value)
+                });
             }
 
             Message::HttpsGetDone(str_ip) => {
