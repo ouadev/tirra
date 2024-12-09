@@ -16,7 +16,7 @@ extern crate tirra;
 use tirra::gui::pages::editor::{self, EditorPage};
 use tirra::gui::pages::login::{self, LoginPage};
 use tirra::gui::styles::style_conf;
-use tirra::storage::sync::sync_download;
+use tirra::storage::sync;
 
 // Constants
 const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
@@ -168,7 +168,7 @@ impl TirraIced {
             }
 
             Message::CtrlK => {
-                return Task::perform(sync_download(), |value: String| {
+                return Task::perform(sync::sync_download(), |value: String| {
                     Message::HttpsGetDone(value)
                 });
             }
