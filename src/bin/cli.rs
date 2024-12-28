@@ -6,11 +6,14 @@ extern crate tirra;
 use tirra::storage::{db, tirracrypto::TirraCrypto};
 
 const USAGE_STR: &str = "Usage:
-cli add     DB_FILE PWD DATE
-cli delete  DB_FILE PWD ID
-cli stat    DB_FILE PWD
-cli decrypt DB_FILE
-cli encrypt DB_FILE DB_FILE_PLAIN";
+cli add     DB_FILE PWD_FILE DATE
+cli delete  DB_FILE PWD_FILE ID
+cli stat    DB_FILE PWD_FILE
+cli decrypt DB_FILE PWD_FILE
+cli encrypt DB_FILE PWD_FILE DB_FILE_PLAIN
+
+Arguments File: /tmp/tirra-transfer.txt 
+";
 
 #[derive(PartialEq)]
 enum CliAction {
@@ -25,7 +28,7 @@ pub fn main() -> () {
     println!(" - Tirra CLI - ");
 
     let db_to_use;
-    let pwd: String;
+    let pwd_file: String;
     let timestamp: u64;
     let id: u32;
     // check arguments
@@ -52,11 +55,14 @@ pub fn main() -> () {
         }
 
         db_to_use = String::from(&args[2]);
-        pwd = String::from(&args[3]);
+        pwd_file = String::from(&args[3]);
         timestamp = args[4].parse().unwrap();
 
+        // Get Password
+        let pwd = read_pwd_file(&pwd_file);
+
         //Init Crypto
-        let tirra_crypto = TirraCrypto::new(&db_to_use, &pwd.into_bytes());
+        let tirra_crypto = TirraCrypto::new(&db_to_use, &pwd);
 
         //check if the database if found.
         if tirra_crypto.enc_db_found() == false {
@@ -80,11 +86,14 @@ pub fn main() -> () {
         }
 
         db_to_use = String::from(&args[2]);
-        pwd = String::from(&args[3]);
+        pwd_file = String::from(&args[3]);
         id = args[4].parse().unwrap();
 
+        // Get Password
+        let pwd = read_pwd_file(&pwd_file);
+
         //Init Crypto
-        let tirra_crypto = TirraCrypto::new(&db_to_use, &pwd.into_bytes());
+        let tirra_crypto = TirraCrypto::new(&db_to_use, &pwd);
 
         //check if the database if found.
         if tirra_crypto.enc_db_found() == false {
@@ -98,36 +107,38 @@ pub fn main() -> () {
         }
 
         db_to_use = String::from(&args[2]);
-        pwd = String::from(&args[3]);
+        pwd_file = String::from(&args[3]);
+
+        // Get Password
+        let pwd = read_pwd_file(&pwd_file);
 
         //Init Crypto
-        let tirra_crypto = TirraCrypto::new(&db_to_use, &pwd.into_bytes());
+        let tirra_crypto = TirraCrypto::new(&db_to_use, &pwd);
 
         //check if the database if found.
         if tirra_crypto.enc_db_found() == false {
             panic!("we are not supposed to be here without an encrypted database");
         }
 
-        // Test Access
+        // Get Entries
         let def_req = db::tirra_db_default_read_req();
         let all_entries = db::tirra_db_get_all_entries(&tirra_crypto, &def_req)
             .expect("Error loading entries from database");
 
         println!("number of entries: {}", all_entries.len());
     } else if cli_action == CliAction::Decrypt {
-        if args_count != 3 {
+        if args_count != 4 {
             panic!("{}", USAGE_STR);
         }
 
         db_to_use = String::from(&args[2]);
+        pwd_file = String::from(&args[3]);
 
-        // Read the content of a file, and add an entry
-        let mut tx_file = File::open("/tmp/tirra-transfer.txt").unwrap();
-        let mut content_pwd = Vec::new();
-        tx_file.read_to_end(&mut content_pwd).unwrap();
+        // Get Password
+        let pwd = read_pwd_file(&pwd_file);
 
         //Init Crypto
-        let tirra_crypto = TirraCrypto::new(&db_to_use, &content_pwd);
+        let tirra_crypto = TirraCrypto::new(&db_to_use, &pwd);
 
         //check if the database if found.
         if tirra_crypto.enc_db_found() == false {
@@ -136,20 +147,19 @@ pub fn main() -> () {
 
         let _ = db::tirra_db_reveal_to_disk(&tirra_crypto);
     } else if cli_action == CliAction::Encrypt {
-        if args_count != 4 {
+        if args_count != 5 {
             panic!("{}", USAGE_STR);
         }
 
         db_to_use = String::from(&args[2]);
-        let db_plain = String::from(&args[3]);
+        pwd_file = String::from(&args[3]);
+        let db_plain = String::from(&args[4]);
 
-        // Read the content of a file, and add an entry
-        let mut tx_file = File::open("/tmp/tirra-transfer.txt").unwrap();
-        let mut content_pwd = Vec::new();
-        tx_file.read_to_end(&mut content_pwd).unwrap();
+        // Get Password
+        let pwd = read_pwd_file(&pwd_file);
 
         //Init Crypto
-        let tirra_crypto = TirraCrypto::new(&db_to_use, &content_pwd);
+        let tirra_crypto = TirraCrypto::new(&db_to_use, &pwd);
 
         //check if the database if found.
         if tirra_crypto.enc_db_found() == true {
@@ -158,4 +168,12 @@ pub fn main() -> () {
 
         let _ = db::tirra_db_encrypt_plain_db_file(&tirra_crypto, &db_plain);
     }
+}
+
+fn read_pwd_file(pwd_file: &str) -> Vec<u8> {
+    let mut tx_file = File::open(pwd_file).unwrap();
+    let mut content_pwd = Vec::new();
+    tx_file.read_to_end(&mut content_pwd).unwrap();
+
+    content_pwd
 }
