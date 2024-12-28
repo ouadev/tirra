@@ -126,6 +126,18 @@ pub fn main() -> () {
             .expect("Error loading entries from database");
 
         println!("number of entries: {}", all_entries.len());
+
+        // Print Info Block
+        let info_result = db::tirra_db_information(&tirra_crypto);
+        match info_result {
+            Ok(info) => {
+                db::db_information_debug(&info);
+            }
+            Err(_) => {
+                println!("error reading information block");
+            }
+        }
+        
     } else if cli_action == CliAction::Decrypt {
         if args_count != 4 {
             panic!("{}", USAGE_STR);
