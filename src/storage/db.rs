@@ -319,6 +319,13 @@ pub fn tirra_db_information(crypto: &TirraCrypto) -> Result<TirraDbInformation, 
 }
 
 /**
+ * get the database ID. it should be unique if different people use the same database.
+ * Note: for now one user is supported.
+ */
+pub fn tirra_db_id(_crypto: &TirraCrypto) -> u64 {
+    1u64
+}
+/**
  *
  * Root Access DB functions: priviliged access to the database. Used by CLI.
  *

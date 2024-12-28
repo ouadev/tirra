@@ -16,7 +16,6 @@ extern crate tirra;
 use tirra::gui::pages::editor::{self, EditorPage};
 use tirra::gui::pages::login::{self, LoginPage};
 use tirra::gui::styles::style_conf;
-use tirra::storage::sync;
 
 // Constants
 const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
@@ -88,7 +87,6 @@ enum Message {
     Editor(editor::Message),
     Login(login::Message),
     IgnoredEvent(Event),
-    HttpsGetDone(String),
 }
 
 impl TirraIced {
@@ -168,13 +166,7 @@ impl TirraIced {
             }
 
             Message::CtrlK => {
-                return Task::perform(sync::sync_download(), |value: String| {
-                    Message::HttpsGetDone(value)
-                });
-            }
-
-            Message::HttpsGetDone(str_ip) => {
-                println!("Retrieved IP = {}", str_ip);
+                println!("Ctrl+K : Placeholder for testing commands");
                 Task::none()
             }
 
@@ -290,7 +282,6 @@ fn default_user_db_path() -> String {
     // pick up HOME environment variable.
     let home_path = env::var(TIRRA_HOME_DIR_PATH).unwrap();
     let db_path = Path::new(home_path.as_str()).join(TIRRA_DEFAULT_DB_NAME);
-    format!("{}/awal.tirra", home_path);
     match db_path.to_str() {
         None => String::from(TIRRA_DEFAULT_DB_NAME), // create default db in the same directory as the binary file.
         Some(path) => String::from(path),

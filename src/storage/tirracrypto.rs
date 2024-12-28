@@ -12,7 +12,7 @@ const NONCE: [u8; 12] = [
 const PBKDF2_SALT: [u8; 8] = [0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0x65];
 const PBKDF2_ITERATIONS: u32 = 600u32;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TirraSecrets {
     pub key: [u8; 32],
     pub nonce: [u8; 12],
@@ -74,8 +74,23 @@ impl TirraCrypto {
         key_nonce_struct
     }
 
+    /**
+     * clone for a new path
+     */
+    pub fn clone_new_db_location(&self, new_location: &str) -> Self {
+        Self {
+            db_location: new_location.to_string(),
+            db_location_pt: format!("{}.{}", &new_location, "plaintext"),
+            secrets: self.secrets.clone(),
+        }
+    }
+
     pub fn enc_db_found(&self) -> bool {
         Path::new(&self.db_location).exists()
+    }
+
+    pub fn get_db_location(&self) -> String {
+        self.db_location.clone()
     }
     /**
      * Encrypt Db

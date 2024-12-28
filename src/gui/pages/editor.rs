@@ -1,5 +1,6 @@
 use crate::gui::styles::{self, style_conf};
 use crate::storage::db::{self, TirraEntry};
+use crate::storage::sync::{self, SyncDecision, SyncState};
 use crate::storage::tirracrypto::TirraCrypto;
 use iced::theme::Theme;
 use iced::widget::{
@@ -24,6 +25,7 @@ pub struct EditorPage {
     cmd_line_show: bool,
     cmd_line_text: String,
     load_request: String,
+    sync_status: String,
     pub crypto: TirraCrypto,
 }
 
@@ -36,6 +38,8 @@ pub enum Message {
     NewEntryButtonClicked,
     CommandLineSubmited,
     CommandLineInputChanged(String),
+    SyncFetchDone(sync::SyncState),
+    SyncPushDone(sync::SyncState),
 }
 impl EditorPage {
     pub fn new(db_location: &str, crypto_pwd: &[u8]) -> (Self, Task<Message>) {
@@ -52,6 +56,7 @@ impl EditorPage {
             .expect("Error loading entries from database");
         let init_content = text_editor::Content::with_text(&all_entries[0].text);
         let id = all_entries[0].id;
+        let our_db_id = db::tirra_db_id(&tirra_crypto);
 
         //return
         (
@@ -63,9 +68,12 @@ impl EditorPage {
                 cmd_line_show: false,
                 cmd_line_text: def_req.clone(),
                 load_request: def_req,
+                sync_status: String::from("not connected"),
                 crypto: tirra_crypto,
             },
-            Task::none(),
+            Task::perform(sync::sync_download(our_db_id), |value: sync::SyncState| {
+                Message::SyncFetchDone(value)
+            }),
         )
     }
 
@@ -139,10 +147,55 @@ impl EditorPage {
 
             Message::ShowCommandLine => {
                 self.cmd_line_show = !self.cmd_line_show;
+                let db_loc = self.crypto.get_db_location();
+
+                Task::perform(sync::sync_upload(1, db_loc), |value: sync::SyncState| {
+                    Message::SyncPushDone(value)
+                })
+            }
+
+            Message::SyncFetchDone(value) => {
+                self.sync_status = format!("{:?}", value);
+                // parse origin database information block
+                if value == SyncState::Fetched {
+                    if let Some(origin_info) = sync::sync_retrieve_information(&self.crypto) {
+                        if let Ok(local_info) = db::tirra_db_information(&self.crypto) {
+                            println!("Local DB Information:");
+                            db::db_information_debug(&local_info);
+                            println!("Origin DB Information:");
+                            db::db_information_debug(&origin_info);
+
+                            match sync::decision(&local_info, &origin_info) {
+                                SyncDecision::ChangeLocal => {
+                                    println!("sync: local db ready to be replaced");
+                                }
+                                SyncDecision::ChangeOrigin => {
+                                    println!("sync: local db ready to be pushed");
+                                }
+                                SyncDecision::Conflict => {
+                                    println!("sync: conflict !!!");
+                                }
+                                SyncDecision::ChangeCommits => {
+                                    println!("sync: Info Commits out of date, updating ...");
+                                }
+                            }
+                        }
+                    } else {
+                        println!("Sync DB doesn't have InfoBlock");
+                    }
+                }
+
+                Task::none()
+            }
+
+            Message::SyncPushDone(value) => {
+                self.sync_status = format!("{:?}", value);
+                println!("sync: pushing is done");
                 Task::none()
             }
         }
     }
+
     pub fn view(&self) -> Element<Message> {
         // DIV : Editor Text Zone + Command bar
         let div_editor = self.view_editor();
@@ -297,6 +350,24 @@ impl EditorPage {
             }
         });
 
+        // sync state
+        let div_sync_label = text("sync : ")
+            .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
+            .style(|_theme: &Theme| {
+                let palette = style_conf::palette();
+                text::Style {
+                    color: Some(palette.text),
+                }
+            });
+        let div_sync_status = text(format!("{}", self.sync_status))
+            .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
+            .style(|_theme: &Theme| {
+                let palette = style_conf::palette();
+                text::Style {
+                    color: Some(palette.text),
+                }
+            });
+
         // status bar
         container(row![
             Space::with_width(20),
@@ -311,6 +382,9 @@ impl EditorPage {
                     }
                 }),
             div_date_modify,
+            horizontal_space(),
+            div_sync_label,
+            div_sync_status,
             horizontal_space(),
             div_id
         ])

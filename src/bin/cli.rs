@@ -5,14 +5,16 @@ use std::io::Read;
 extern crate tirra;
 use tirra::storage::{db, tirracrypto::TirraCrypto};
 
-const USAGE_STR: &str = "Usage:
+const USAGE_STR: &str = "
+
+Usage:
 cli add     DB_FILE PWD_FILE DATE
 cli delete  DB_FILE PWD_FILE ID
 cli stat    DB_FILE PWD_FILE
 cli decrypt DB_FILE PWD_FILE
 cli encrypt DB_FILE PWD_FILE DB_FILE_PLAIN
 
-Arguments File: /tmp/tirra-transfer.txt 
+Entry Text Input: /tmp/tirra-transfer.txt 
 ";
 
 #[derive(PartialEq)]

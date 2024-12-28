@@ -1,45 +1,125 @@
-use reqwest::multipart;
+use reqwest::{multipart, StatusCode};
+use std::env;
 use std::io::Cursor;
+use std::path::Path;
 
-pub async fn sync_info() -> String {
-    let client = reqwest::Client::builder().build().unwrap();
-    let res = client
-        .get("http://localhost:8443/info")
-        .send()
-        .await
-        .unwrap();
-    format!("sync/info: {:?}", res.text().await)
+use super::db;
+use super::db::TirraDbInformation;
+use super::tirracrypto::TirraCrypto;
+
+const SYNC_URL_FOR_TESTING: &str = "http://localhost:8443";
+const SYNC_TMP_FILE: &str = "tirra.sync.db";
+
+#[derive(Debug, Clone, PartialEq)]
+
+pub enum SyncState {
+    Fetched,
+    Pushed,
+    LinkFailure,
+    DiskFailure,
+    DbNotFound,
 }
 
-pub async fn sync_download() -> String {
-    let client = reqwest::Client::builder().build().unwrap();
-    let res = client
-        .get("http://localhost:8443/fetch")
-        .send()
-        .await
-        .unwrap();
-
-    let mut file = std::fs::File::create("./REMOTE_test.tirra.db").unwrap();
-    let mut content = Cursor::new(res.bytes().await.unwrap());
-    std::io::copy(&mut content, &mut file).unwrap();
-
-    String::from("Downloaded ?")
+#[derive(Debug, Clone)]
+pub enum SyncDecision {
+    ChangeOrigin,
+    ChangeLocal,
+    Conflict,
+    ChangeCommits,
 }
 
-pub async fn sync_upload() -> String {
-    let form = multipart::Form::new()
-        .text("key", "value")
-        .file("files", "test.tirra.db")
-        .await
-        .unwrap();
-
+pub async fn sync_info(id: u64) -> String {
     let client = reqwest::Client::builder().build().unwrap();
+    let res = client.get(url_endpoint("info", id)).send().await.unwrap();
+    format!("{:?}", res.text().await)
+}
+
+pub async fn sync_download(id: u64) -> SyncState {
+    let client = reqwest::Client::builder().build().unwrap();
+    let response_result = client.get(url_endpoint("fetch", id)).send().await;
+
+    match response_result {
+        Ok(response) => {
+            if response.status() == StatusCode::OK {
+                // write file
+                let dl_db_path = origin_db_temp_file();
+                let mut file = std::fs::File::create(dl_db_path).unwrap();
+                let mut content = Cursor::new(response.bytes().await.unwrap());
+                std::io::copy(&mut content, &mut file).unwrap();
+
+                SyncState::Fetched
+            } else {
+                SyncState::DbNotFound
+            }
+        }
+        Err(_) => SyncState::LinkFailure,
+    }
+}
+
+pub async fn sync_upload(id: u64, db_location: String) -> SyncState {
+    let form_result = multipart::Form::new()
+        //.text("key", "value")
+        .file("files", db_location)
+        .await;
+
+    let Ok(form) = form_result else {
+        return SyncState::DiskFailure;
+    };
+
+    let Ok(client) = reqwest::Client::builder().build() else {
+        return SyncState::DiskFailure;
+    };
+
     let res = client
-        .post("http://localhost:8443/push")
+        .post(url_endpoint("push", id))
         .multipart(form)
         .send()
-        .await
-        .unwrap();
+        .await;
+    if res.is_ok() {
+        return SyncState::Pushed;
+    } else {
+        return SyncState::LinkFailure;
+    }
+}
 
-    format!("sync/push: {:?}", res.text().await)
+/**
+ * retrieve origin db information.
+ * @param local_crypto: the crypto instance used to decrypt local database file.
+ */
+pub fn sync_retrieve_information(local_crypto: &TirraCrypto) -> Option<TirraDbInformation> {
+    let sync_crypto = local_crypto.clone_new_db_location(origin_db_temp_file().as_str());
+    let info_result = db::tirra_db_information(&sync_crypto);
+    match info_result {
+        Ok(info) => Some(info),
+        Err(_) => None,
+    }
+}
+
+pub fn decision(ours: &TirraDbInformation, theirs: &TirraDbInformation) -> SyncDecision {
+    if ours.local_commit == ours.origin_commit {
+        return SyncDecision::ChangeLocal;
+    } else {
+        if ours.origin_commit == theirs.local_commit {
+            return SyncDecision::ChangeOrigin;
+        } else if ours.local_commit == theirs.local_commit
+            && ours.origin_commit == theirs.origin_commit
+        {
+            return SyncDecision::ChangeCommits;
+        }
+        return SyncDecision::Conflict;
+    }
+}
+
+fn url_endpoint(resource: &str, db_id: u64) -> String {
+    format!("{}/{}?id={}", SYNC_URL_FOR_TESTING, resource, db_id)
+}
+
+fn origin_db_temp_file() -> String {
+    let tmp_dir = env::temp_dir();
+    let tmp_path = Path::new(&tmp_dir).join(SYNC_TMP_FILE);
+
+    match tmp_path.to_str() {
+        Some(tmp_file) => String::from(tmp_file),
+        None => String::from(SYNC_TMP_FILE),
+    }
 }
