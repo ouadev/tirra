@@ -113,8 +113,14 @@ pub fn decision(ours: &TirraDbInformation, theirs: &TirraDbInformation) -> SyncD
 pub fn info_sync_debug(info: &TirraDbInformation) {
     // local : xxxxxxxx
     // origin: yyyyyyy
-    let local_commit = db::commit_id_string(info.local_commit.clone().unwrap());
-    let origin_commit = db::commit_id_string(info.origin_commit.clone().unwrap());
+    let local_commit = match &info.local_commit {
+        Some(c) => db::commit_id_string(&c),
+        _ => String::from("empty"),
+    };
+    let origin_commit = match &info.origin_commit {
+        Some(c) => db::commit_id_string(&c),
+        _ => String::from("empty"),
+    };
 
     println!(
         "local : {}\norigin: {}",

@@ -513,7 +513,7 @@ fn information_commit(
     Ok(())
 }
 
-pub fn commit_id_string(commit_id: Vec<u8>) -> String {
+pub fn commit_id_string(commit_id: &Vec<u8>) -> String {
     let mut commit_str = String::new();
     for byte in commit_id.iter() {
         commit_str.push_str(format!("{:02x?}", byte).as_str());
@@ -522,21 +522,26 @@ pub fn commit_id_string(commit_id: Vec<u8>) -> String {
 }
 
 pub fn db_information_debug(info: &TirraDbInformation) {
+    let commit_str_local = match &info.local_commit {
+        Some(c) => commit_id_string(&c),
+        _ => String::from("empty"),
+    };
+    let commit_str_origin = match &info.origin_commit {
+        Some(c) => commit_id_string(&c),
+        _ => String::from("empty"),
+    };
+
     println!("database information:");
     println!("---------------------");
     println!("schema version\t: {}", info.schema_ver);
     println!(
         "local commit:\n\tid:\t{}\n\tAuthor: {}\n\tDate:\t{}",
-        commit_id_string(info.local_commit.clone().unwrap()),
-        info.local_source,
-        info.local_ts
+        commit_str_local, info.local_source, info.local_ts
     );
     print!("");
     println!(
         "origin commit:\n\tid:\t{}\n\tAuthor: {}\n\tDate:\t{}",
-        commit_id_string(info.origin_commit.clone().unwrap()),
-        info.origin_source,
-        info.origin_ts
+        commit_str_origin, info.origin_source, info.origin_ts
     );
     println!("");
 }
