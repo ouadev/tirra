@@ -274,6 +274,7 @@ pub fn tirra_db_found(db_enc_loc: &str) -> bool {
  */
 pub fn tirra_db_information(crypto: &TirraCrypto) -> Result<TirraDbInformation, TirraDbError> {
     let db = access_start(crypto)?;
+    let result: Result<TirraDbInformation, TirraDbError>;
 
     {
         let sql = format!(
@@ -312,10 +313,14 @@ pub fn tirra_db_information(crypto: &TirraCrypto) -> Result<TirraDbInformation, 
             .map_err(|_e| TirraDbError::DbRequestError)?;
 
         match info_iter.next() {
-            Some(info_row) => Ok(info_row.unwrap()),
-            None => Err(TirraDbError::DbRequestError),
+            Some(info_row) => {
+                result = info_row.map_err(|_e| TirraDbError::DbRequestError);
+            }
+            None => result = Err(TirraDbError::DbRequestError),
         }
     }
+    access_stop(db, crypto)?;
+    result
 }
 
 /**
