@@ -45,6 +45,9 @@ pub enum TirraDbError {
     DbInitError,
     DbRemoveFileError,
     DbRequestError,
+    DbRequestErrorPrepare,
+    DbRequestErrorQuery,
+    DbRequestErrorIter,
 }
 
 /**
@@ -153,7 +156,7 @@ pub fn tirra_db_update_entry(
         .commit()
         .map_err(|_e| TirraDbError::DbRequestError)?;
 
-    access_stop(db, crypto)?;
+    access_stop(crypto)?;
 
     Ok(())
 }
@@ -183,7 +186,7 @@ pub fn tirra_db_remove_entry(id_entry: u32, crypto: &TirraCrypto) -> Result<(), 
         .commit()
         .map_err(|_e| TirraDbError::DbRequestError)?;
 
-    access_stop(db, crypto)?;
+    access_stop(crypto)?;
 
     Ok(())
 }
@@ -228,30 +231,37 @@ pub fn tirra_db_get_all_entries(
             filter
         );
 
-        let mut stmt = db
-            .prepare(&sql)
-            .map_err(|_e| TirraDbError::DbRequestError)?;
+        let Ok(mut stmt) = db.prepare(&sql) else {
+            access_stop(crypto)?;
+            return Err(TirraDbError::DbRequestErrorPrepare);
+        };
 
-        let entry_iter = stmt
-            .query_map([], |row| {
-                Ok(TirraEntry {
-                    id: row.get(0)?,
-                    date_create: row.get(1)?,
-                    date_modify: row.get(2)?,
-                    type_entry: row.get(3)?,
-                    text: row.get(4)?,
-                })
+        let entry_iter = match stmt.query_map([], |row| {
+            Ok(TirraEntry {
+                id: row.get(0)?,
+                date_create: row.get(1)?,
+                date_modify: row.get(2)?,
+                type_entry: row.get(3)?,
+                text: row.get(4)?,
             })
-            .map_err(|_e| TirraDbError::DbRequestError)?;
+        }) {
+            Ok(iter) => iter,
+            Err(_) => {
+                access_stop(crypto)?;
+                return Err(TirraDbError::DbRequestErrorQuery);
+            }
+        };
 
         for entry in entry_iter {
-            let entry_unwrapped = entry.unwrap();
-            vec_entries.push(entry_unwrapped);
+            if let Ok(entry_ok) = entry {
+                vec_entries.push(entry_ok);
+            } else {
+                access_stop(crypto)?;
+                return Err(TirraDbError::DbRequestErrorIter);
+            }
         }
     }
-
-    access_stop(db, crypto)?;
-
+    access_stop(crypto)?;
     return Ok(vec_entries);
 }
 
@@ -319,7 +329,7 @@ pub fn tirra_db_information(crypto: &TirraCrypto) -> Result<TirraDbInformation, 
             None => result = Err(TirraDbError::DbRequestError),
         }
     }
-    access_stop(db, crypto)?;
+    access_stop(crypto)?;
     result
 }
 
@@ -429,8 +439,8 @@ fn access_start(crypto: &TirraCrypto) -> Result<Connection, TirraDbError> {
 /**
  * Stop access to db, close connection and remove plaintext file.
  */
-fn access_stop(db: Connection, crypto: &TirraCrypto) -> Result<(), TirraDbError> {
-    db.close().map_err(|_e| TirraDbError::DbCloseFailure)?;
+fn access_stop(crypto: &TirraCrypto) -> Result<(), TirraDbError> {
+    //db.close().map_err(|_e| TirraDbError::DbCloseFailure)?;
     //re-encrypt db
     crypto
         .tirra_encrypt_db()
@@ -477,7 +487,7 @@ fn add_entry(
         .commit()
         .map_err(|_e| TirraDbError::DbRequestError)?;
 
-    access_stop(db, crypto)?;
+    access_stop(crypto)?;
 
     Ok(())
 }
