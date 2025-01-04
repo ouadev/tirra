@@ -132,14 +132,28 @@ impl TirraIced {
     fn update(&mut self, message: Message) -> Task<Message> {
         //process message
         match message {
-            Message::PeriodicTick | Message::CtrlS => {
+            Message::PeriodicTick => {
                 if self.logged_in {
+                    // inactivity
                     if current_timestamp() - self.last_act > TIRRA_INACTIVITY_SECONDS {
                         println!("Inactivity: logging out");
                         self.logged_in = false;
                         let (login_page, _login_cmd) = LoginPage::new(&self.db_location);
                         self.login_page = login_page;
+                        // TODO: make sure the Editor and its content are destroyed !!
                     }
+                    // trigger a file save
+                    self.editor_page
+                        .as_mut()
+                        .unwrap()
+                        .update(editor::Message::Tick)
+                        .map(Message::Editor)
+                } else {
+                    Task::none()
+                }
+            }
+            Message::CtrlS => {
+                if self.logged_in {
                     self.editor_page
                         .as_mut()
                         .unwrap()

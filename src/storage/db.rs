@@ -498,7 +498,7 @@ fn information_commit(
     Ok(())
 }
 
-fn commit_id_string(commit_id: Vec<u8>) -> String {
+pub fn commit_id_string(commit_id: Vec<u8>) -> String {
     let mut commit_str = String::new();
     for byte in commit_id.iter() {
         commit_str.push_str(format!("{:02x?}", byte).as_str());

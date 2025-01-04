@@ -110,6 +110,19 @@ pub fn decision(ours: &TirraDbInformation, theirs: &TirraDbInformation) -> SyncD
     }
 }
 
+pub fn info_sync_debug(info: &TirraDbInformation) {
+    // local : xxxxxxxx
+    // origin: yyyyyyy
+    let local_commit = db::commit_id_string(info.local_commit.clone().unwrap());
+    let origin_commit = db::commit_id_string(info.origin_commit.clone().unwrap());
+
+    println!(
+        "local : {}\norigin: {}",
+        &local_commit[0..6],
+        &origin_commit[0..6]
+    );
+}
+
 fn url_endpoint(resource: &str, db_id: u64) -> String {
     format!("{}/{}?id={}", SYNC_URL_FOR_TESTING, resource, db_id)
 }

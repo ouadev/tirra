@@ -22,6 +22,8 @@ pub struct EditorPage {
     pub is_dirty: bool,
     pub entries: Vec<TirraEntry>,
     pub curr_entry_id: u32,
+    db_id: u64,
+    ticks: u64,
     cmd_line_show: bool,
     cmd_line_text: String,
     load_request: String,
@@ -32,6 +34,7 @@ pub struct EditorPage {
 #[derive(Debug, Clone)]
 pub enum Message {
     ActionPerformed(text_editor::Action),
+    Tick,
     SaveFile,
     ShowCommandLine,
     EntryButtonClicked(u32),
@@ -56,7 +59,8 @@ impl EditorPage {
             .expect("Error loading entries from database");
         let init_content = text_editor::Content::with_text(&all_entries[0].text);
         let id = all_entries[0].id;
-        let our_db_id = db::tirra_db_id(&tirra_crypto);
+
+        let db_id = db::tirra_db_id(&tirra_crypto);
 
         //return
         (
@@ -65,13 +69,15 @@ impl EditorPage {
                 content: init_content,
                 is_dirty: false,
                 entries: all_entries,
+                db_id: db_id,
+                ticks: 0,
                 cmd_line_show: false,
                 cmd_line_text: def_req.clone(),
                 load_request: def_req,
                 sync_status: String::from("not connected"),
                 crypto: tirra_crypto,
             },
-            Task::perform(sync::sync_download(our_db_id), |value: sync::SyncState| {
+            Task::perform(sync::sync_download(db_id), |value: sync::SyncState| {
                 Message::SyncFetchDone(value)
             }),
         )
@@ -83,6 +89,23 @@ impl EditorPage {
                 self.is_dirty = self.is_dirty || action.is_edit();
                 self.content.perform(action);
                 Task::none()
+            }
+            Message::Tick => {
+                self.ticks += 1;
+                // periodic save
+                if self.is_dirty {
+                    self.save();
+                    self.entries = self.reload_all().unwrap();
+                    self.is_dirty = false;
+                }
+                // periodic sync
+                if self.ticks % 7 == 0 {
+                    Task::perform(sync::sync_download(self.db_id), |value: sync::SyncState| {
+                        Message::SyncFetchDone(value)
+                    })
+                } else {
+                    Task::none()
+                }
             }
 
             Message::SaveFile => {
@@ -147,11 +170,7 @@ impl EditorPage {
 
             Message::ShowCommandLine => {
                 self.cmd_line_show = !self.cmd_line_show;
-                let db_loc = self.crypto.get_db_location();
-
-                Task::perform(sync::sync_upload(1, db_loc), |value: sync::SyncState| {
-                    Message::SyncPushDone(value)
-                })
+                Task::none()
             }
 
             Message::SyncFetchDone(value) => {
@@ -160,11 +179,12 @@ impl EditorPage {
                 if value == SyncState::Fetched {
                     if let Some(origin_info) = sync::sync_retrieve_information(&self.crypto) {
                         if let Ok(local_info) = db::tirra_db_information(&self.crypto) {
-                            println!("Local DB Information:");
-                            db::db_information_debug(&local_info);
-                            println!("Origin DB Information:");
-                            db::db_information_debug(&origin_info);
+                            println!("Ours:");
+                            sync::info_sync_debug(&local_info);
+                            println!("\nTheirs:");
+                            sync::info_sync_debug(&origin_info);
 
+                            println!("");
                             match sync::decision(&local_info, &origin_info) {
                                 SyncDecision::ChangeLocal => {
                                     println!("sync: local db ready to be replaced");
@@ -184,6 +204,11 @@ impl EditorPage {
                         println!("Sync DB doesn't have InfoBlock");
                     }
                 }
+
+                //let db_loc = self.crypto.get_db_location();
+                //Task::perform(sync::sync_upload(1, db_loc), |value: sync::SyncState| {
+                //    Message::SyncPushDone(value)
+                //})
 
                 Task::none()
             }
@@ -443,16 +468,6 @@ impl EditorPage {
     fn save(&mut self) -> () {
         db::tirra_db_update_entry(&self.content.text(), self.curr_entry_id, &self.crypto)
             .expect("Tirra+Error: failed to save current file");
-
-        let info_result = db::tirra_db_information(&self.crypto);
-        match info_result {
-            Ok(info) => {
-                db::db_information_debug(&info);
-            }
-            Err(_) => {
-                println!("error reading information block");
-            }
-        }
     }
 
     fn reload_all(&mut self) -> Option<Vec<TirraEntry>> {
