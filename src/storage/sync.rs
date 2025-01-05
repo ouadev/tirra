@@ -10,7 +10,7 @@ use super::tirracrypto::TirraCrypto;
 const SYNC_URL_FOR_TESTING: &str = "http://localhost:8443";
 const SYNC_TMP_FILE: &str = "tirra.sync.db";
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 
 pub enum SyncState {
     Fetched,
@@ -20,12 +20,14 @@ pub enum SyncState {
     DbNotFound,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum SyncDecision {
-    ChangeOrigin,
-    ChangeLocal,
-    Conflict,
-    ChangeCommits,
+    Push,
+    ReplaceLocal,
+    ResolveConflict,
+    UpdateCommits,
+    StatusQuo,
+    Failure,
 }
 
 pub async fn sync_info(id: u64) -> String {
@@ -95,18 +97,54 @@ pub fn sync_retrieve_information(local_crypto: &TirraCrypto) -> Option<TirraDbIn
     }
 }
 
-pub fn decision(ours: &TirraDbInformation, theirs: &TirraDbInformation) -> SyncDecision {
+pub fn update_origin_commit(local_crypto: &TirraCrypto) -> () {
+    if let Err(_) = db::information_set_origin_commit(&local_crypto) {
+        println!("sync: updating origin commit failed.")
+    };
+}
+
+fn decision(ours: &TirraDbInformation, theirs_option: &Option<TirraDbInformation>) -> SyncDecision {
+    // if Origin is still uninitialized. Push the local one upstream.
+    let Some(theirs) = theirs_option else {
+        return SyncDecision::Push;
+    };
+    // origin is fetched
     if ours.local_commit == ours.origin_commit {
-        return SyncDecision::ChangeLocal;
+        if ours.local_commit == theirs.local_commit {
+            return SyncDecision::StatusQuo;
+        } else {
+            return SyncDecision::ReplaceLocal;
+        }
     } else {
         if ours.origin_commit == theirs.local_commit {
-            return SyncDecision::ChangeOrigin;
+            return SyncDecision::Push;
         } else if ours.local_commit == theirs.local_commit
             && ours.origin_commit == theirs.origin_commit
         {
-            return SyncDecision::ChangeCommits;
+            return SyncDecision::UpdateCommits;
         }
-        return SyncDecision::Conflict;
+        return SyncDecision::ResolveConflict;
+    }
+}
+
+pub fn proces_after_fetch(fetch_state: SyncState, local_crypto: &TirraCrypto) -> SyncDecision {
+    let mut theirs_info_option = None;
+    let Ok(local_info) = db::tirra_db_information(&local_crypto) else {
+        return SyncDecision::Failure;
+    };
+
+    if fetch_state == SyncState::Fetched || fetch_state == SyncState::DbNotFound {
+        if fetch_state == SyncState::Fetched {
+            let Some(origin_info) = sync_retrieve_information(&local_crypto) else {
+                return SyncDecision::Failure;
+            };
+            theirs_info_option = Some(origin_info);
+        }
+
+        return decision(&local_info, &theirs_info_option);
+    } else {
+        // some other connection errors
+        return SyncDecision::Failure;
     }
 }
 

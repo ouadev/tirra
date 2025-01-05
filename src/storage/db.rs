@@ -48,6 +48,7 @@ pub enum TirraDbError {
     DbRequestErrorPrepare,
     DbRequestErrorQuery,
     DbRequestErrorIter,
+    DbRequestErrorCommit,
 }
 
 /**
@@ -512,6 +513,42 @@ fn information_commit(
         .map_err(|_e| TirraDbError::DbRequestError)?;
     Ok(())
 }
+
+/**
+ * Set Origin Commit
+ */
+pub fn information_set_origin_commit(crypto: &TirraCrypto) -> Result<(), TirraDbError> {
+    let mut db = access_start(crypto)?;
+
+    // start transaction
+    let Ok(transaction) = db.transaction() else {
+        access_stop(crypto)?;
+        return Err(TirraDbError::DbRequestErrorPrepare);
+    };
+
+    //save
+    if let Err(_) = transaction.execute(
+        "UPDATE information SET
+            origin_commit = local_commit,
+            local_source  = origin_source,
+            local_ts      = origin_ts
+            WHERE id      = 1",
+        (),
+    ) {
+        access_stop(crypto)?;
+        return Err(TirraDbError::DbRequestErrorQuery);
+    };
+
+    // end transaction
+    if let Err(_) = transaction.commit() {
+        access_stop(crypto)?;
+        return Err(TirraDbError::DbRequestErrorCommit);
+    };
+
+    access_stop(crypto)?;
+    Ok(())
+}
+
 
 pub fn commit_id_string(commit_id: &Vec<u8>) -> String {
     let mut commit_str = String::new();

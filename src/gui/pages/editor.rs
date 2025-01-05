@@ -173,49 +173,75 @@ impl EditorPage {
                 Task::none()
             }
 
-            Message::SyncFetchDone(value) => {
-                self.sync_status = format!("{:?}", value);
-                // parse origin database information block
-                if value == SyncState::Fetched {
-                    if let Some(origin_info) = sync::sync_retrieve_information(&self.crypto) {
-                        if let Ok(local_info) = db::tirra_db_information(&self.crypto) {
-                            println!("Ours:");
-                            sync::info_sync_debug(&local_info);
-                            println!("\nTheirs:");
-                            sync::info_sync_debug(&origin_info);
-
-                            println!("");
-                            match sync::decision(&local_info, &origin_info) {
-                                SyncDecision::ChangeLocal => {
-                                    println!("sync: local db ready to be replaced");
-                                }
-                                SyncDecision::ChangeOrigin => {
-                                    println!("sync: local db ready to be pushed");
-                                }
-                                SyncDecision::Conflict => {
-                                    println!("sync: conflict !!!");
-                                }
-                                SyncDecision::ChangeCommits => {
-                                    println!("sync: Info Commits out of date, updating ...");
-                                }
-                            }
-                        }
-                    } else {
-                        println!("Sync DB doesn't have InfoBlock");
+            Message::SyncFetchDone(state) => {
+                let decision = sync::proces_after_fetch(state, &self.crypto);
+                match decision {
+                    SyncDecision::ReplaceLocal => {
+                        println!("sync: local db ready to be replaced");
+                        self.sync_status = format!("{}", "pull origin");
+                    }
+                    SyncDecision::Push => {
+                        println!("sync: local db ready to be pushed");
+                        self.sync_status = format!("{}", "push origin");
+                    }
+                    SyncDecision::ResolveConflict => {
+                        println!("sync: conflict !!!");
+                        self.sync_status = format!("{}", "conflict");
+                    }
+                    SyncDecision::UpdateCommits => {
+                        println!("sync: Info Commits out of date, updating ...");
+                        self.sync_status = format!("{}", "update local state");
+                    }
+                    SyncDecision::StatusQuo => {
+                        println!("sync: status quo");
+                        self.sync_status = format!("{}", "up to date");
+                    }
+                    SyncDecision::Failure => {
+                        println!("sync: some failure.");
+                        self.sync_status = format!("{}", "failure");
                     }
                 }
 
-                //let db_loc = self.crypto.get_db_location();
-                //Task::perform(sync::sync_upload(1, db_loc), |value: sync::SyncState| {
-                //    Message::SyncPushDone(value)
-                //})
+                // debug:  print local info
+                if let Ok(local_info) = db::tirra_db_information(&self.crypto) {
+                    println!("Ours:");
+                    sync::info_sync_debug(&local_info);
+                    //println!("\nTheirs:");
+                    //sync::info_sync_debug(&origin_info);
+                    println!("");
+                } else {
+                    println!("local db: couldn't retrieve Info Block");
+                }
 
-                Task::none()
+                // debug: print origin database info.
+                if state == SyncState::Fetched {
+                    if let Some(origin_info) = sync::sync_retrieve_information(&self.crypto) {
+                        println!("\nTheirs:");
+                        sync::info_sync_debug(&origin_info);
+                        println!("");
+                    } else {
+                        println!("origin db: couldn't retrieve Info Block");
+                    }
+                }
+
+                // apply decision ????
+                if decision == SyncDecision::Push {
+                    let db_loc = self.crypto.get_db_location();
+                    Task::perform(sync::sync_upload(1, db_loc), |value: sync::SyncState| {
+                        Message::SyncPushDone(value)
+                    })
+                } else {
+                    Task::none()
+                }
             }
 
             Message::SyncPushDone(value) => {
                 self.sync_status = format!("{:?}", value);
                 println!("sync: pushing is done");
+                if value == SyncState::Pushed {
+                    // change commits
+                    sync::update_origin_commit(&self.crypto);
+                }
                 Task::none()
             }
         }
