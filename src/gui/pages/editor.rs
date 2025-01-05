@@ -187,11 +187,11 @@ impl EditorPage {
                 match decision {
                     SyncDecision::ReplaceLocal => {
                         println!("sync: local db ready to be replaced");
-                        self.sync_status = format!("{}", "pull origin");
+                        self.sync_status = format!("{}", "recent available");
                     }
                     SyncDecision::Push => {
                         println!("sync: local db ready to be pushed");
-                        self.sync_status = format!("{}", "push origin");
+                        self.sync_status = format!("{}", "uploading");
                     }
                     SyncDecision::ResolveConflict => {
                         println!("sync: conflict !!!");
@@ -199,7 +199,7 @@ impl EditorPage {
                     }
                     SyncDecision::UpdateCommits => {
                         println!("sync: Info Commits out of date, updating ...");
-                        self.sync_status = format!("{}", "update local state");
+                        self.sync_status = format!("{}", "updating state");
                     }
                     SyncDecision::StatusQuo => {
                         println!("sync: status quo");
