@@ -35,6 +35,7 @@ pub struct EditorPage {
 pub enum Message {
     ActionPerformed(text_editor::Action),
     Tick,
+    CtrlKCommand,
     SaveFile,
     ShowCommandLine,
     EntryButtonClicked(u32),
@@ -90,6 +91,14 @@ impl EditorPage {
                 self.content.perform(action);
                 Task::none()
             }
+        
+            Message::CtrlKCommand => {
+                //run stuff on the editor, for testing purposes.
+                Task::perform(sync::sync_download(self.db_id), |value: sync::SyncState| {
+                    Message::SyncFetchDone(value)
+                })
+            }
+
             Message::Tick => {
                 self.ticks += 1;
                 // periodic save

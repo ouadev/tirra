@@ -181,7 +181,15 @@ impl TirraIced {
 
             Message::CtrlK => {
                 println!("Ctrl+K : Placeholder for testing commands");
-                Task::none()
+                if self.logged_in {
+                    self.editor_page
+                        .as_mut()
+                        .unwrap()
+                        .update(editor::Message::CtrlKCommand)
+                        .map(Message::Editor)
+                } else {
+                    Task::none()
+                }
             }
 
             Message::Editor(msg) => {
