@@ -22,13 +22,14 @@ pub struct EditorPage {
     pub is_dirty: bool,
     pub entries: Vec<TirraEntry>,
     pub curr_entry_id: u32,
+    pub crypto: TirraCrypto,
+    readonly_mode: bool,
     db_id: u64,
     ticks: u64,
     cmd_line_show: bool,
     cmd_line_text: String,
     load_request: String,
     sync_status: String,
-    pub crypto: TirraCrypto,
 }
 
 #[derive(Debug, Clone)]
@@ -70,6 +71,7 @@ impl EditorPage {
                 content: init_content,
                 is_dirty: false,
                 entries: all_entries,
+                readonly_mode: true,
                 db_id: db_id,
                 ticks: 0,
                 cmd_line_show: false,
@@ -87,8 +89,17 @@ impl EditorPage {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::ActionPerformed(action) => {
-                self.is_dirty = self.is_dirty || action.is_edit();
-                self.content.perform(action);
+                match &action {
+                    text_editor::Action::Edit(_edit) => {
+                        // block editing when in readonly mode
+                        if !self.readonly_mode {
+                            self.content.perform(action);
+                            self.is_dirty = true;
+                        }
+                    }
+                    _ => self.content.perform(action),
+                }
+
                 Task::none()
             }
         
@@ -143,9 +154,13 @@ impl EditorPage {
                     self.save();
                     self.is_dirty = false;
                 }
-                db::tirra_db_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", &self.crypto).unwrap();
-                self.entries = self.reload_all().unwrap();
-                self.show_entry(self.entry_greatest_id());
+
+                if !self.readonly_mode {
+                    db::tirra_db_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", &self.crypto).unwrap();
+                    self.entries = self.reload_all().unwrap();
+                    self.show_entry(self.entry_greatest_id());
+                }
+
                 Task::none()
             }
 
@@ -183,6 +198,25 @@ impl EditorPage {
             }
 
             Message::SyncFetchDone(state) => {
+                // debug:  print local info
+                if let Ok(local_info) = db::tirra_db_information(&self.crypto) {
+                    println!("Ours:");
+                    sync::info_sync_debug(&local_info);
+                } else {
+                    println!("local db: couldn't retrieve info block");
+                }
+
+                // debug: print origin database info.
+                if state == SyncState::Fetched {
+                    if let Some(origin_info) = sync::sync_retrieve_information(&self.crypto) {
+                        println!("\nTheirs:");
+                        sync::info_sync_debug(&origin_info);
+                        println!("");
+                    } else {
+                        println!("origin db: couldn't retrieve info block");
+                    }
+                }
+
                 let decision = sync::proces_after_fetch(state, &self.crypto);
                 match decision {
                     SyncDecision::ReplaceLocal => {
@@ -208,28 +242,6 @@ impl EditorPage {
                     SyncDecision::Failure => {
                         println!("sync: some failure.");
                         self.sync_status = format!("{}", "failure");
-                    }
-                }
-
-                // debug:  print local info
-                if let Ok(local_info) = db::tirra_db_information(&self.crypto) {
-                    println!("Ours:");
-                    sync::info_sync_debug(&local_info);
-                    //println!("\nTheirs:");
-                    //sync::info_sync_debug(&origin_info);
-                    println!("");
-                } else {
-                    println!("local db: couldn't retrieve Info Block");
-                }
-
-                // debug: print origin database info.
-                if state == SyncState::Fetched {
-                    if let Some(origin_info) = sync::sync_retrieve_information(&self.crypto) {
-                        println!("\nTheirs:");
-                        sync::info_sync_debug(&origin_info);
-                        println!("");
-                    } else {
-                        println!("origin db: couldn't retrieve Info Block");
                     }
                 }
 
