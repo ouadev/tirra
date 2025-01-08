@@ -295,7 +295,7 @@ impl EditorPage {
                 .width(Length::Fill)
                 .style(styles::button::button_main);
 
-        if self.curr_entry_id > 0 {
+        if self.curr_entry_id > 0 && !self.readonly_mode {
             div_add = div_add.on_press(Message::NewEntryButtonClicked);
         }
 
