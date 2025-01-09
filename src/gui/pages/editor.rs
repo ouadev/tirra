@@ -4,8 +4,8 @@ use crate::storage::sync::{self, SyncDecision, SyncState};
 use crate::storage::tirracrypto::TirraCrypto;
 use iced::theme::Theme;
 use iced::widget::{
-    column, container, horizontal_space, row, scrollable, text, text_editor, Button, Space,
-    TextInput,
+    column, container, horizontal_space, row, scrollable, text, text_editor, Button, MouseArea,
+    Space, TextInput,
 };
 use iced::Background;
 use iced::Task;
@@ -29,7 +29,7 @@ pub struct EditorPage {
     cmd_line_show: bool,
     cmd_line_text: String,
     load_request: String,
-    sync_status: String,
+    sync_status: (bool, String),
 }
 
 #[derive(Debug, Clone)]
@@ -41,6 +41,7 @@ pub enum Message {
     ShowCommandLine,
     EntryButtonClicked(u32),
     NewEntryButtonClicked,
+    SyncStatusClicked,
     CommandLineSubmited,
     CommandLineInputChanged(String),
     SyncFetchDone(sync::SyncState),
@@ -71,13 +72,13 @@ impl EditorPage {
                 content: init_content,
                 is_dirty: false,
                 entries: all_entries,
-                readonly_mode: true,
+                readonly_mode: false,
                 db_id: db_id,
                 ticks: 0,
                 cmd_line_show: false,
                 cmd_line_text: def_req.clone(),
                 load_request: def_req,
-                sync_status: String::from("not connected"),
+                sync_status: (false, String::from("not connected")),
                 crypto: tirra_crypto,
             },
             Task::perform(sync::sync_download(db_id), |value: sync::SyncState| {
@@ -218,30 +219,32 @@ impl EditorPage {
                 }
 
                 let decision = sync::proces_after_fetch(state, &self.crypto);
+                self.sync_status.0 = false;
                 match decision {
                     SyncDecision::ReplaceLocal => {
                         println!("sync: local db ready to be replaced");
-                        self.sync_status = format!("{}", "recent available");
+                        self.sync_status.0 = true;
+                        self.sync_status.1 = format!("{}", "recent available (+)");
                     }
                     SyncDecision::Push => {
                         println!("sync: local db ready to be pushed");
-                        self.sync_status = format!("{}", "uploading");
+                        self.sync_status.1 = format!("{}", "uploading");
                     }
                     SyncDecision::ResolveConflict => {
                         println!("sync: conflict !!!");
-                        self.sync_status = format!("{}", "conflict");
+                        self.sync_status.1 = format!("{}", "conflict");
                     }
                     SyncDecision::UpdateCommits => {
                         println!("sync: Info Commits out of date, updating ...");
-                        self.sync_status = format!("{}", "updating state");
+                        self.sync_status.1 = format!("{}", "updating state");
                     }
                     SyncDecision::StatusQuo => {
                         println!("sync: status quo");
-                        self.sync_status = format!("{}", "up to date");
+                        self.sync_status.1 = format!("{}", "up to date");
                     }
                     SyncDecision::Failure => {
                         println!("sync: some failure.");
-                        self.sync_status = format!("{}", "failure");
+                        self.sync_status.1 = format!("{}", "failure");
                     }
                 }
 
@@ -257,12 +260,19 @@ impl EditorPage {
             }
 
             Message::SyncPushDone(value) => {
-                self.sync_status = format!("{:?}", value);
                 println!("sync: pushing is done");
                 if value == SyncState::Pushed {
+                    self.sync_status.1 = format!("{}", "up to date");
                     // change commits
                     sync::update_origin_commit(&self.crypto);
+                } else {
+                    self.sync_status.1 = format!("{}", "error pushing");
                 }
+                Task::none()
+            }
+
+            Message::SyncStatusClicked => {
+                println!("sync status clicked, apply decision ...");
                 Task::none()
             }
         }
@@ -431,7 +441,7 @@ impl EditorPage {
                     color: Some(palette.text),
                 }
             });
-        let div_sync_status = text(format!("{}", self.sync_status))
+        let div_sync_status = text(format!("{}", self.sync_status.1))
             .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
             .style(|_theme: &Theme| {
                 let palette = style_conf::palette();
@@ -439,6 +449,9 @@ impl EditorPage {
                     color: Some(palette.text),
                 }
             });
+
+        let div_sync_area: MouseArea<'_, Message> =
+            MouseArea::new(div_sync_status).on_press(Message::SyncStatusClicked);
 
         // status bar
         container(row![
@@ -456,7 +469,7 @@ impl EditorPage {
             div_date_modify,
             horizontal_space(),
             div_sync_label,
-            div_sync_status,
+            div_sync_area,
             horizontal_space(),
             div_id
         ])
