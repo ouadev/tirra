@@ -103,7 +103,7 @@ impl EditorPage {
 
                 Task::none()
             }
-        
+
             Message::CtrlKCommand => {
                 //run stuff on the editor, for testing purposes.
                 Task::perform(sync::sync_download(self.db_id), |value: sync::SyncState| {
@@ -224,7 +224,7 @@ impl EditorPage {
                     SyncDecision::ReplaceLocal => {
                         println!("sync: local db ready to be replaced");
                         self.sync_status.0 = true;
-                        self.sync_status.1 = format!("{}", "recent available (+)");
+                        self.sync_status.1 = format!("{}", "available");
                     }
                     SyncDecision::Push => {
                         println!("sync: local db ready to be pushed");
@@ -432,26 +432,8 @@ impl EditorPage {
             }
         });
 
-        // sync state
-        let div_sync_label = text("sync : ")
-            .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
-            .style(|_theme: &Theme| {
-                let palette = style_conf::palette();
-                text::Style {
-                    color: Some(palette.text),
-                }
-            });
-        let div_sync_status = text(format!("{}", self.sync_status.1))
-            .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
-            .style(|_theme: &Theme| {
-                let palette = style_conf::palette();
-                text::Style {
-                    color: Some(palette.text),
-                }
-            });
-
-        let div_sync_area: MouseArea<'_, Message> =
-            MouseArea::new(div_sync_status).on_press(Message::SyncStatusClicked);
+        // sync
+        let div_sync = self.view_sync_status();
 
         // status bar
         container(row![
@@ -468,8 +450,7 @@ impl EditorPage {
                 }),
             div_date_modify,
             horizontal_space(),
-            div_sync_label,
-            div_sync_area,
+            div_sync,
             horizontal_space(),
             div_id
         ])
@@ -478,6 +459,49 @@ impl EditorPage {
             container::Style::default().background(Background::Color(palette.background_main))
         })
         .into()
+    }
+
+    /**
+     * View for Sync Status box
+     */
+    fn view_sync_status(&self) -> Element<Message> {
+        let sync_button;
+        // sync state
+        let sync_label = text("sync : ")
+            .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
+            .style(|_theme: &Theme| {
+                let palette = style_conf::palette();
+                text::Style {
+                    color: Some(palette.text),
+                }
+            });
+        let sync_text = text(format!("{} ", self.sync_status.1))
+            .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
+            .style(|_theme: &Theme| {
+                let palette = style_conf::palette();
+                text::Style {
+                    color: Some(palette.text),
+                }
+            });
+
+        if self.sync_status.0 {
+            sync_button = text("[+]")
+                .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS_HIGHLIGHT)
+                .font(style_conf::FONT_STATUS_DATE_BOLD)
+                .style(|_theme: &Theme| {
+                    let palette = style_conf::palette();
+                    text::Style {
+                        color: Some(palette.text),
+                    }
+                });
+        } else {
+            sync_button = text("");
+        }
+
+        let sync_button_mouse: MouseArea<'_, Message> =
+            MouseArea::new(sync_button).on_press(Message::SyncStatusClicked);
+
+        row![sync_label, sync_text, sync_button_mouse].into()
     }
 
     /**
