@@ -199,6 +199,7 @@ impl EditorPage {
             }
 
             Message::SyncFetchDone(state) => {
+                println!("------------------");
                 // debug:  print local info
                 if let Ok(local_info) = db::tirra_db_information(&self.crypto) {
                     println!("Ours:");
@@ -254,6 +255,9 @@ impl EditorPage {
                     Task::perform(sync::sync_upload(1, db_loc), |value: sync::SyncState| {
                         Message::SyncPushDone(value)
                     })
+                } else if decision == SyncDecision::UpdateCommits {
+                    sync::update_origin_commit(&self.crypto);
+                    Task::none()
                 } else {
                     Task::none()
                 }
@@ -272,7 +276,7 @@ impl EditorPage {
             }
 
             Message::SyncStatusClicked => {
-                println!("sync status clicked, apply decision ...");
+                db::tirra_db_replace(&self.crypto, &sync::origin_db_temp_file()).unwrap();
                 Task::none()
             }
         }

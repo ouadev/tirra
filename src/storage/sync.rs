@@ -171,7 +171,7 @@ fn url_endpoint(resource: &str, db_id: u64) -> String {
     format!("{}/{}?id={}", SYNC_URL_FOR_TESTING, resource, db_id)
 }
 
-fn origin_db_temp_file() -> String {
+pub fn origin_db_temp_file() -> String {
     let tmp_dir = env::temp_dir();
     let tmp_path = Path::new(&tmp_dir).join(SYNC_TMP_FILE);
 

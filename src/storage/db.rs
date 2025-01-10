@@ -383,6 +383,15 @@ pub fn tirra_db_root_encrypt_plaintext(
 }
 
 /**
+ * replace the current database with another file (usually obtained from a Sync destination)
+ */
+pub fn tirra_db_replace(crypto: &TirraCrypto, new_db: &str) -> std::io::Result<()> {
+    // backup locally the current db
+    fs::copy(new_db, crypto.get_db_location())?;
+    Ok(())
+}
+
+/**
  *
  * Private Internal Functions
  *
