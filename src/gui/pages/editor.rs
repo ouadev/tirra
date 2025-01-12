@@ -276,7 +276,17 @@ impl EditorPage {
             }
 
             Message::SyncStatusClicked => {
+                if self.is_dirty {
+                    println!("editor is dirty. dropping latest changes.");
+                }
+                self.save();
                 db::tirra_db_replace(&self.crypto, &sync::origin_db_temp_file()).unwrap();
+                self.entries = self.reload_all().unwrap();
+                self.is_dirty = false;
+                self.show_entry(self.entry_greatest_id());
+                // change commits
+                sync::update_origin_commit(&self.crypto);
+                self.sync_status = (false, format!("{}", "replaced"));
                 Task::none()
             }
         }
