@@ -13,6 +13,7 @@ const SYNC_TMP_FILE: &str = "tirra.sync.db";
 #[derive(Debug, Clone, Copy, PartialEq)]
 
 pub enum SyncState {
+    NoOp,
     Fetched,
     Pushed,
     LinkFailure,
@@ -127,7 +128,7 @@ fn decision(ours: &TirraDbInformation, theirs_option: &Option<TirraDbInformation
     }
 }
 
-pub fn proces_after_fetch(fetch_state: SyncState, local_crypto: &TirraCrypto) -> SyncDecision {
+pub fn process_after_fetch(fetch_state: SyncState, local_crypto: &TirraCrypto) -> SyncDecision {
     let mut theirs_info_option = None;
     let Ok(local_info) = db::tirra_db_information(&local_crypto) else {
         return SyncDecision::Failure;
@@ -153,18 +154,14 @@ pub fn info_sync_debug(info: &TirraDbInformation) {
     // origin: yyyyyyy
     let local_commit = match &info.local_commit {
         Some(c) => db::commit_id_string(&c),
-        _ => String::from("empty"),
+        _ => String::from("NNNNNN"),
     };
     let origin_commit = match &info.origin_commit {
         Some(c) => db::commit_id_string(&c),
-        _ => String::from("empty"),
+        _ => String::from("NNNNNN"),
     };
 
-    println!(
-        "local : {}\norigin: {}",
-        &local_commit[0..6],
-        &origin_commit[0..6]
-    );
+    println!("{} - ({})", &local_commit[0..6], &origin_commit[0..6]);
 }
 
 fn url_endpoint(resource: &str, db_id: u64) -> String {

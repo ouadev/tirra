@@ -30,6 +30,7 @@ pub struct EditorPage {
     cmd_line_text: String,
     load_request: String,
     sync_status: (bool, String),
+    sync_state: SyncState,
 }
 
 #[derive(Debug, Clone)]
@@ -80,6 +81,7 @@ impl EditorPage {
                 load_request: def_req,
                 sync_status: (false, String::from("not connected")),
                 crypto: tirra_crypto,
+                sync_state: SyncState::NoOp,
             },
             Task::perform(sync::sync_download(db_id), |value: sync::SyncState| {
                 Message::SyncFetchDone(value)
@@ -119,7 +121,10 @@ impl EditorPage {
                     self.entries = self.reload_all().unwrap();
                     self.is_dirty = false;
                 }
-                // periodic sync
+                // periodic sync : check information
+                let decision = sync::process_after_fetch(self.sync_state, &self.crypto);
+                self.update_sync_status(&decision);
+                // periodic sync : fetch from the server
                 if self.ticks % 7 == 0 {
                     Task::perform(sync::sync_download(self.db_id), |value: sync::SyncState| {
                         Message::SyncFetchDone(value)
@@ -199,6 +204,7 @@ impl EditorPage {
             }
 
             Message::SyncFetchDone(state) => {
+                self.sync_state = state;
                 println!("------------------");
                 // debug:  print local info
                 if let Ok(local_info) = db::tirra_db_information(&self.crypto) {
@@ -211,45 +217,17 @@ impl EditorPage {
                 // debug: print origin database info.
                 if state == SyncState::Fetched {
                     if let Some(origin_info) = sync::sync_retrieve_information(&self.crypto) {
-                        println!("\nTheirs:");
+                        println!("Theirs:");
                         sync::info_sync_debug(&origin_info);
                         println!("");
                     } else {
                         println!("origin db: couldn't retrieve info block");
                     }
                 }
+                // compute decision and apply it.
+                let decision = sync::process_after_fetch(state, &self.crypto);
+                self.update_sync_status(&decision);
 
-                let decision = sync::proces_after_fetch(state, &self.crypto);
-                self.sync_status.0 = false;
-                match decision {
-                    SyncDecision::ReplaceLocal => {
-                        println!("sync: local db ready to be replaced");
-                        self.sync_status.0 = true;
-                        self.sync_status.1 = format!("{}", "available");
-                    }
-                    SyncDecision::Push => {
-                        println!("sync: local db ready to be pushed");
-                        self.sync_status.1 = format!("{}", "uploading");
-                    }
-                    SyncDecision::ResolveConflict => {
-                        println!("sync: conflict !!!");
-                        self.sync_status.1 = format!("{}", "conflict");
-                    }
-                    SyncDecision::UpdateCommits => {
-                        println!("sync: Info Commits out of date, updating ...");
-                        self.sync_status.1 = format!("{}", "updating state");
-                    }
-                    SyncDecision::StatusQuo => {
-                        println!("sync: status quo");
-                        self.sync_status.1 = format!("{}", "up to date");
-                    }
-                    SyncDecision::Failure => {
-                        println!("sync: some failure.");
-                        self.sync_status.1 = format!("{}", "failure");
-                    }
-                }
-
-                // apply decision ????
                 if decision == SyncDecision::Push {
                     let db_loc = self.crypto.get_db_location();
                     Task::perform(sync::sync_upload(1, db_loc), |value: sync::SyncState| {
@@ -264,6 +242,7 @@ impl EditorPage {
             }
 
             Message::SyncPushDone(value) => {
+                self.sync_state = value;
                 println!("sync: pushing is done");
                 if value == SyncState::Pushed {
                     self.sync_status.1 = format!("{}", "up to date");
@@ -289,6 +268,36 @@ impl EditorPage {
                 self.sync_status = (false, format!("{}", "replaced"));
                 Task::none()
             }
+        }
+    }
+
+    fn update_sync_status(&mut self, decision: &SyncDecision) {
+        let status_text: String;
+        self.sync_status.0 = false;
+        match decision {
+            SyncDecision::ReplaceLocal => {
+                self.sync_status.0 = true;
+                status_text = format!("{}", "replace");
+            }
+            SyncDecision::Push => {
+                status_text = format!("{}", "to upload");
+            }
+            SyncDecision::ResolveConflict => {
+                status_text = format!("{}", "conflict [O] [T]");
+            }
+            SyncDecision::UpdateCommits => {
+                status_text = format!("{}", "up to date*");
+            }
+            SyncDecision::StatusQuo => {
+                status_text = format!("{}", "up to date");
+            }
+            SyncDecision::Failure => {
+                status_text = format!("{}", "failure");
+            }
+        }
+        if status_text != self.sync_status.1 {
+            self.sync_status.1 = status_text;
+            println!("sync dec: {}", self.sync_status.1);
         }
     }
 
