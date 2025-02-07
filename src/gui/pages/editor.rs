@@ -25,6 +25,7 @@ pub struct EditorPage {
     pub crypto: TirraCrypto,
     readonly_mode: bool,
     db_id: u64,
+    db_ver: u32,
     ticks: u64,
     cmd_line_show: bool,
     cmd_line_text: String,
@@ -57,6 +58,16 @@ impl EditorPage {
             panic!("we are not supposed to be here without an encrypted database");
         }
 
+        // database information block.
+        let schema_version: u32;
+        if let Ok(local_info) = db::tirra_db_information(&tirra_crypto) {
+            db::db_information_debug(&local_info);
+            schema_version = local_info.schema_ver;
+        } else {
+            schema_version = 0;
+            println!("info: Info Block is not found");
+        }
+
         // Load all entries into memory and display the first one
         let def_req = db::tirra_db_default_read_req();
         let all_entries = db::tirra_db_get_all_entries(&tirra_crypto, &def_req)
@@ -75,6 +86,7 @@ impl EditorPage {
                 entries: all_entries,
                 readonly_mode: false,
                 db_id: db_id,
+                db_ver: schema_version,
                 ticks: 0,
                 cmd_line_show: false,
                 cmd_line_text: def_req.clone(),
@@ -83,9 +95,13 @@ impl EditorPage {
                 crypto: tirra_crypto,
                 sync_state: SyncState::NoOp,
             },
-            Task::perform(sync::sync_download(db_id), |value: sync::SyncState| {
-                Message::SyncFetchDone(value)
-            }),
+            if schema_version >= 1 {
+                Task::perform(sync::sync_download(db_id), |value: sync::SyncState| {
+                    Message::SyncFetchDone(value)
+                })
+            } else {
+                Task::none()
+            },
         )
     }
 
@@ -108,9 +124,8 @@ impl EditorPage {
 
             Message::CtrlKCommand => {
                 //run stuff on the editor, for testing purposes.
-                Task::perform(sync::sync_download(self.db_id), |value: sync::SyncState| {
-                    Message::SyncFetchDone(value)
-                })
+                println!("Ctrl-K Command");
+                Task::none()
             }
 
             Message::Tick => {
@@ -121,14 +136,18 @@ impl EditorPage {
                     self.entries = self.reload_all().unwrap();
                     self.is_dirty = false;
                 }
-                // periodic sync : check information
-                let decision = sync::process_after_fetch(self.sync_state, &self.crypto);
-                self.update_sync_status(&decision);
-                // periodic sync : fetch from the server
-                if self.ticks % 7 == 0 {
-                    Task::perform(sync::sync_download(self.db_id), |value: sync::SyncState| {
-                        Message::SyncFetchDone(value)
-                    })
+                if self.db_ver >= 1 {
+                    // periodic sync : check information
+                    let decision = sync::process_after_fetch(self.sync_state, &self.crypto);
+                    self.update_sync_status(&decision);
+                    // periodic sync : fetch from the server
+                    if self.ticks % 7 == 0 {
+                        Task::perform(sync::sync_download(self.db_id), |value: sync::SyncState| {
+                            Message::SyncFetchDone(value)
+                        })
+                    } else {
+                        Task::none()
+                    }
                 } else {
                     Task::none()
                 }
@@ -456,7 +475,11 @@ impl EditorPage {
         });
 
         // sync
-        let div_sync = self.view_sync_status();
+        let div_sync = if self.db_ver >= 1 {
+            self.view_sync_status()
+        } else {
+            horizontal_space().into()
+        };
 
         // status bar
         container(row![
