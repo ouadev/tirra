@@ -150,7 +150,7 @@ pub fn tirra_db_update_entry(
         .map_err(|_e| TirraDbError::DbRequestError)?;
 
     // record commit
-    information_commit(&transaction, now, "macos-ouadv", text_entry)?;
+    let _ = information_commit(&transaction, now, "macos-ouadv", text_entry);
 
     // end transaction
     transaction
@@ -180,7 +180,7 @@ pub fn tirra_db_remove_entry(id_entry: u32, crypto: &TirraCrypto) -> Result<(), 
         .map_err(|_e| TirraDbError::DbRequestError)?;
 
     // record commit
-    information_commit(&transaction, now, "macos-ouadv", "")?;
+    let _ = information_commit(&transaction, now, "macos-ouadv", "");
 
     // end transaction
     transaction
@@ -490,7 +490,7 @@ fn add_entry(
         .map_err(|_e| TirraDbError::DbRequestError)?;
 
     // record commit
-    information_commit(&transaction, now, "macos-ouadv", text_entry)?;
+    let _ = information_commit(&transaction, now, "macos-ouadv", text_entry);
 
     // end transaction
     transaction
