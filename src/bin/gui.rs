@@ -7,6 +7,7 @@ use chrono::Utc;
 use iced::highlighter::{self};
 use iced::theme::Theme;
 use iced::time::{self, every};
+use iced::widget::text;
 use iced::window::settings::PlatformSpecific;
 use iced::{event, widget, Event, Task};
 use iced::{keyboard, window};
@@ -143,33 +144,21 @@ impl TirraIced {
                         // TODO: make sure the Editor and its content are destroyed !!
                     }
                     // trigger a file save
-                    self.editor_page
-                        .as_mut()
-                        .unwrap()
-                        .update(editor::Message::Tick)
-                        .map(Message::Editor)
+                    self.update_editor_page(editor::Message::Tick)
                 } else {
                     Task::none()
                 }
             }
             Message::CtrlS => {
                 if self.logged_in {
-                    self.editor_page
-                        .as_mut()
-                        .unwrap()
-                        .update(editor::Message::SaveFile)
-                        .map(Message::Editor)
+                    self.update_editor_page(editor::Message::SaveFile)
                 } else {
                     Task::none()
                 }
             }
             Message::CtrlP => {
                 if self.logged_in {
-                    self.editor_page
-                        .as_mut()
-                        .unwrap()
-                        .update(editor::Message::ShowCommandLine)
-                        .map(Message::Editor)
+                    self.update_editor_page(editor::Message::ShowCommandLine)
                 } else {
                     Task::none()
                 }
@@ -182,11 +171,7 @@ impl TirraIced {
             Message::CtrlK => {
                 println!("Ctrl+K : Placeholder for testing commands");
                 if self.logged_in {
-                    self.editor_page
-                        .as_mut()
-                        .unwrap()
-                        .update(editor::Message::CtrlKCommand)
-                        .map(Message::Editor)
+                    self.update_editor_page(editor::Message::CtrlKCommand)
                 } else {
                     Task::none()
                 }
@@ -194,11 +179,7 @@ impl TirraIced {
 
             Message::Editor(msg) => {
                 if self.logged_in {
-                    self.editor_page
-                        .as_mut()
-                        .unwrap()
-                        .update(msg)
-                        .map(Message::Editor)
+                    self.update_editor_page(msg)
                 } else {
                     Task::none()
                 }
@@ -237,12 +218,7 @@ impl TirraIced {
                     }
                     window::Event::CloseRequested => {
                         if self.logged_in {
-                            let _ = self
-                                .editor_page
-                                .as_mut()
-                                .unwrap()
-                                .update(editor::Message::SaveFile)
-                                .map(Message::Editor);
+                            let _ = self.update_editor_page(editor::Message::SaveFile);
                         }
                         //window::close(window::Id::MAIN)
                         window::get_latest().and_then(window::close)
@@ -277,11 +253,12 @@ impl TirraIced {
 
     fn view(&self) -> Element<Message> {
         if self.logged_in {
-            self.editor_page
-                .as_ref()
-                .unwrap()
-                .view()
-                .map(Message::Editor)
+            if let Some(editor) = self.editor_page.as_ref() {
+                editor.view().map(Message::Editor)
+            } else {
+                exception("error: logged in but Editor Page is not present");
+                text("").into()
+            }
         } else {
             self.login_page.view().map(Message::Login)
         }
@@ -294,6 +271,15 @@ impl TirraIced {
             Theme::Light
         }
     }
+
+    fn update_editor_page(&mut self, message: editor::Message) -> Task<Message> {
+        if let Some(editor) = self.editor_page.as_mut() {
+            editor.update(message).map(Message::Editor)
+        } else {
+            exception("editor page not initialized");
+            Task::none()
+        }
+    }
 }
 
 fn current_timestamp() -> i64 {
@@ -302,10 +288,25 @@ fn current_timestamp() -> i64 {
 
 fn default_user_db_path() -> String {
     // pick up HOME environment variable.
-    let home_path = env::var(TIRRA_HOME_DIR_PATH).unwrap();
+    let home_path = match env::var(TIRRA_HOME_DIR_PATH) {
+        Ok(var) => var,
+        _ => {
+            exception("cannot read environment variable");
+            String::from("")
+        }
+    };
     let db_path = Path::new(home_path.as_str()).join(TIRRA_DEFAULT_DB_NAME);
     match db_path.to_str() {
         None => String::from(TIRRA_DEFAULT_DB_NAME), // create default db in the same directory as the binary file.
         Some(path) => String::from(path),
     }
+}
+
+/**
+ * Handle unrecoverable exception
+ */
+fn exception(msg: &str) -> () {
+    //TODO: write dump to file
+    //TODO: save database ?
+    panic!("tirra exception: {}", msg);
 }
