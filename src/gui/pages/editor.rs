@@ -182,9 +182,15 @@ impl EditorPage {
                 }
 
                 if !self.readonly_mode {
-                    db::tirra_db_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", &self.crypto).unwrap();
-                    self.entries = self.reload_all();
-                    self.show_entry(self.entry_greatest_id());
+                    match db::tirra_db_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", &self.crypto) {
+                        Ok(()) => {
+                            self.entries = self.reload_all();
+                            self.show_entry(self.entry_greatest_id());
+                        }
+                        _ => {
+                            println!("error: failure adding new entry, continuing ...");
+                        }
+                    }
                 }
 
                 Task::none()
@@ -279,13 +285,20 @@ impl EditorPage {
                     println!("editor is dirty. dropping latest changes.");
                 }
                 self.save();
-                db::tirra_db_replace(&self.crypto, &sync::origin_db_temp_file()).unwrap();
-                self.entries = self.reload_all();
-                self.is_dirty = false;
-                self.show_entry(self.entry_greatest_id());
-                // change commits
-                sync::update_origin_commit(&self.crypto);
-                self.sync_status = (false, format!("{}", "replaced"));
+                match db::tirra_db_replace(&self.crypto, &sync::origin_db_temp_file()) {
+                    Ok(()) => {
+                        self.entries = self.reload_all();
+                        self.is_dirty = false;
+                        self.show_entry(self.entry_greatest_id());
+                        // change commits
+                        sync::update_origin_commit(&self.crypto);
+                        self.sync_status = (false, format!("{}", "replaced"));
+                    }
+                    _ => {
+                        println!("error: sync failed to replace local db");
+                    }
+                }
+
                 Task::none()
             }
         }
@@ -448,32 +461,40 @@ impl EditorPage {
         // dates
         let div_date_create;
         let div_date_modify;
+        let entry_id;
         if self.curr_entry_id > 0 {
-            let date_create_ts = self.entry_by_id(self.curr_entry_id).unwrap().date_create;
-            let date_modify_ts = self.entry_by_id(self.curr_entry_id).unwrap().date_modify;
-            let dt_create = EditorPage::datetime_from_unix(date_create_ts.try_into().unwrap());
-            let dt_modify = EditorPage::datetime_from_unix(date_modify_ts.try_into().unwrap());
+            if let Some(entry) = self.entry_by_id(self.curr_entry_id) {
+                entry_id = entry.id;
+                let date_create_ts = entry.date_create;
+                let date_modify_ts = entry.date_modify;
 
-            div_date_create = dt_format(dt_create);
-            div_date_modify = dt_format(dt_modify);
+                let dt_create = EditorPage::datetime_from_unix(date_create_ts as i64);
+                let dt_modify = EditorPage::datetime_from_unix(date_modify_ts as i64);
+
+                div_date_create = dt_format(dt_create);
+                div_date_modify = dt_format(dt_modify);
+            } else {
+                entry_id = 0;
+                div_date_create = row![];
+                div_date_modify = row![];
+                exception("misalignment between gui and model (curr_entry_id)");
+            }
         } else {
+            entry_id = 0;
             div_date_create = row![];
             div_date_modify = row![];
         }
 
         // id
-        let div_id = text(format!(
-            "{}",
-            &self.entry_by_id(self.curr_entry_id).unwrap().id
-        ))
-        .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
-        .style(|_theme: &Theme| {
-            //let palette = theme.extended_palette();
-            let palette = style_conf::palette();
-            text::Style {
-                color: Some(palette.text),
-            }
-        });
+        let div_id = text(format!("{}", entry_id))
+            .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
+            .style(|_theme: &Theme| {
+                //let palette = theme.extended_palette();
+                let palette = style_conf::palette();
+                text::Style {
+                    color: Some(palette.text),
+                }
+            });
 
         // sync
         let div_sync = if self.db_ver >= 1 {
@@ -645,7 +666,11 @@ impl EditorPage {
     fn show_entry(&mut self, id: u32) {
         self.curr_entry_id = id;
         if id > 0 {
-            self.content = text_editor::Content::with_text(&self.entry_by_id(id).unwrap().text);
+            if let Some(entry) = self.entry_by_id(id) {
+                self.content = text_editor::Content::with_text(&entry.text);
+            } else {
+                exception("entry with id is not found");
+            }
         } else {
             self.content = text_editor::Content::with_text(" Nothing was found");
         }
