@@ -17,6 +17,7 @@ extern crate tirra;
 use tirra::gui::pages::editor::{self, EditorPage};
 use tirra::gui::pages::login::{self, LoginPage};
 use tirra::gui::styles::style_conf;
+use tirra::common::exception::exception;
 
 // Constants
 const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
@@ -300,13 +301,4 @@ fn default_user_db_path() -> String {
         None => String::from(TIRRA_DEFAULT_DB_NAME), // create default db in the same directory as the binary file.
         Some(path) => String::from(path),
     }
-}
-
-/**
- * Handle unrecoverable exception
- */
-fn exception(msg: &str) -> () {
-    //TODO: write dump to file
-    //TODO: save database ?
-    panic!("tirra exception: {}", msg);
 }

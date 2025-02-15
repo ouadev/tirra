@@ -1,3 +1,4 @@
+use crate::common::exception::exception;
 use crate::gui::styles::{self, style_conf};
 use crate::storage::db::{self, TirraEntry};
 use crate::storage::sync::{self, SyncDecision, SyncState};
@@ -133,7 +134,7 @@ impl EditorPage {
                 // periodic save
                 if self.is_dirty {
                     self.save();
-                    self.entries = self.reload_all().unwrap();
+                    self.entries = self.reload_all();
                     self.is_dirty = false;
                 }
                 if self.db_ver >= 1 {
@@ -156,7 +157,7 @@ impl EditorPage {
             Message::SaveFile => {
                 if self.is_dirty {
                     self.save();
-                    self.entries = self.reload_all().unwrap();
+                    self.entries = self.reload_all();
                     self.is_dirty = false;
                 }
                 Task::none()
@@ -165,7 +166,7 @@ impl EditorPage {
                 // Save first
                 if self.is_dirty {
                     self.save();
-                    self.entries = self.reload_all().unwrap();
+                    self.entries = self.reload_all();
                     self.is_dirty = false;
                 }
                 //
@@ -182,7 +183,7 @@ impl EditorPage {
 
                 if !self.readonly_mode {
                     db::tirra_db_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", &self.crypto).unwrap();
-                    self.entries = self.reload_all().unwrap();
+                    self.entries = self.reload_all();
                     self.show_entry(self.entry_greatest_id());
                 }
 
@@ -279,7 +280,7 @@ impl EditorPage {
                 }
                 self.save();
                 db::tirra_db_replace(&self.crypto, &sync::origin_db_temp_file()).unwrap();
-                self.entries = self.reload_all().unwrap();
+                self.entries = self.reload_all();
                 self.is_dirty = false;
                 self.show_entry(self.entry_greatest_id());
                 // change commits
@@ -600,10 +601,15 @@ impl EditorPage {
             .expect("Tirra+Error: failed to save current file");
     }
 
-    fn reload_all(&mut self) -> Option<Vec<TirraEntry>> {
+    fn reload_all(&mut self) -> Vec<TirraEntry> {
         // Load all entries into memory:
-        // note: Error is discarded here
-        db::tirra_db_get_all_entries(&self.crypto, &self.load_request).ok()
+        match db::tirra_db_get_all_entries(&self.crypto, &self.load_request) {
+            Ok(entries) => entries,
+            Err(_error) => {
+                exception("loading entries");
+                vec![]
+            }
+        }
     }
 
     /**
