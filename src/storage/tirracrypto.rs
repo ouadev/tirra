@@ -32,21 +32,6 @@ impl TirraCrypto {
             secrets: TirraCrypto::key_and_nonce_from_pwd(password),
         }
     }
-    /*
-    #[allow(dead_code)]
-    pub fn from_key(location: &str, secrets_file: &str) -> Self {
-        let mut secrets_file = File::open(secrets_file).unwrap();
-        let mut secrets_vec = Vec::new();
-        secrets_file.read_to_end(&mut secrets_vec).unwrap();
-        let secret_struct: TirraSecrets = bincode::deserialize(&secrets_vec).unwrap();
-
-        Self {
-            db_location: location.to_string(),
-            db_location_pt: format!("{}.{}", &location, "plaintext"),
-            secrets: secret_struct,
-        }
-    }
-    */
 
     /**
      * PBKDF2(user_password + salt) => 32 Bytes key
