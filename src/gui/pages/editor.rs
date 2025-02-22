@@ -156,7 +156,7 @@ impl EditorPage {
             Message::SaveFile => {
                 if self.is_dirty {
                     self.save();
-                    self.entries =  Self::reload_all(&self.crypto, &self.load_request);
+                    self.entries = Self::reload_all(&self.crypto, &self.load_request);
                     self.is_dirty = false;
                 }
                 Task::none()
@@ -165,7 +165,7 @@ impl EditorPage {
                 // Save first
                 if self.is_dirty {
                     self.save();
-                    self.entries =  Self::reload_all(&self.crypto, &self.load_request);
+                    self.entries = Self::reload_all(&self.crypto, &self.load_request);
                     self.is_dirty = false;
                 }
                 //
@@ -183,7 +183,7 @@ impl EditorPage {
                 if !self.readonly_mode {
                     match db::tirra_db_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", &self.crypto) {
                         Ok(()) => {
-                            self.entries =  Self::reload_all(&self.crypto, &self.load_request);
+                            self.entries = Self::reload_all(&self.crypto, &self.load_request);
                             self.show_entry(self.entry_greatest_id());
                         }
                         _ => {
@@ -286,7 +286,7 @@ impl EditorPage {
                 self.save();
                 match db::tirra_db_replace(&self.crypto, &sync::origin_db_temp_file()) {
                     Ok(()) => {
-                        self.entries =  Self::reload_all(&self.crypto, &self.load_request);
+                        self.entries = Self::reload_all(&self.crypto, &self.load_request);
                         self.is_dirty = false;
                         self.show_entry(self.entry_greatest_id());
                         // change commits
@@ -617,8 +617,14 @@ impl EditorPage {
     }
 
     fn save(&mut self) -> () {
-        db::tirra_db_update_entry(&self.content.text(), self.curr_entry_id, &self.crypto)
-            .expect("Tirra+Error: failed to save current file");
+        let updated =
+            db::tirra_db_update_entry(&self.content.text(), self.curr_entry_id, &self.crypto);
+        match updated {
+            Err(err) => {
+                exception(&format!("update entry {:?}", err));
+            }
+            _ => {}
+        }
     }
 
     fn reload_all(crypto: &TirraCrypto, request_string: &String) -> Vec<TirraEntry> {
@@ -636,7 +642,13 @@ impl EditorPage {
      * convert a timestamp into a datatime structure
      */
     fn datetime_from_unix(unix_ts: i64) -> DateTime<Utc> {
-        DateTime::from_timestamp(unix_ts, 0).expect("invalid timestamp")
+        match DateTime::from_timestamp(unix_ts, 0) {
+            Some(date) => date,
+            None => {
+                exception("invalid timestamp");
+                DateTime::<Utc>::MIN_UTC
+            }
+        }
     }
     /**
      * generate an abreviated string for the name of a month
