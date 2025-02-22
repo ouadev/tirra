@@ -71,8 +71,7 @@ impl EditorPage {
 
         // Load all entries into memory and display the first one
         let def_req = db::tirra_db_default_read_req();
-        let all_entries = db::tirra_db_get_all_entries(&tirra_crypto, &def_req)
-            .expect("Error loading entries from database");
+        let all_entries = Self::reload_all(&tirra_crypto, &def_req);
         let init_content = text_editor::Content::with_text(&all_entries[0].text);
         let id = all_entries[0].id;
 
@@ -134,7 +133,7 @@ impl EditorPage {
                 // periodic save
                 if self.is_dirty {
                     self.save();
-                    self.entries = self.reload_all();
+                    self.entries = Self::reload_all(&self.crypto, &self.load_request);
                     self.is_dirty = false;
                 }
                 if self.db_ver >= 1 {
@@ -157,7 +156,7 @@ impl EditorPage {
             Message::SaveFile => {
                 if self.is_dirty {
                     self.save();
-                    self.entries = self.reload_all();
+                    self.entries =  Self::reload_all(&self.crypto, &self.load_request);
                     self.is_dirty = false;
                 }
                 Task::none()
@@ -166,7 +165,7 @@ impl EditorPage {
                 // Save first
                 if self.is_dirty {
                     self.save();
-                    self.entries = self.reload_all();
+                    self.entries =  Self::reload_all(&self.crypto, &self.load_request);
                     self.is_dirty = false;
                 }
                 //
@@ -184,7 +183,7 @@ impl EditorPage {
                 if !self.readonly_mode {
                     match db::tirra_db_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", &self.crypto) {
                         Ok(()) => {
-                            self.entries = self.reload_all();
+                            self.entries =  Self::reload_all(&self.crypto, &self.load_request);
                             self.show_entry(self.entry_greatest_id());
                         }
                         _ => {
@@ -287,7 +286,7 @@ impl EditorPage {
                 self.save();
                 match db::tirra_db_replace(&self.crypto, &sync::origin_db_temp_file()) {
                     Ok(()) => {
-                        self.entries = self.reload_all();
+                        self.entries =  Self::reload_all(&self.crypto, &self.load_request);
                         self.is_dirty = false;
                         self.show_entry(self.entry_greatest_id());
                         // change commits
@@ -622,9 +621,9 @@ impl EditorPage {
             .expect("Tirra+Error: failed to save current file");
     }
 
-    fn reload_all(&mut self) -> Vec<TirraEntry> {
+    fn reload_all(crypto: &TirraCrypto, request_string: &String) -> Vec<TirraEntry> {
         // Load all entries into memory:
-        match db::tirra_db_get_all_entries(&self.crypto, &self.load_request) {
+        match db::tirra_db_get_all_entries(&crypto, &request_string) {
             Ok(entries) => entries,
             Err(_error) => {
                 exception("loading entries");
