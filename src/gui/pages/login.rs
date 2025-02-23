@@ -3,6 +3,7 @@ use iced::widget::{column, container, text, text_input, Button, Text, TextInput}
 use iced::{Background, Task};
 use iced::{Element, Length};
 
+use crate::common::exception::exception;
 use crate::gui::styles::{self, style_conf};
 use crate::storage::db;
 use crate::storage::tirracrypto::TirraCrypto;
@@ -60,14 +61,20 @@ impl LoginPage {
                     // intialize the backend
                     if crypto.enc_db_found() == false {
                         // create new db
-                        db::tirra_db_init(&crypto).expect("database init error");
+                        let inited = db::tirra_db_init(&crypto);
+                        if let Err(_x) = inited {
+                            exception("database init");
+                        }
                         // insert first empty entry
-                        db::tirra_db_add_entry(
+                        let empty_added = db::tirra_db_add_entry(
                             db::TIRRA_ENTRY_TYPE_GENERAL,
                             db::TIRRA_FIRST_ENTRY_TEXT,
                             &crypto,
-                        )
-                        .expect("first entry add failed");
+                        );
+                        if let Err(_x) = empty_added {
+                            exception("database init");
+                        }
+                        
                         Some(Message::LoginSuccess)
                     } else {
                         panic!("something is up. database is not supposed to be found");
