@@ -87,15 +87,18 @@ impl TirraCrypto {
         //encrypt small file
         let cipher = ChaCha20Poly1305::new(&secret_struct.key.into());
 
-        let file_data = fs::read(&self.db_location_pt).expect("can't find database");
-        let enc_file = cipher
-            .encrypt(&secret_struct.nonce.into(), file_data.as_ref())
-            //.map_err(|err| anyhow!("enc some file: {}", err))
-            .expect("nothing");
-
-        fs::write(&self.db_location, enc_file).expect("");
-
-        Ok(true)
+        match fs::read(&self.db_location_pt) {
+            Ok(file_data) => {
+                match cipher.encrypt(&secret_struct.nonce.into(), file_data.as_ref()) {
+                    Ok(enc_file) => match fs::write(&self.db_location, enc_file) {
+                        Ok(()) => Ok(true),
+                        Err(_) => Err(()),
+                    },
+                    Err(_) => Err(()),
+                }
+            }
+            Err(_) => Err(()),
+        }
     }
 
     /**
@@ -108,15 +111,18 @@ impl TirraCrypto {
         //encrypt small file
         let cipher = ChaCha20Poly1305::new(&secret_struct.key.into());
 
-        let file_data = fs::read(plain_db).expect("can't find database");
-        let enc_file = cipher
-            .encrypt(&secret_struct.nonce.into(), file_data.as_ref())
-            //.map_err(|err| anyhow!("enc some file: {}", err))
-            .expect("nothing");
-
-        fs::write(&self.db_location, enc_file).expect("");
-
-        Ok(true)
+        match fs::read(plain_db) {
+            Ok(file_data) => {
+                match cipher.encrypt(&secret_struct.nonce.into(), file_data.as_ref()) {
+                    Ok(enc_file) => match fs::write(&self.db_location, enc_file) {
+                        Ok(()) => Ok(true),
+                        Err(_) => Err(()),
+                    },
+                    Err(_) => Err(()),
+                }
+            }
+            Err(_) => Err(()),
+        }
     }
 
     /**
@@ -130,20 +136,18 @@ impl TirraCrypto {
         //decrypt small file
         let cipher = ChaCha20Poly1305::new(&secret_struct.key.into());
 
-        let file_data = fs::read(&self.db_location).expect("can't find database");
-        let dec_file = cipher.decrypt(&secret_struct.nonce.into(), file_data.as_ref());
-        //.map_err(|err| anyhow!("enc some file: {}", err))
-        //.expect("Error Decrypting the database.");
-        match dec_file {
-            Ok(f) => {
-                fs::write(&self.db_location_pt, f).expect("");
+        match fs::read(&self.db_location) {
+            Ok(file_data) => {
+                match cipher.decrypt(&secret_struct.nonce.into(), file_data.as_ref()) {
+                    Ok(dec_file) => match fs::write(&self.db_location_pt, dec_file) {
+                        Ok(()) => Ok(true),
+                        Err(_) => Err(()),
+                    },
+                    Err(_) => Err(()),
+                }
             }
-            Err(_) => {
-                return Err(());
-            }
+            Err(_) => Err(()),
         }
-
-        Ok(true)
     }
 
     pub fn plaintext_db_location(&self) -> &str {
