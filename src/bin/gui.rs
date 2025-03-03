@@ -17,6 +17,7 @@ use tirra::common::exception::exception;
 use tirra::gui::pages::editor::{self, EditorPage};
 use tirra::gui::pages::login::{self, LoginPage};
 use tirra::gui::styles::style_conf;
+use tirra::ui::ui::{KbCtrl, TirraInterface};
 
 // Constants
 const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
@@ -78,6 +79,7 @@ struct TirraIced {
     page: RunningPage,
     db_location: String,
     last_act: i64,
+    ticks: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -113,6 +115,7 @@ impl TirraIced {
                 page: RunningPage::Login(login_page),
                 db_location: db_to_use,
                 last_act: current_timestamp(),
+                ticks: 0,
             },
             //command.map(Message::Editor),
             Task::none(),
@@ -130,6 +133,7 @@ impl TirraIced {
         //process message
         match message {
             Message::PeriodicTick => {
+                self.ticks += 1;
                 match &self.page {
                     RunningPage::Editor(_page) => {
                         // inactivity
@@ -142,36 +146,53 @@ impl TirraIced {
                         // trigger a file save
                         self.update_editor_page(editor::Message::Tick)
                     }
-                    RunningPage::Login(_page) => Task::none(),
+                    RunningPage::Login(login_page) => {
+                        login_page.login_ui.on_tick(self.ticks);
+                        Task::none()
+                    }
                 }
             }
-            Message::CtrlS => {
-                if let RunningPage::Editor(_editor) = &self.page {
-                    self.update_editor_page(editor::Message::SaveFile)
-                } else {
-                    Task::none()
-                }
-            }
-            Message::CtrlP => {
-                if let RunningPage::Editor(_editor) = &self.page {
-                    self.update_editor_page(editor::Message::ShowCommandLine)
-                } else {
-                    Task::none()
-                }
-            }
-            Message::CtrlN => {
-                style_conf::toggle_theme();
-                Task::none()
-            }
+            Message::CtrlS => match &self.page {
+                RunningPage::Editor(_editor) => self.update_editor_page(editor::Message::SaveFile),
 
-            Message::CtrlK => {
-                println!("Ctrl+K : Placeholder for testing commands");
-                if let RunningPage::Editor(_editor) = &self.page {
-                    self.update_editor_page(editor::Message::CtrlKCommand)
-                } else {
+                RunningPage::Login(login_page) => {
+                    login_page.login_ui.on_ctrl(KbCtrl::CtrlS);
                     Task::none()
                 }
-            }
+            },
+            Message::CtrlP => match &self.page {
+                RunningPage::Editor(_editor) => {
+                    self.update_editor_page(editor::Message::ShowCommandLine)
+                }
+
+                RunningPage::Login(login_page) => {
+                    login_page.login_ui.on_ctrl(KbCtrl::CtrlP);
+                    Task::none()
+                }
+            },
+
+            Message::CtrlN => match &self.page {
+                RunningPage::Editor(_editor) => {
+                    style_conf::toggle_theme();
+                    Task::none()
+                }
+
+                RunningPage::Login(login_page) => {
+                    login_page.login_ui.on_ctrl(KbCtrl::CtrlN);
+                    Task::none()
+                }
+            },
+
+            Message::CtrlK => match &self.page {
+                RunningPage::Editor(_editor) => {
+                    self.update_editor_page(editor::Message::CtrlKCommand)
+                }
+
+                RunningPage::Login(login_page) => {
+                    login_page.login_ui.on_ctrl(KbCtrl::CtrlK);
+                    Task::none()
+                }
+            },
 
             Message::Editor(msg) => {
                 if let RunningPage::Editor(_editor) = &self.page {

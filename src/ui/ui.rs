@@ -1,20 +1,23 @@
 use crate::{
     common::exception::exception,
+    gui::styles::style_conf,
     storage::{db, tirracrypto::TirraCrypto},
 };
 
+#[derive(Debug)]
 pub enum KbCtrl {
-    CtrlN,
-    CtrlZ,
+    CtrlS,
     CtrlP,
+    CtrlN,
+    CtrlK,
 }
 
 pub trait TirraInterface {
     fn title(&self) -> String;
     //fn init() -> Self;
     //fn deinit();
-    fn on_tick(ticks: u64);
-    fn on_ctrl(control: KbCtrl);
+    fn on_tick(&self, ticks: u64);
+    fn on_ctrl(&self, control: KbCtrl);
 }
 
 //Tirra UI : Login
@@ -95,11 +98,20 @@ impl LoginUi {
 }
 
 impl TirraInterface for LoginUi {
-    fn on_tick(ticks: u64) {
-        println!("Login Page: tick {}", ticks);
+    fn on_tick(&self, _ticks: u64) {
+        //println!("Login Page: tick {}", ticks);
     }
 
-    fn on_ctrl(_control: KbCtrl) {}
+    fn on_ctrl(&self, control: KbCtrl) {
+        match control {
+            KbCtrl::CtrlS | KbCtrl::CtrlP | KbCtrl::CtrlK => {
+                println!("login page: Ctrl+{:?}", control);
+            }
+            KbCtrl::CtrlN => {
+                style_conf::toggle_theme();
+            }
+        }
+    }
 
     fn title(&self) -> String {
         format!("Tirra - Open")
