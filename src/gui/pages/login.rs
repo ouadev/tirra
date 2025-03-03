@@ -25,20 +25,18 @@ impl LoginPage {
         (Self { login_ui: ui }, Task::none())
     }
 
-    pub fn update(&mut self, message: Message) -> Option<Message> {
+    pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::PwdInputChanged(s) => {
                 self.login_ui.on_pwd(s);
-                None
+                Task::none()
             }
             Message::LoginButtonPressed => {
-                if self.login_ui.on_login() {
-                    Some(Message::LoginSuccess)
-                } else {
-                    None
-                }
+                self.login_ui.on_login();
+                Task::none()
+
             }
-            _ => None,
+            _ => Task::none(),
         }
     }
 

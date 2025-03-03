@@ -181,23 +181,19 @@ impl TirraIced {
                 }
             }
             Message::Login(loginmsg) => {
-                if let RunningPage::Login(login_page) = &mut self.page {
-                    match login_page.update(loginmsg) {
-                        Some(login_msg) => {
-                            // Login is successful
-                            match login_msg {
-                                login::Message::LoginSuccess => {
-                                    let (editor_page, command) = EditorPage::new(
-                                        &self.db_location,
-                                        login_page.login_ui.password.as_bytes(),
-                                    );
-                                    self.page = RunningPage::Editor(editor_page);
-                                    command.map(Message::Editor)
-                                }
-                                _ => Task::none(),
-                            }
-                        }
-                        _ => Task::none(),
+                let _ = self.update_login_page(loginmsg);
+
+                if let RunningPage::Login(login_page) = &self.page {
+                    if login_page.login_ui.is_logged_in() {
+                        // Login is successful
+                        let (editor_page, command) = EditorPage::new(
+                            &self.db_location,
+                            login_page.login_ui.password.as_bytes(),
+                        );
+                        self.page = RunningPage::Editor(editor_page);
+                        command.map(Message::Editor)
+                    } else {
+                        Task::none()
                     }
                 } else {
                     exception("running page should be login");
@@ -269,6 +265,15 @@ impl TirraIced {
     fn update_editor_page(&mut self, message: editor::Message) -> Task<Message> {
         if let RunningPage::Editor(editor_page) = &mut self.page {
             editor_page.update(message).map(Message::Editor)
+        } else {
+            exception("running page should ");
+            Task::none()
+        }
+    }
+
+    fn update_login_page(&mut self, message: login::Message) -> Task<Message> {
+        if let RunningPage::Login(login_page) = &mut self.page {
+            login_page.update(message).map(Message::Login)
         } else {
             exception("running page should ");
             Task::none()

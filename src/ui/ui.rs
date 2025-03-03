@@ -24,6 +24,8 @@ pub struct LoginUi {
 
     pub db_found: bool,    // is db found on the path
     pub info_text: String, // text message after inputing password.
+
+    logged_in: bool,
 }
 
 impl LoginUi {
@@ -43,6 +45,7 @@ impl LoginUi {
             db_found: db_found,
             password: String::from(""),
             info_text: info_text,
+            logged_in: false,
         }
     }
 
@@ -52,7 +55,7 @@ impl LoginUi {
         self.info_text = format!("");
     }
 
-    pub fn on_login(&mut self) -> bool {
+    pub fn on_login(&mut self) {
         let crypto = TirraCrypto::new(&self.db_location, self.password.as_bytes());
         if self.db_found == false {
             // Database is not found, start initialization of a new one at the same location.
@@ -72,20 +75,22 @@ impl LoginUi {
                 if let Err(_x) = empty_added {
                     exception("database init");
                 }
-
-                //Some(Message::LoginSuccess)
-                return true;
+                self.logged_in = true;
             } else {
                 panic!("something is up. database is not supposed to be found");
             }
         } else {
             if db::tirra_db_try_access(&crypto) {
-                return true;
+                self.logged_in = true;
             } else {
                 self.info_text = format!("Decryption failure: Wrong key");
-                return false;
+                self.logged_in = false;
             }
         }
+    }
+
+    pub fn is_logged_in(&self) -> bool {
+        return self.logged_in;
     }
 }
 
