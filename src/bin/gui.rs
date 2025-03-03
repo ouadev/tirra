@@ -7,17 +7,16 @@ use chrono::Utc;
 use iced::highlighter::{self};
 use iced::theme::Theme;
 use iced::time::{self, every};
-use iced::widget::text;
 use iced::window::settings::PlatformSpecific;
 use iced::{event, widget, Event, Task};
 use iced::{keyboard, window};
 use iced::{Element, Settings, Subscription};
 
 extern crate tirra;
+use tirra::common::exception::exception;
 use tirra::gui::pages::editor::{self, EditorPage};
 use tirra::gui::pages::login::{self, LoginPage};
 use tirra::gui::styles::style_conf;
-use tirra::common::exception::exception;
 
 // Constants
 const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
@@ -70,11 +69,13 @@ pub fn main() -> iced::Result {
         .run_with(TirraIced::new)
 }
 
+enum RunningPage {
+    Login(LoginPage),
+    Editor(EditorPage),
+}
 struct TirraIced {
     theme: highlighter::Theme,
-    login_page: LoginPage,
-    editor_page: Option<EditorPage>,
-    logged_in: bool,
+    page: RunningPage,
     db_location: String,
     last_act: i64,
 }
@@ -109,9 +110,7 @@ impl TirraIced {
         (
             Self {
                 theme: highlighter::Theme::InspiredGitHub,
-                editor_page: None,
-                login_page: login_page,
-                logged_in: false,
+                page: RunningPage::Login(login_page),
                 db_location: db_to_use,
                 last_act: current_timestamp(),
             },
@@ -121,13 +120,9 @@ impl TirraIced {
     }
 
     fn title(&self) -> String {
-        if self.logged_in {
-            match &self.editor_page {
-                Some(e) => e.title(),
-                _ => String::from("Unknown Tirra Page !"),
-            }
-        } else {
-            self.login_page.title()
+        match &self.page {
+            RunningPage::Editor(page) => page.title(),
+            RunningPage::Login(page) => page.title(),
         }
     }
 
@@ -135,30 +130,30 @@ impl TirraIced {
         //process message
         match message {
             Message::PeriodicTick => {
-                if self.logged_in {
-                    // inactivity
-                    if current_timestamp() - self.last_act > TIRRA_INACTIVITY_SECONDS {
-                        println!("Inactivity: logging out");
-                        self.logged_in = false;
-                        let (login_page, _login_cmd) = LoginPage::new(&self.db_location);
-                        self.login_page = login_page;
-                        // TODO: make sure the Editor and its content are destroyed !!
+                match &self.page {
+                    RunningPage::Editor(_page) => {
+                        // inactivity
+                        if current_timestamp() - self.last_act > TIRRA_INACTIVITY_SECONDS {
+                            println!("Inactivity: logging out");
+                            let (login_page, _login_cmd) = LoginPage::new(&self.db_location);
+                            self.page = RunningPage::Login(login_page);
+                            // TODO: make sure the Editor and its content are destroyed !!
+                        }
+                        // trigger a file save
+                        self.update_editor_page(editor::Message::Tick)
                     }
-                    // trigger a file save
-                    self.update_editor_page(editor::Message::Tick)
-                } else {
-                    Task::none()
+                    RunningPage::Login(_page) => Task::none(),
                 }
             }
             Message::CtrlS => {
-                if self.logged_in {
+                if let RunningPage::Editor(_editor) = &self.page {
                     self.update_editor_page(editor::Message::SaveFile)
                 } else {
                     Task::none()
                 }
             }
             Message::CtrlP => {
-                if self.logged_in {
+                if let RunningPage::Editor(_editor) = &self.page {
                     self.update_editor_page(editor::Message::ShowCommandLine)
                 } else {
                     Task::none()
@@ -171,7 +166,7 @@ impl TirraIced {
 
             Message::CtrlK => {
                 println!("Ctrl+K : Placeholder for testing commands");
-                if self.logged_in {
+                if let RunningPage::Editor(_editor) = &self.page {
                     self.update_editor_page(editor::Message::CtrlKCommand)
                 } else {
                     Task::none()
@@ -179,37 +174,40 @@ impl TirraIced {
             }
 
             Message::Editor(msg) => {
-                if self.logged_in {
+                if let RunningPage::Editor(_editor) = &self.page {
                     self.update_editor_page(msg)
                 } else {
                     Task::none()
                 }
             }
             Message::Login(loginmsg) => {
-                //self.login_page.update(loginmsg).map(Message::Login)
-                match self.login_page.update(loginmsg) {
-                    Some(login_msg) => {
-                        // Login is successful
-                        match login_msg {
-                            login::Message::LoginSuccess => {
-                                self.logged_in = true;
-                                let (editor_page, command) = EditorPage::new(
-                                    &self.db_location,
-                                    self.login_page.login_ui.password.as_bytes(),
-                                );
-                                self.editor_page = Some(editor_page);
-                                command.map(Message::Editor)
+                if let RunningPage::Login(login_page) = &mut self.page {
+                    match login_page.update(loginmsg) {
+                        Some(login_msg) => {
+                            // Login is successful
+                            match login_msg {
+                                login::Message::LoginSuccess => {
+                                    let (editor_page, command) = EditorPage::new(
+                                        &self.db_location,
+                                        login_page.login_ui.password.as_bytes(),
+                                    );
+                                    self.page = RunningPage::Editor(editor_page);
+                                    command.map(Message::Editor)
+                                }
+                                _ => Task::none(),
                             }
-                            _ => Task::none(),
                         }
+                        _ => Task::none(),
                     }
-                    _ => Task::none(),
+                } else {
+                    exception("running page should be login");
+                    Task::none()
                 }
             }
             Message::IgnoredEvent(event) => match event {
                 Event::Window(win_ev) => match win_ev {
                     window::Event::Focused => {
-                        if self.logged_in == false {
+                        if let RunningPage::Login(_login_page) = &self.page {
                             text_input::focus(text_input::Id::new(
                                 login::LoginPage::text_input_id_to_focus(),
                             ))
@@ -218,7 +216,7 @@ impl TirraIced {
                         }
                     }
                     window::Event::CloseRequested => {
-                        if self.logged_in {
+                        if let RunningPage::Editor(_editor) = &self.page {
                             let _ = self.update_editor_page(editor::Message::SaveFile);
                         }
                         //window::close(window::Id::MAIN)
@@ -253,15 +251,10 @@ impl TirraIced {
     }
 
     fn view(&self) -> Element<Message> {
-        if self.logged_in {
-            if let Some(editor) = self.editor_page.as_ref() {
-                editor.view().map(Message::Editor)
-            } else {
-                exception("error: logged in but Editor Page is not present");
-                text("").into()
-            }
-        } else {
-            self.login_page.view().map(Message::Login)
+        match &self.page {
+            RunningPage::Login(login_page) => login_page.view().map(Message::Login),
+
+            RunningPage::Editor(editor_page) => editor_page.view().map(Message::Editor),
         }
     }
 
@@ -274,10 +267,10 @@ impl TirraIced {
     }
 
     fn update_editor_page(&mut self, message: editor::Message) -> Task<Message> {
-        if let Some(editor) = self.editor_page.as_mut() {
-            editor.update(message).map(Message::Editor)
+        if let RunningPage::Editor(editor_page) = &mut self.page {
+            editor_page.update(message).map(Message::Editor)
         } else {
-            exception("editor page not initialized");
+            exception("running page should ");
             Task::none()
         }
     }
