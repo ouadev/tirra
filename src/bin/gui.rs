@@ -195,7 +195,7 @@ impl TirraIced {
                                 self.logged_in = true;
                                 let (editor_page, command) = EditorPage::new(
                                     &self.db_location,
-                                    self.login_page.password.as_bytes(),
+                                    self.login_page.login_ui.password.as_bytes(),
                                 );
                                 self.editor_page = Some(editor_page);
                                 command.map(Message::Editor)

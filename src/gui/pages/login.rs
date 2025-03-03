@@ -3,17 +3,12 @@ use iced::widget::{column, container, text, text_input, Button, Text, TextInput}
 use iced::{Background, Task};
 use iced::{Element, Length};
 
-use crate::common::exception::exception;
 use crate::gui::styles::{self, style_conf};
-use crate::storage::db;
-use crate::storage::tirracrypto::TirraCrypto;
+use crate::ui::ui::{LoginUi, TirraInterface};
 
 const LOGIN_INPUT_ICED_ID: &str = "pwdinput-id";
 pub struct LoginPage {
-    pub db_location: String,
-    db_found: bool,
-    info_text: String,
-    pub password: String,
+    pub login_ui: LoginUi,
 }
 
 #[derive(Debug, Clone)]
@@ -24,68 +19,23 @@ pub enum Message {
 }
 impl LoginPage {
     pub fn new(db_location: &str) -> (Self, Task<Message>) {
-        // Check database file existence
-        let mut info_text = String::new();
-        //info_text.push_str(&format!(" . db: {}\n", db_location));
-        let db_found: bool;
-        if db::tirra_db_found(db_location) == true {
-            db_found = true;
-        } else {
-            info_text.push_str(&format!(" Database file was not found.\n"));
-            db_found = false;
-        }
+        //instantiate Login Tirra UI
+        let ui = LoginUi::new(db_location);
         //return
-        (
-            Self {
-                db_location: String::from(db_location),
-                db_found: db_found,
-                password: String::from(""),
-                info_text: info_text,
-            },
-            Task::none(),
-        )
+        (Self { login_ui: ui }, Task::none())
     }
 
     pub fn update(&mut self, message: Message) -> Option<Message> {
         match message {
             Message::PwdInputChanged(s) => {
-                self.password = s;
-                self.info_text = self.password.clone();
-                self.info_text = format!("");
+                self.login_ui.on_pwd(s);
                 None
             }
             Message::LoginButtonPressed => {
-                let crypto = TirraCrypto::new(&self.db_location, self.password.as_bytes());
-                if self.db_found == false {
-                    // Database is not found, start initialization of a new one at the same location.
-                    // intialize the backend
-                    if crypto.enc_db_found() == false {
-                        // create new db
-                        let inited = db::tirra_db_init(&crypto);
-                        if let Err(_x) = inited {
-                            exception("database init");
-                        }
-                        // insert first empty entry
-                        let empty_added = db::tirra_db_add_entry(
-                            db::TIRRA_ENTRY_TYPE_GENERAL,
-                            db::TIRRA_FIRST_ENTRY_TEXT,
-                            &crypto,
-                        );
-                        if let Err(_x) = empty_added {
-                            exception("database init");
-                        }
-                        
-                        Some(Message::LoginSuccess)
-                    } else {
-                        panic!("something is up. database is not supposed to be found");
-                    }
+                if self.login_ui.on_login() {
+                    Some(Message::LoginSuccess)
                 } else {
-                    if db::tirra_db_try_access(&crypto) {
-                        Some(Message::LoginSuccess)
-                    } else {
-                        self.info_text = format!("Decryption failure: Wrong key");
-                        None
-                    }
+                    None
                 }
             }
             _ => None,
@@ -104,7 +54,7 @@ impl LoginPage {
             });
 
         // DIV : target Db
-        let div_db = Text::new(&self.db_location)
+        let div_db = Text::new(&self.login_ui.db_location)
             .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
             .width(Length::Fill)
             .align_x(iced::alignment::Horizontal::Center)
@@ -117,7 +67,7 @@ impl LoginPage {
             });
         let div_db_cont = container(div_db).center_x(Length::Fill).padding(20);
         // DIV : Text Input
-        let div_pwd = TextInput::new("Passphrase", &self.password)
+        let div_pwd = TextInput::new("Passphrase", &self.login_ui.password)
             .width(300)
             .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
             .secure(true)
@@ -127,7 +77,7 @@ impl LoginPage {
 
         let div_pwd_cont = container(div_pwd).center_x(Length::Fill);
         // DIV : Login Button
-        let button_text = if self.db_found {
+        let button_text = if self.login_ui.db_found {
             "Decrypt & Access"
         } else {
             "New Database"
@@ -140,7 +90,7 @@ impl LoginPage {
         let div_dec_cont = container(div_decrypt_button).center_x(Length::Fill);
 
         // DIV : Information box
-        let div_info = Text::new(&self.info_text)
+        let div_info = Text::new(&self.login_ui.info_text)
             .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
             .width(Length::Fill)
             .align_x(iced::alignment::Horizontal::Center)
@@ -185,7 +135,7 @@ impl LoginPage {
     }
 
     pub fn title(&self) -> String {
-        format!("Tirra - Open")
+        self.login_ui.title()
     }
 
     /**
