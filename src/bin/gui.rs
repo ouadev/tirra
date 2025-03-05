@@ -172,8 +172,8 @@ impl TirraIced {
             },
 
             Message::CtrlN => match &self.page {
-                RunningPage::Editor(_editor) => {
-                    style_conf::toggle_theme();
+                RunningPage::Editor(editor_page) => {
+                    editor_page.editor_ui.on_ctrl(KbCtrl::CtrlN);
                     Task::none()
                 }
 
@@ -184,8 +184,9 @@ impl TirraIced {
             },
 
             Message::CtrlK => match &self.page {
-                RunningPage::Editor(_editor) => {
-                    self.update_editor_page(editor::Message::CtrlKCommand)
+                RunningPage::Editor(editor_page) => {
+                    editor_page.editor_ui.on_ctrl(KbCtrl::CtrlK);
+                    Task::none()
                 }
 
                 RunningPage::Login(login_page) => {

@@ -3,6 +3,7 @@ use crate::gui::styles::{self, style_conf};
 use crate::storage::db::{self, TirraEntry};
 use crate::storage::sync::{self, SyncDecision, SyncState};
 use crate::storage::tirracrypto::TirraCrypto;
+use crate::ui::ui::EditorUi;
 use iced::theme::Theme;
 use iced::widget::{
     column, container, horizontal_space, row, scrollable, text, text_editor, Button, MouseArea,
@@ -19,27 +20,14 @@ use chrono::{DateTime, Utc};
 //use unicode_segmentation::UnicodeSegmentation;
 
 pub struct EditorPage {
+    pub editor_ui: EditorUi,
     pub content: text_editor::Content,
-    pub is_dirty: bool,
-    pub entries: Vec<TirraEntry>,
-    pub curr_entry_id: u32,
-    pub crypto: TirraCrypto,
-    readonly_mode: bool,
-    db_id: u64,
-    db_ver: u32,
-    ticks: u64,
-    cmd_line_show: bool,
-    cmd_line_text: String,
-    load_request: String,
-    sync_status: (bool, String),
-    sync_state: SyncState,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
     ActionPerformed(text_editor::Action),
     Tick,
-    CtrlKCommand,
     SaveFile,
     ShowCommandLine,
     EntryButtonClicked(u32),
@@ -52,50 +40,19 @@ pub enum Message {
 }
 impl EditorPage {
     pub fn new(db_location: &str, crypto_pwd: &[u8]) -> (Self, Task<Message>) {
-        //Init Crypto
-        let tirra_crypto = TirraCrypto::new(db_location, crypto_pwd);
-        // intialize the backend
-        if tirra_crypto.enc_db_found() == false {
-            panic!("we are not supposed to be here without an encrypted database");
-        }
-
-        // database information block.
-        let schema_version: u32;
-        if let Ok(local_info) = db::tirra_db_information(&tirra_crypto) {
-            db::db_information_debug(&local_info);
-            schema_version = local_info.schema_ver;
-        } else {
-            schema_version = 0;
-            println!("info: Info Block is not found");
-        }
-
-        // Load all entries into memory and display the first one
-        let def_req = db::tirra_db_default_read_req();
-        let all_entries = Self::reload_all(&tirra_crypto, &def_req);
-        let init_content = text_editor::Content::with_text(&all_entries[0].text);
-        let id = all_entries[0].id;
-
-        let db_id = db::tirra_db_id(&tirra_crypto);
-
+        //instantiate Editor UI
+        let editor_ui = EditorUi::new(db_location, crypto_pwd);
+        // initial editor content
+        let init_content = text_editor::Content::with_text(&editor_ui.entries[0].text);
+        let db_id = editor_ui.db_id;
+        let db_ver = editor_ui.db_ver;
         //return
         (
             Self {
-                curr_entry_id: id,
+                editor_ui: editor_ui,
                 content: init_content,
-                is_dirty: false,
-                entries: all_entries,
-                readonly_mode: false,
-                db_id: db_id,
-                db_ver: schema_version,
-                ticks: 0,
-                cmd_line_show: false,
-                cmd_line_text: def_req.clone(),
-                load_request: def_req,
-                sync_status: (false, String::from("not connected")),
-                crypto: tirra_crypto,
-                sync_state: SyncState::NoOp,
             },
-            if schema_version >= 1 {
+            if db_ver >= 1 {
                 Task::perform(sync::sync_download(db_id), |value: sync::SyncState| {
                     Message::SyncFetchDone(value)
                 })
@@ -111,9 +68,9 @@ impl EditorPage {
                 match &action {
                     text_editor::Action::Edit(_edit) => {
                         // block editing when in readonly mode
-                        if !self.readonly_mode {
+                        if !self.editor_ui.readonly_mode {
                             self.content.perform(action);
-                            self.is_dirty = true;
+                            self.editor_ui.is_dirty = true;
                         }
                     }
                     _ => self.content.perform(action),
@@ -122,27 +79,21 @@ impl EditorPage {
                 Task::none()
             }
 
-            Message::CtrlKCommand => {
-                //run stuff on the editor, for testing purposes.
-                println!("Ctrl-K Command");
-                Task::none()
-            }
-
             Message::Tick => {
-                self.ticks += 1;
+                self.editor_ui.ticks += 1;
                 // periodic save
-                if self.is_dirty {
+                if self.editor_ui.is_dirty {
                     self.save();
-                    self.entries = Self::reload_all(&self.crypto, &self.load_request);
-                    self.is_dirty = false;
+                    self.editor_ui.entries = Self::reload_all(&self.editor_ui.crypto, &self.editor_ui.load_request);
+                    self.editor_ui.is_dirty = false;
                 }
-                if self.db_ver >= 1 {
+                if self.editor_ui.db_ver >= 1 {
                     // periodic sync : check information
-                    let decision = sync::process_after_fetch(self.sync_state, &self.crypto);
+                    let decision = sync::process_after_fetch(self.editor_ui.sync_state, &self.editor_ui.crypto);
                     self.update_sync_status(&decision);
                     // periodic sync : fetch from the server
-                    if self.ticks % 7 == 0 {
-                        Task::perform(sync::sync_download(self.db_id), |value: sync::SyncState| {
+                    if self.editor_ui.ticks % 7 == 0 {
+                        Task::perform(sync::sync_download(self.editor_ui.db_id), |value: sync::SyncState| {
                             Message::SyncFetchDone(value)
                         })
                     } else {
@@ -154,19 +105,19 @@ impl EditorPage {
             }
 
             Message::SaveFile => {
-                if self.is_dirty {
+                if self.editor_ui.is_dirty {
                     self.save();
-                    self.entries = Self::reload_all(&self.crypto, &self.load_request);
-                    self.is_dirty = false;
+                    self.editor_ui.entries = Self::reload_all(&self.editor_ui.crypto, &self.editor_ui.load_request);
+                    self.editor_ui.is_dirty = false;
                 }
                 Task::none()
             }
             Message::EntryButtonClicked(entry_id) => {
                 // Save first
-                if self.is_dirty {
+                if self.editor_ui.is_dirty {
                     self.save();
-                    self.entries = Self::reload_all(&self.crypto, &self.load_request);
-                    self.is_dirty = false;
+                    self.editor_ui.entries = Self::reload_all(&self.editor_ui.crypto, &self.editor_ui.load_request);
+                    self.editor_ui.is_dirty = false;
                 }
                 //
                 self.show_entry(entry_id);
@@ -175,15 +126,15 @@ impl EditorPage {
             }
             Message::NewEntryButtonClicked => {
                 // Save before creating a new entry
-                if self.is_dirty {
+                if self.editor_ui.is_dirty {
                     self.save();
-                    self.is_dirty = false;
+                    self.editor_ui.is_dirty = false;
                 }
 
-                if !self.readonly_mode {
-                    match db::tirra_db_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", &self.crypto) {
+                if !self.editor_ui.readonly_mode {
+                    match db::tirra_db_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", &self.editor_ui.crypto) {
                         Ok(()) => {
-                            self.entries = Self::reload_all(&self.crypto, &self.load_request);
+                            self.editor_ui.entries = Self::reload_all(&self.editor_ui.crypto, &self.editor_ui.load_request);
                             self.show_entry(self.entry_greatest_id());
                         }
                         _ => {
@@ -196,27 +147,27 @@ impl EditorPage {
             }
 
             Message::CommandLineInputChanged(s) => {
-                self.cmd_line_text = s;
+                self.editor_ui.cmd_line_text = s;
                 Task::none()
             }
 
             Message::CommandLineSubmited => {
-                if self.is_dirty {
+                if self.editor_ui.is_dirty {
                     self.save();
-                    self.is_dirty = false;
+                    self.editor_ui.is_dirty = false;
                 }
                 // check if the request would work !
                 let entries_opt =
-                    db::tirra_db_get_all_entries(&self.crypto, &self.cmd_line_text).ok();
+                    db::tirra_db_get_all_entries(&self.editor_ui.crypto, &self.editor_ui.cmd_line_text).ok();
                 match entries_opt {
                     Some(entries) => {
-                        self.entries = entries;
+                        self.editor_ui.entries = entries;
                         self.show_entry(self.entry_greatest_id());
-                        self.load_request = self.cmd_line_text.clone();
+                        self.editor_ui.load_request = self.editor_ui.cmd_line_text.clone();
                     }
                     _ => {
                         println!("New Loader request failed !!!");
-                        self.cmd_line_text = self.load_request.clone();
+                        self.editor_ui.cmd_line_text = self.editor_ui.load_request.clone();
                     }
                 }
 
@@ -224,15 +175,15 @@ impl EditorPage {
             }
 
             Message::ShowCommandLine => {
-                self.cmd_line_show = !self.cmd_line_show;
+                self.editor_ui.cmd_line_show = !self.editor_ui.cmd_line_show;
                 Task::none()
             }
 
             Message::SyncFetchDone(state) => {
-                self.sync_state = state;
+                self.editor_ui.sync_state = state;
                 println!("------------------");
                 // debug:  print local info
-                if let Ok(local_info) = db::tirra_db_information(&self.crypto) {
+                if let Ok(local_info) = db::tirra_db_information(&self.editor_ui.crypto) {
                     println!("Ours:");
                     sync::info_sync_debug(&local_info);
                 } else {
@@ -241,7 +192,7 @@ impl EditorPage {
 
                 // debug: print origin database info.
                 if state == SyncState::Fetched {
-                    if let Some(origin_info) = sync::sync_retrieve_information(&self.crypto) {
+                    if let Some(origin_info) = sync::sync_retrieve_information(&self.editor_ui.crypto) {
                         println!("Theirs:");
                         sync::info_sync_debug(&origin_info);
                         println!("");
@@ -250,16 +201,16 @@ impl EditorPage {
                     }
                 }
                 // compute decision and apply it.
-                let decision = sync::process_after_fetch(state, &self.crypto);
+                let decision = sync::process_after_fetch(state, &self.editor_ui.crypto);
                 self.update_sync_status(&decision);
 
                 if decision == SyncDecision::Push {
-                    let db_loc = self.crypto.get_db_location();
+                    let db_loc = self.editor_ui.crypto.get_db_location();
                     Task::perform(sync::sync_upload(1, db_loc), |value: sync::SyncState| {
                         Message::SyncPushDone(value)
                     })
                 } else if decision == SyncDecision::UpdateCommits {
-                    sync::update_origin_commit(&self.crypto);
+                    sync::update_origin_commit(&self.editor_ui.crypto);
                     Task::none()
                 } else {
                     Task::none()
@@ -267,31 +218,31 @@ impl EditorPage {
             }
 
             Message::SyncPushDone(value) => {
-                self.sync_state = value;
+                self.editor_ui.sync_state = value;
                 println!("sync: pushing is done");
                 if value == SyncState::Pushed {
-                    self.sync_status.1 = format!("{}", "up to date");
+                    self.editor_ui.sync_status.1 = format!("{}", "up to date");
                     // change commits
-                    sync::update_origin_commit(&self.crypto);
+                    sync::update_origin_commit(&self.editor_ui.crypto);
                 } else {
-                    self.sync_status.1 = format!("{}", "error pushing");
+                    self.editor_ui.sync_status.1 = format!("{}", "error pushing");
                 }
                 Task::none()
             }
 
             Message::SyncStatusClicked => {
-                if self.is_dirty {
+                if self.editor_ui.is_dirty {
                     println!("editor is dirty. dropping latest changes.");
                 }
                 self.save();
-                match db::tirra_db_replace(&self.crypto, &sync::origin_db_temp_file()) {
+                match db::tirra_db_replace(&self.editor_ui.crypto, &sync::origin_db_temp_file()) {
                     Ok(()) => {
-                        self.entries = Self::reload_all(&self.crypto, &self.load_request);
-                        self.is_dirty = false;
+                        self.editor_ui.entries = Self::reload_all(&self.editor_ui.crypto, &self.editor_ui.load_request);
+                        self.editor_ui.is_dirty = false;
                         self.show_entry(self.entry_greatest_id());
                         // change commits
-                        sync::update_origin_commit(&self.crypto);
-                        self.sync_status = (false, format!("{}", "replaced"));
+                        sync::update_origin_commit(&self.editor_ui.crypto);
+                        self.editor_ui.sync_status = (false, format!("{}", "replaced"));
                     }
                     _ => {
                         println!("error: sync failed to replace local db");
@@ -305,10 +256,10 @@ impl EditorPage {
 
     fn update_sync_status(&mut self, decision: &SyncDecision) {
         let status_text: String;
-        self.sync_status.0 = false;
+        self.editor_ui.sync_status.0 = false;
         match decision {
             SyncDecision::ReplaceLocal => {
-                self.sync_status.0 = true;
+                self.editor_ui.sync_status.0 = true;
                 status_text = format!("{}", "replace");
             }
             SyncDecision::Push => {
@@ -327,9 +278,9 @@ impl EditorPage {
                 status_text = format!("{}", "failure");
             }
         }
-        if status_text != self.sync_status.1 {
-            self.sync_status.1 = status_text;
-            println!("sync dec: {}", self.sync_status.1);
+        if status_text != self.editor_ui.sync_status.1 {
+            self.editor_ui.sync_status.1 = status_text;
+            println!("sync dec: {}", self.editor_ui.sync_status.1);
         }
     }
 
@@ -360,20 +311,20 @@ impl EditorPage {
                 .width(Length::Fill)
                 .style(styles::button::button_main);
 
-        if self.curr_entry_id > 0 && !self.readonly_mode {
+        if self.editor_ui.curr_entry_id > 0 && !self.editor_ui.readonly_mode {
             div_add = div_add.on_press(Message::NewEntryButtonClicked);
         }
 
         //DIV : list of entries
         let div_entries = column(
-            self.entries.iter().map(|ent| {
+            self.editor_ui.entries.iter().map(|ent| {
                 let title = EditorPage::entry_title(ent, 30);
                 let link_text = text(title)
                     .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
                     .shaping(text::Shaping::Advanced);
                 let ent_button = Button::new(link_text)
                     .width(Length::Fill)
-                    .style(if ent.id == self.curr_entry_id {
+                    .style(if ent.id == self.editor_ui.curr_entry_id {
                         styles::button::button_entry_selected
                     } else {
                         styles::button::button_entry
@@ -461,8 +412,8 @@ impl EditorPage {
         let div_date_create;
         let div_date_modify;
         let entry_id;
-        if self.curr_entry_id > 0 {
-            if let Some(entry) = self.entry_by_id(self.curr_entry_id) {
+        if self.editor_ui.curr_entry_id > 0 {
+            if let Some(entry) = self.entry_by_id(self.editor_ui.curr_entry_id) {
                 entry_id = entry.id;
                 let date_create_ts = entry.date_create;
                 let date_modify_ts = entry.date_modify;
@@ -496,7 +447,7 @@ impl EditorPage {
             });
 
         // sync
-        let div_sync = if self.db_ver >= 1 {
+        let div_sync = if self.editor_ui.db_ver >= 1 {
             self.view_sync_status()
         } else {
             horizontal_space().into()
@@ -542,7 +493,7 @@ impl EditorPage {
                     color: Some(palette.text),
                 }
             });
-        let sync_text = text(format!("{} ", self.sync_status.1))
+        let sync_text = text(format!("{} ", self.editor_ui.sync_status.1))
             .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
             .style(|_theme: &Theme| {
                 let palette = style_conf::palette();
@@ -551,7 +502,7 @@ impl EditorPage {
                 }
             });
 
-        if self.sync_status.0 {
+        if self.editor_ui.sync_status.0 {
             sync_button = text("[+]")
                 .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS_HIGHLIGHT)
                 .font(style_conf::FONT_STATUS_DATE_BOLD)
@@ -577,7 +528,7 @@ impl EditorPage {
     fn view_editor(&self) -> Element<Message> {
         // DIV : Command line experimentation
         let div_cmd_input =
-            TextInput::new("> SELECT * FROM entries WHERE ...", &self.cmd_line_text)
+            TextInput::new("> SELECT * FROM entries WHERE ...", &self.editor_ui.cmd_line_text)
                 .width(Length::Fill)
                 .size(style_conf::STYLE_TEXT_SIZE_COMMAND)
                 .font(style_conf::FONT_COMMAND_LINE)
@@ -585,7 +536,7 @@ impl EditorPage {
                 .on_input(Message::CommandLineInputChanged);
 
         let mut div_command_cont;
-        if self.cmd_line_show {
+        if self.editor_ui.cmd_line_show {
             div_command_cont = container(div_cmd_input).height(40);
         } else {
             div_command_cont = container("").height(10);
@@ -604,7 +555,7 @@ impl EditorPage {
             .padding(20)
             .font(style_conf::FONT_EDITOR)
             .style(styles::text_editor::main_style);
-        if self.curr_entry_id > 0 {
+        if self.editor_ui.curr_entry_id > 0 {
             // let the editor disabled if there is no current entry.
             div_editor_text = div_editor_text.on_action(Message::ActionPerformed);
         }
@@ -618,7 +569,7 @@ impl EditorPage {
 
     fn save(&mut self) -> () {
         let updated =
-            db::tirra_db_update_entry(&self.content.text(), self.curr_entry_id, &self.crypto);
+            db::tirra_db_update_entry(&self.content.text(), self.editor_ui.curr_entry_id, &self.editor_ui.crypto);
         match updated {
             Err(err) => {
                 exception(&format!("update entry {:?}", err));
@@ -675,7 +626,7 @@ impl EditorPage {
      * Show an entry defined by ID in the editor
      */
     fn show_entry(&mut self, id: u32) {
-        self.curr_entry_id = id;
+        self.editor_ui.curr_entry_id = id;
         if id > 0 {
             if let Some(entry) = self.entry_by_id(id) {
                 self.content = text_editor::Content::with_text(&entry.text);
@@ -688,16 +639,16 @@ impl EditorPage {
     }
 
     pub fn title(&self) -> String {
-        format!("Tirra{} ", if self.is_dirty { "*" } else { "" })
+        format!("Tirra{} ", if self.editor_ui.is_dirty { "*" } else { "" })
     }
 
     fn entry_by_id(&self, id: u32) -> Option<&TirraEntry> {
-        self.entries.iter().find(|ent| ent.id == id)
+        self.editor_ui.entries.iter().find(|ent| ent.id == id)
     }
 
     fn entry_greatest_id(&self) -> u32 {
         let mut id = 0u32;
-        for entry in self.entries.iter() {
+        for entry in self.editor_ui.entries.iter() {
             if entry.id > id {
                 id = entry.id;
             }

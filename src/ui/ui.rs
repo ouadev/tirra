@@ -1,7 +1,11 @@
 use crate::{
     common::exception::exception,
     gui::styles::style_conf,
-    storage::{db, tirracrypto::TirraCrypto},
+    storage::{
+        db::{self, TirraEntry},
+        sync::SyncState,
+        tirracrypto::TirraCrypto,
+    },
 };
 
 #[derive(Debug)]
@@ -106,6 +110,102 @@ impl TirraInterface for LoginUi {
         match control {
             KbCtrl::CtrlS | KbCtrl::CtrlP | KbCtrl::CtrlK => {
                 println!("login page: Ctrl+{:?}", control);
+            }
+            KbCtrl::CtrlN => {
+                style_conf::toggle_theme();
+            }
+        }
+    }
+
+    fn title(&self) -> String {
+        format!("Tirra - Open")
+    }
+}
+
+//Tirra UI : Editor
+pub struct EditorUi {
+    pub is_dirty: bool,
+    pub entries: Vec<TirraEntry>,
+    pub curr_entry_id: u32,
+    pub crypto: TirraCrypto,
+    pub readonly_mode: bool,
+    pub db_id: u64,
+    pub db_ver: u32,
+    pub ticks: u64,
+    pub cmd_line_show: bool,
+    pub cmd_line_text: String,
+    pub load_request: String,
+    pub sync_status: (bool, String),
+    pub sync_state: SyncState,
+}
+
+impl EditorUi {
+    pub fn new(db_location: &str, crypto_pwd: &[u8]) -> Self {
+        //Init Crypto
+        let tirra_crypto = TirraCrypto::new(db_location, crypto_pwd);
+        // intialize the backend
+        if tirra_crypto.enc_db_found() == false {
+            panic!("we are not supposed to be here without an encrypted database");
+        }
+        // database information block.
+        let schema_version: u32;
+        if let Ok(local_info) = db::tirra_db_information(&tirra_crypto) {
+            db::db_information_debug(&local_info);
+            schema_version = local_info.schema_ver;
+        } else {
+            schema_version = 0;
+            println!("info: Info Block is not found");
+        }
+        // Load all entries into memory and display the first one
+        let def_req = db::tirra_db_default_read_req();
+        let all_entries = Self::reload_all(&tirra_crypto, &def_req);
+        //let init_content = text_editor::Content::with_text(&all_entries[0].text);
+        let id = all_entries[0].id;
+        let db_id = db::tirra_db_id(&tirra_crypto);
+
+        //return
+        Self {
+            curr_entry_id: id,
+            is_dirty: false,
+            entries: all_entries,
+            readonly_mode: false,
+            db_id: db_id,
+            db_ver: schema_version,
+            ticks: 0,
+            cmd_line_show: false,
+            cmd_line_text: def_req.clone(),
+            load_request: def_req,
+            sync_status: (false, String::from("not connected")),
+            crypto: tirra_crypto,
+            sync_state: SyncState::NoOp,
+        }
+    }
+
+    fn reload_all(crypto: &TirraCrypto, request_string: &String) -> Vec<TirraEntry> {
+        // Load all entries into memory:
+        match db::tirra_db_get_all_entries(&crypto, &request_string) {
+            Ok(entries) => entries,
+            Err(_error) => {
+                exception("loading entries");
+                vec![]
+            }
+        }
+    }
+}
+
+impl TirraInterface for EditorUi {
+    fn on_tick(&self, _ticks: u64) {
+        //println!("Login Page: tick {}", ticks);
+    }
+
+    fn on_ctrl(&self, control: KbCtrl) {
+        match control {
+            KbCtrl::CtrlS | KbCtrl::CtrlP => {
+                println!("editor page: Ctrl+{:?}", control);
+            }
+            KbCtrl::CtrlK => {
+                //run stuff on the editor, for testing purposes.
+                println!("editor page: Ctrl-K Command");
             }
             KbCtrl::CtrlN => {
                 style_conf::toggle_theme();
