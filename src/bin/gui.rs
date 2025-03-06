@@ -164,8 +164,9 @@ impl TirraIced {
                 }
             },
             Message::CtrlP => match &mut self.page {
-                RunningPage::Editor(_editor) => {
-                    self.update_editor_page(editor::Message::ShowCommandLine)
+                RunningPage::Editor(editor_page) => {
+                    editor_page.editor_ui.on_ctrl(KbCtrl::CtrlP);
+                    Task::none()
                 }
 
                 RunningPage::Login(login_page) => {

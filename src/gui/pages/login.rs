@@ -34,7 +34,6 @@ impl LoginPage {
             Message::LoginButtonPressed => {
                 self.login_ui.on_login();
                 Task::none()
-
             }
             _ => Task::none(),
         }

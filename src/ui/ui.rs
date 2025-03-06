@@ -212,6 +212,13 @@ impl EditorUi {
     }
 
     /**
+     * response to action: show_cli command line
+     */
+    pub fn on_show_cli(&mut self) {
+        self.cmd_line_show = !self.cmd_line_show;
+    }
+
+    /**
      * check of the editor is in read_only mode
      */
     pub fn is_readonly(&self) -> bool {
@@ -256,7 +263,7 @@ impl TirraInterface for EditorUi {
     fn on_ctrl(&mut self, control: KbCtrl) {
         match control {
             KbCtrl::CtrlP => {
-                println!("editor page: Ctrl+{:?}", control);
+                self.on_show_cli();
             }
             KbCtrl::CtrlS => {
                 self.save_and_reload();

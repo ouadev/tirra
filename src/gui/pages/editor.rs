@@ -28,7 +28,6 @@ pub struct EditorPage {
 pub enum Message {
     ActionPerformed(text_editor::Action),
     Tick,
-    ShowCommandLine,
     EntryButtonClicked(u32),
     NewEntryButtonClicked,
     SyncStatusClicked,
@@ -107,18 +106,6 @@ impl EditorPage {
                     Task::none()
                 }
             }
-
-            /*
-            Message::SaveFile => {
-                if self.editor_ui.is_dirty {
-                    self.save();
-                    self.editor_ui.entries =
-                        Self::reload_all(&self.editor_ui.crypto, &self.editor_ui.load_request);
-                    self.editor_ui.is_dirty = false;
-                }
-                Task::none()
-            }
-            */
             Message::EntryButtonClicked(entry_id) => {
                 // Save first
                 if self.editor_ui.is_dirty {
@@ -189,11 +176,6 @@ impl EditorPage {
                     }
                 }
 
-                Task::none()
-            }
-
-            Message::ShowCommandLine => {
-                self.editor_ui.cmd_line_show = !self.editor_ui.cmd_line_show;
                 Task::none()
             }
 
