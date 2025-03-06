@@ -28,7 +28,6 @@ pub struct EditorPage {
 pub enum Message {
     ActionPerformed(text_editor::Action),
     Tick,
-    SaveFile,
     ShowCommandLine,
     EntryButtonClicked(u32),
     NewEntryButtonClicked,
@@ -68,9 +67,9 @@ impl EditorPage {
                 match &action {
                     text_editor::Action::Edit(_edit) => {
                         // block editing when in readonly mode
-                        if !self.editor_ui.readonly_mode {
+                        if !self.editor_ui.is_readonly() {
                             self.content.perform(action);
-                            self.editor_ui.is_dirty = true;
+                            self.editor_ui.content_changed(&self.content.text());
                         }
                     }
                     _ => self.content.perform(action),
@@ -84,18 +83,23 @@ impl EditorPage {
                 // periodic save
                 if self.editor_ui.is_dirty {
                     self.save();
-                    self.editor_ui.entries = Self::reload_all(&self.editor_ui.crypto, &self.editor_ui.load_request);
+                    self.editor_ui.entries =
+                        Self::reload_all(&self.editor_ui.crypto, &self.editor_ui.load_request);
                     self.editor_ui.is_dirty = false;
                 }
                 if self.editor_ui.db_ver >= 1 {
                     // periodic sync : check information
-                    let decision = sync::process_after_fetch(self.editor_ui.sync_state, &self.editor_ui.crypto);
+                    let decision = sync::process_after_fetch(
+                        self.editor_ui.sync_state,
+                        &self.editor_ui.crypto,
+                    );
                     self.update_sync_status(&decision);
                     // periodic sync : fetch from the server
                     if self.editor_ui.ticks % 7 == 0 {
-                        Task::perform(sync::sync_download(self.editor_ui.db_id), |value: sync::SyncState| {
-                            Message::SyncFetchDone(value)
-                        })
+                        Task::perform(
+                            sync::sync_download(self.editor_ui.db_id),
+                            |value: sync::SyncState| Message::SyncFetchDone(value),
+                        )
                     } else {
                         Task::none()
                     }
@@ -104,19 +108,23 @@ impl EditorPage {
                 }
             }
 
+            /*
             Message::SaveFile => {
                 if self.editor_ui.is_dirty {
                     self.save();
-                    self.editor_ui.entries = Self::reload_all(&self.editor_ui.crypto, &self.editor_ui.load_request);
+                    self.editor_ui.entries =
+                        Self::reload_all(&self.editor_ui.crypto, &self.editor_ui.load_request);
                     self.editor_ui.is_dirty = false;
                 }
                 Task::none()
             }
+            */
             Message::EntryButtonClicked(entry_id) => {
                 // Save first
                 if self.editor_ui.is_dirty {
                     self.save();
-                    self.editor_ui.entries = Self::reload_all(&self.editor_ui.crypto, &self.editor_ui.load_request);
+                    self.editor_ui.entries =
+                        Self::reload_all(&self.editor_ui.crypto, &self.editor_ui.load_request);
                     self.editor_ui.is_dirty = false;
                 }
                 //
@@ -131,10 +139,17 @@ impl EditorPage {
                     self.editor_ui.is_dirty = false;
                 }
 
-                if !self.editor_ui.readonly_mode {
-                    match db::tirra_db_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", &self.editor_ui.crypto) {
+                if !self.editor_ui.is_readonly() {
+                    match db::tirra_db_add_entry(
+                        db::TIRRA_ENTRY_TYPE_GENERAL,
+                        "",
+                        &self.editor_ui.crypto,
+                    ) {
                         Ok(()) => {
-                            self.editor_ui.entries = Self::reload_all(&self.editor_ui.crypto, &self.editor_ui.load_request);
+                            self.editor_ui.entries = Self::reload_all(
+                                &self.editor_ui.crypto,
+                                &self.editor_ui.load_request,
+                            );
                             self.show_entry(self.entry_greatest_id());
                         }
                         _ => {
@@ -157,8 +172,11 @@ impl EditorPage {
                     self.editor_ui.is_dirty = false;
                 }
                 // check if the request would work !
-                let entries_opt =
-                    db::tirra_db_get_all_entries(&self.editor_ui.crypto, &self.editor_ui.cmd_line_text).ok();
+                let entries_opt = db::tirra_db_get_all_entries(
+                    &self.editor_ui.crypto,
+                    &self.editor_ui.cmd_line_text,
+                )
+                .ok();
                 match entries_opt {
                     Some(entries) => {
                         self.editor_ui.entries = entries;
@@ -192,7 +210,9 @@ impl EditorPage {
 
                 // debug: print origin database info.
                 if state == SyncState::Fetched {
-                    if let Some(origin_info) = sync::sync_retrieve_information(&self.editor_ui.crypto) {
+                    if let Some(origin_info) =
+                        sync::sync_retrieve_information(&self.editor_ui.crypto)
+                    {
                         println!("Theirs:");
                         sync::info_sync_debug(&origin_info);
                         println!("");
@@ -237,7 +257,8 @@ impl EditorPage {
                 self.save();
                 match db::tirra_db_replace(&self.editor_ui.crypto, &sync::origin_db_temp_file()) {
                     Ok(()) => {
-                        self.editor_ui.entries = Self::reload_all(&self.editor_ui.crypto, &self.editor_ui.load_request);
+                        self.editor_ui.entries =
+                            Self::reload_all(&self.editor_ui.crypto, &self.editor_ui.load_request);
                         self.editor_ui.is_dirty = false;
                         self.show_entry(self.entry_greatest_id());
                         // change commits
@@ -311,7 +332,7 @@ impl EditorPage {
                 .width(Length::Fill)
                 .style(styles::button::button_main);
 
-        if self.editor_ui.curr_entry_id > 0 && !self.editor_ui.readonly_mode {
+        if self.editor_ui.curr_entry_id > 0 && !self.editor_ui.is_readonly() {
             div_add = div_add.on_press(Message::NewEntryButtonClicked);
         }
 
@@ -527,13 +548,15 @@ impl EditorPage {
      */
     fn view_editor(&self) -> Element<Message> {
         // DIV : Command line experimentation
-        let div_cmd_input =
-            TextInput::new("> SELECT * FROM entries WHERE ...", &self.editor_ui.cmd_line_text)
-                .width(Length::Fill)
-                .size(style_conf::STYLE_TEXT_SIZE_COMMAND)
-                .font(style_conf::FONT_COMMAND_LINE)
-                .on_submit(Message::CommandLineSubmited)
-                .on_input(Message::CommandLineInputChanged);
+        let div_cmd_input = TextInput::new(
+            "> SELECT * FROM entries WHERE ...",
+            &self.editor_ui.cmd_line_text,
+        )
+        .width(Length::Fill)
+        .size(style_conf::STYLE_TEXT_SIZE_COMMAND)
+        .font(style_conf::FONT_COMMAND_LINE)
+        .on_submit(Message::CommandLineSubmited)
+        .on_input(Message::CommandLineInputChanged);
 
         let mut div_command_cont;
         if self.editor_ui.cmd_line_show {
@@ -568,8 +591,11 @@ impl EditorPage {
     }
 
     fn save(&mut self) -> () {
-        let updated =
-            db::tirra_db_update_entry(&self.content.text(), self.editor_ui.curr_entry_id, &self.editor_ui.crypto);
+        let updated = db::tirra_db_update_entry(
+            &self.content.text(),
+            self.editor_ui.curr_entry_id,
+            &self.editor_ui.crypto,
+        );
         match updated {
             Err(err) => {
                 exception(&format!("update entry {:?}", err));

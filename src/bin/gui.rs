@@ -152,15 +152,18 @@ impl TirraIced {
                     }
                 }
             }
-            Message::CtrlS => match &self.page {
-                RunningPage::Editor(_editor) => self.update_editor_page(editor::Message::SaveFile),
+            Message::CtrlS => match &mut self.page {
+                RunningPage::Editor(editor_page) => {
+                    editor_page.editor_ui.on_ctrl(KbCtrl::CtrlS);
+                    Task::none()
+                }
 
                 RunningPage::Login(login_page) => {
                     login_page.login_ui.on_ctrl(KbCtrl::CtrlS);
                     Task::none()
                 }
             },
-            Message::CtrlP => match &self.page {
+            Message::CtrlP => match &mut self.page {
                 RunningPage::Editor(_editor) => {
                     self.update_editor_page(editor::Message::ShowCommandLine)
                 }
@@ -171,7 +174,7 @@ impl TirraIced {
                 }
             },
 
-            Message::CtrlN => match &self.page {
+            Message::CtrlN => match &mut self.page {
                 RunningPage::Editor(editor_page) => {
                     editor_page.editor_ui.on_ctrl(KbCtrl::CtrlN);
                     Task::none()
@@ -183,7 +186,7 @@ impl TirraIced {
                 }
             },
 
-            Message::CtrlK => match &self.page {
+            Message::CtrlK => match &mut self.page {
                 RunningPage::Editor(editor_page) => {
                     editor_page.editor_ui.on_ctrl(KbCtrl::CtrlK);
                     Task::none()
@@ -235,7 +238,15 @@ impl TirraIced {
                     }
                     window::Event::CloseRequested => {
                         if let RunningPage::Editor(_editor) = &self.page {
-                            let _ = self.update_editor_page(editor::Message::SaveFile);
+                            match &mut self.page {
+                                RunningPage::Editor(editor_page) => {
+                                    editor_page.editor_ui.on_close();
+                                }
+
+                                RunningPage::Login(login_page) => {
+                                    login_page.login_ui.on_close();
+                                }
+                            }
                         }
                         //window::close(window::Id::MAIN)
                         window::get_latest().and_then(window::close)

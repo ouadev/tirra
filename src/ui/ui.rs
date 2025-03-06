@@ -20,8 +20,9 @@ pub trait TirraInterface {
     fn title(&self) -> String;
     //fn init() -> Self;
     //fn deinit();
+    fn on_close(&mut self);
     fn on_tick(&self, ticks: u64);
-    fn on_ctrl(&self, control: KbCtrl);
+    fn on_ctrl(&mut self, control: KbCtrl);
 }
 
 //Tirra UI : Login
@@ -106,7 +107,7 @@ impl TirraInterface for LoginUi {
         //println!("Login Page: tick {}", ticks);
     }
 
-    fn on_ctrl(&self, control: KbCtrl) {
+    fn on_ctrl(&mut self, control: KbCtrl) {
         match control {
             KbCtrl::CtrlS | KbCtrl::CtrlP | KbCtrl::CtrlK => {
                 println!("login page: Ctrl+{:?}", control);
@@ -115,6 +116,10 @@ impl TirraInterface for LoginUi {
                 style_conf::toggle_theme();
             }
         }
+    }
+
+    fn on_close(&mut self) {
+        println!("Tirra - Closed");
     }
 
     fn title(&self) -> String {
@@ -191,6 +196,56 @@ impl EditorUi {
             }
         }
     }
+    /**
+     * to be called when the Editor Widget content has changed.
+     */
+    pub fn content_changed(&mut self, new_text: &str) {
+        match self.entry_by_id_mut(self.curr_entry_id) {
+            Some(entry) => {
+                entry.text = String::from(new_text);
+                self.is_dirty = true;
+            }
+            _ => {
+                exception("ui: current entry id mismatch");
+            }
+        }
+    }
+
+    /**
+     * check of the editor is in read_only mode
+     */
+    pub fn is_readonly(&self) -> bool {
+        self.readonly_mode
+    }
+
+    fn save_and_reload(&mut self) {
+        if self.is_dirty {
+            self.write_current_entry();
+            self.entries = Self::reload_all(&self.crypto, &self.load_request);
+            self.is_dirty = false;
+        }
+    }
+    fn write_current_entry(&mut self) -> () {
+        match self.entry_by_id(self.curr_entry_id) {
+            Some(entry) => {
+                match db::tirra_db_update_entry(&entry.text, self.curr_entry_id, &self.crypto) {
+                    Err(err) => {
+                        exception(&format!("update entry {:?}", err));
+                    }
+                    _ => {}
+                }
+            }
+            None => {}
+        }
+    }
+
+    fn entry_by_id(&self, id: u32) -> Option<&TirraEntry> {
+        self.entries.iter().find(|ent| ent.id == id)
+    }
+
+    fn entry_by_id_mut(&mut self, id: u32) -> Option<&mut TirraEntry> {
+        self.entries.iter_mut().find(|ent| ent.id == id)
+    }
 }
 
 impl TirraInterface for EditorUi {
@@ -198,10 +253,13 @@ impl TirraInterface for EditorUi {
         //println!("Login Page: tick {}", ticks);
     }
 
-    fn on_ctrl(&self, control: KbCtrl) {
+    fn on_ctrl(&mut self, control: KbCtrl) {
         match control {
-            KbCtrl::CtrlS | KbCtrl::CtrlP => {
+            KbCtrl::CtrlP => {
                 println!("editor page: Ctrl+{:?}", control);
+            }
+            KbCtrl::CtrlS => {
+                self.save_and_reload();
             }
             KbCtrl::CtrlK => {
                 //run stuff on the editor, for testing purposes.
@@ -211,6 +269,11 @@ impl TirraInterface for EditorUi {
                 style_conf::toggle_theme();
             }
         }
+    }
+
+    fn on_close(&mut self) {
+        println!("Tirra - Closed -> Save");
+        self.save_and_reload();
     }
 
     fn title(&self) -> String {
