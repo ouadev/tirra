@@ -1,9 +1,11 @@
+use chrono::Utc;
+
 use crate::{
     common::exception::exception,
     gui::styles::style_conf,
     storage::{
         db::{self, TirraEntry},
-        sync::SyncState,
+        sync::{self, SyncDecision, SyncState},
         tirracrypto::TirraCrypto,
     },
 };
@@ -21,8 +23,9 @@ pub trait TirraInterface {
     //fn init() -> Self;
     //fn deinit();
     fn on_close(&mut self);
-    fn on_tick(&self, ticks: u64);
+    fn on_tick(&mut self);
     fn on_ctrl(&mut self, control: KbCtrl);
+    fn on_activity(&mut self);
 }
 
 //Tirra UI : Login
@@ -103,7 +106,7 @@ impl LoginUi {
 }
 
 impl TirraInterface for LoginUi {
-    fn on_tick(&self, _ticks: u64) {
+    fn on_tick(&mut self) {
         //println!("Login Page: tick {}", ticks);
     }
 
@@ -122,6 +125,8 @@ impl TirraInterface for LoginUi {
         println!("Tirra - Closed");
     }
 
+    fn on_activity(&mut self) {}
+
     fn title(&self) -> String {
         format!("Tirra - Open")
     }
@@ -130,6 +135,7 @@ impl TirraInterface for LoginUi {
 //Tirra UI : Editor
 pub struct EditorUi {
     pub is_dirty: bool,
+    pub last_act: i64,
     pub entries: Vec<TirraEntry>,
     pub curr_entry_id: u32,
     pub crypto: TirraCrypto,
@@ -145,6 +151,8 @@ pub struct EditorUi {
 }
 
 impl EditorUi {
+    const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
+
     pub fn new(db_location: &str, crypto_pwd: &[u8]) -> Self {
         //Init Crypto
         let tirra_crypto = TirraCrypto::new(db_location, crypto_pwd);
@@ -172,6 +180,7 @@ impl EditorUi {
         Self {
             curr_entry_id: id,
             is_dirty: false,
+            last_act: current_timestamp(),
             entries: all_entries,
             readonly_mode: false,
             db_id: db_id,
@@ -225,6 +234,16 @@ impl EditorUi {
         self.readonly_mode
     }
 
+    pub fn sync_fetch_needed(&self) -> bool {
+        self.ticks % 7 == 0
+    }
+    /**
+     * the UI is idle.
+     */
+    pub fn is_inactivity(&self) -> bool {
+        (current_timestamp() - self.last_act) > Self::TIRRA_INACTIVITY_SECONDS
+    }
+
     fn save_and_reload(&mut self) {
         if self.is_dirty {
             self.write_current_entry();
@@ -253,11 +272,49 @@ impl EditorUi {
     fn entry_by_id_mut(&mut self, id: u32) -> Option<&mut TirraEntry> {
         self.entries.iter_mut().find(|ent| ent.id == id)
     }
+
+    fn update_sync_status(&mut self, decision: &SyncDecision) {
+        let status_text: String;
+        self.sync_status.0 = false;
+        match decision {
+            SyncDecision::ReplaceLocal => {
+                self.sync_status.0 = true;
+                status_text = format!("{}", "replace");
+            }
+            SyncDecision::Push => {
+                status_text = format!("{}", "to upload");
+            }
+            SyncDecision::ResolveConflict => {
+                status_text = format!("{}", "conflict [O] [T]");
+            }
+            SyncDecision::UpdateCommits => {
+                status_text = format!("{}", "up to date*");
+            }
+            SyncDecision::StatusQuo => {
+                status_text = format!("{}", "up to date");
+            }
+            SyncDecision::Failure => {
+                status_text = format!("{}", "failure");
+            }
+        }
+        if status_text != self.sync_status.1 {
+            self.sync_status.1 = status_text;
+            println!("sync dec: {}", self.sync_status.1);
+        }
+    }
 }
 
 impl TirraInterface for EditorUi {
-    fn on_tick(&self, _ticks: u64) {
-        //println!("Login Page: tick {}", ticks);
+    fn on_tick(&mut self) {
+        self.ticks += 1;
+        // periodic save
+        self.save_and_reload();
+        // Sync
+        if self.db_ver >= 1 {
+            // periodic sync : check information
+            let decision = sync::process_after_fetch(self.sync_state, &self.crypto);
+            self.update_sync_status(&decision);
+        }
     }
 
     fn on_ctrl(&mut self, control: KbCtrl) {
@@ -283,7 +340,15 @@ impl TirraInterface for EditorUi {
         self.save_and_reload();
     }
 
+    fn on_activity(&mut self) {
+        self.last_act = current_timestamp();
+    }
+
     fn title(&self) -> String {
         format!("Tirra - Open")
     }
+}
+
+fn current_timestamp() -> i64 {
+    Utc::now().timestamp()
 }

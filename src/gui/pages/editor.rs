@@ -3,7 +3,7 @@ use crate::gui::styles::{self, style_conf};
 use crate::storage::db::{self, TirraEntry};
 use crate::storage::sync::{self, SyncDecision, SyncState};
 use crate::storage::tirracrypto::TirraCrypto;
-use crate::ui::ui::EditorUi;
+use crate::ui::ui::{EditorUi, TirraInterface};
 use iced::theme::Theme;
 use iced::widget::{
     column, container, horizontal_space, row, scrollable, text, text_editor, Button, MouseArea,
@@ -78,30 +78,12 @@ impl EditorPage {
             }
 
             Message::Tick => {
-                self.editor_ui.ticks += 1;
-                // periodic save
-                if self.editor_ui.is_dirty {
-                    self.save();
-                    self.editor_ui.entries =
-                        Self::reload_all(&self.editor_ui.crypto, &self.editor_ui.load_request);
-                    self.editor_ui.is_dirty = false;
-                }
-                if self.editor_ui.db_ver >= 1 {
-                    // periodic sync : check information
-                    let decision = sync::process_after_fetch(
-                        self.editor_ui.sync_state,
-                        &self.editor_ui.crypto,
-                    );
-                    self.update_sync_status(&decision);
-                    // periodic sync : fetch from the server
-                    if self.editor_ui.ticks % 7 == 0 {
-                        Task::perform(
-                            sync::sync_download(self.editor_ui.db_id),
-                            |value: sync::SyncState| Message::SyncFetchDone(value),
-                        )
-                    } else {
-                        Task::none()
-                    }
+                self.editor_ui.on_tick();
+                if self.editor_ui.sync_fetch_needed() {
+                    Task::perform(
+                        sync::sync_download(self.editor_ui.db_id),
+                        |value: sync::SyncState| Message::SyncFetchDone(value),
+                    )
                 } else {
                     Task::none()
                 }

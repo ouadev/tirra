@@ -20,7 +20,6 @@ use tirra::gui::styles::style_conf;
 use tirra::ui::ui::{KbCtrl, TirraInterface};
 
 // Constants
-const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
 #[cfg(target_os = "linux")]
 const TIRRA_HOME_DIR_PATH: &str = "HOME";
 #[cfg(target_os = "macos")]
@@ -79,7 +78,6 @@ struct TirraIced {
     page: RunningPage,
     db_location: String,
     last_act: i64,
-    ticks: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -112,7 +110,6 @@ impl TirraIced {
                 page: RunningPage::Login(login_page),
                 db_location: db_to_use,
                 last_act: current_timestamp(),
-                ticks: 0,
             },
             //command.map(Message::Editor),
             Task::none(),
@@ -130,11 +127,10 @@ impl TirraIced {
         //process message
         match message {
             Message::PeriodicTick => {
-                self.ticks += 1;
-                match &self.page {
-                    RunningPage::Editor(_page) => {
+                match &mut self.page {
+                    RunningPage::Editor(page_editor) => {
                         // inactivity
-                        if current_timestamp() - self.last_act > TIRRA_INACTIVITY_SECONDS {
+                        if page_editor.editor_ui.is_inactivity() {
                             println!("Inactivity: logging out");
                             let (login_page, _login_cmd) = LoginPage::new(&self.db_location);
                             self.page = RunningPage::Login(login_page);
@@ -144,7 +140,7 @@ impl TirraIced {
                         self.update_editor_page(editor::Message::Tick)
                     }
                     RunningPage::Login(login_page) => {
-                        login_page.login_ui.on_tick(self.ticks);
+                        login_page.login_ui.on_tick();
                         Task::none()
                     }
                 }
@@ -160,7 +156,6 @@ impl TirraIced {
                     Task::none()
                 }
             },
-
             Message::Editor(msg) => {
                 if let RunningPage::Editor(_editor) = &self.page {
                     self.update_editor_page(msg)
