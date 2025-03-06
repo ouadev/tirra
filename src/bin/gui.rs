@@ -85,10 +85,7 @@ struct TirraIced {
 #[derive(Debug, Clone)]
 enum Message {
     PeriodicTick,
-    CtrlS,
-    CtrlP,
-    CtrlN,
-    CtrlK,
+    CtrlPlusKey(KbCtrl),
     Editor(editor::Message),
     Login(login::Message),
     IgnoredEvent(Event),
@@ -152,49 +149,14 @@ impl TirraIced {
                     }
                 }
             }
-            Message::CtrlS => match &mut self.page {
+            Message::CtrlPlusKey(key) => match &mut self.page {
                 RunningPage::Editor(editor_page) => {
-                    editor_page.editor_ui.on_ctrl(KbCtrl::CtrlS);
+                    editor_page.editor_ui.on_ctrl(key);
                     Task::none()
                 }
 
                 RunningPage::Login(login_page) => {
-                    login_page.login_ui.on_ctrl(KbCtrl::CtrlS);
-                    Task::none()
-                }
-            },
-            Message::CtrlP => match &mut self.page {
-                RunningPage::Editor(editor_page) => {
-                    editor_page.editor_ui.on_ctrl(KbCtrl::CtrlP);
-                    Task::none()
-                }
-
-                RunningPage::Login(login_page) => {
-                    login_page.login_ui.on_ctrl(KbCtrl::CtrlP);
-                    Task::none()
-                }
-            },
-
-            Message::CtrlN => match &mut self.page {
-                RunningPage::Editor(editor_page) => {
-                    editor_page.editor_ui.on_ctrl(KbCtrl::CtrlN);
-                    Task::none()
-                }
-
-                RunningPage::Login(login_page) => {
-                    login_page.login_ui.on_ctrl(KbCtrl::CtrlN);
-                    Task::none()
-                }
-            },
-
-            Message::CtrlK => match &mut self.page {
-                RunningPage::Editor(editor_page) => {
-                    editor_page.editor_ui.on_ctrl(KbCtrl::CtrlK);
-                    Task::none()
-                }
-
-                RunningPage::Login(login_page) => {
-                    login_page.login_ui.on_ctrl(KbCtrl::CtrlK);
+                    login_page.login_ui.on_ctrl(key);
                     Task::none()
                 }
             },
@@ -264,10 +226,18 @@ impl TirraIced {
 
     fn subscription(&self) -> Subscription<Message> {
         let kb_event = keyboard::on_key_press(|key, modifiers| match key.as_ref() {
-            keyboard::Key::Character("s") if modifiers.command() => Some(Message::CtrlS),
-            keyboard::Key::Character("p") if modifiers.command() => Some(Message::CtrlP),
-            keyboard::Key::Character("n") if modifiers.command() => Some(Message::CtrlN),
-            keyboard::Key::Character("k") if modifiers.command() => Some(Message::CtrlK),
+            keyboard::Key::Character("s") if modifiers.command() => {
+                Some(Message::CtrlPlusKey(KbCtrl::CtrlS))
+            }
+            keyboard::Key::Character("p") if modifiers.command() => {
+                Some(Message::CtrlPlusKey(KbCtrl::CtrlP))
+            }
+            keyboard::Key::Character("n") if modifiers.command() => {
+                Some(Message::CtrlPlusKey(KbCtrl::CtrlN))
+            }
+            keyboard::Key::Character("k") if modifiers.command() => {
+                Some(Message::CtrlPlusKey(KbCtrl::CtrlK))
+            }
             _ => None,
         });
 

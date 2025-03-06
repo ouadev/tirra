@@ -8,7 +8,7 @@ use crate::{
     },
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum KbCtrl {
     CtrlS,
     CtrlP,
