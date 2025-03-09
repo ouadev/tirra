@@ -252,7 +252,7 @@ impl EditorUi {
     }
 
     pub fn sync_fetch_needed(&self) -> bool {
-        self.ticks % 7 == 0
+        self.db_ver >= 1 && self.ticks % 7 == 0
     }
     /**
      * the UI is idle.
