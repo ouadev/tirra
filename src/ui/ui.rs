@@ -237,11 +237,33 @@ impl EditorUi {
         self.cmd_line_text = s;
     }
     /**
-     * response to action: entry_selected command line
+     * response to action: entry_selected
      */
     pub fn on_entry_selected(&mut self, entry_id: u32) {
         self.save_and_reload();
         self.curr_entry_id = entry_id;
+    }
+    /**
+     * response to action: new_entry
+     */
+    pub fn on_new_entry(&mut self) {
+        // Save before creating a new entry
+        if self.is_dirty {
+            self.write_current_entry();
+            self.is_dirty = false;
+        }
+
+        if !self.is_readonly() {
+            match db::tirra_db_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", &self.crypto) {
+                Ok(()) => {
+                    self.entries = Self::reload_all(&self.crypto, &self.load_request);
+                    self.curr_entry_id = self.entry_greatest_id();
+                }
+                _ => {
+                    println!("error: failure adding new entry, continuing ...");
+                }
+            }
+        }
     }
 
     /**
@@ -288,6 +310,16 @@ impl EditorUi {
 
     fn entry_by_id_mut(&mut self, id: u32) -> Option<&mut TirraEntry> {
         self.entries.iter_mut().find(|ent| ent.id == id)
+    }
+
+    fn entry_greatest_id(&self) -> u32 {
+        let mut id = 0u32;
+        for entry in self.entries.iter() {
+            if entry.id > id {
+                id = entry.id;
+            }
+        }
+        id
     }
 
     fn update_sync_status(&mut self, decision: &SyncDecision) {

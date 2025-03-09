@@ -94,31 +94,8 @@ impl EditorPage {
                 Task::none()
             }
             Message::NewEntryButtonClicked => {
-                // Save before creating a new entry
-                if self.editor_ui.is_dirty {
-                    self.save();
-                    self.editor_ui.is_dirty = false;
-                }
-
-                if !self.editor_ui.is_readonly() {
-                    match db::tirra_db_add_entry(
-                        db::TIRRA_ENTRY_TYPE_GENERAL,
-                        "",
-                        &self.editor_ui.crypto,
-                    ) {
-                        Ok(()) => {
-                            self.editor_ui.entries = Self::reload_all(
-                                &self.editor_ui.crypto,
-                                &self.editor_ui.load_request,
-                            );
-                            self.show_entry(self.entry_greatest_id());
-                        }
-                        _ => {
-                            println!("error: failure adding new entry, continuing ...");
-                        }
-                    }
-                }
-
+                self.editor_ui.on_new_entry();
+                self.update_editor_content();
                 Task::none()
             }
 
