@@ -89,12 +89,12 @@ impl EditorPage {
             }
             Message::EntryButtonClicked(entry_id) => {
                 self.editor_ui.on_entry_selected(entry_id);
-                self.update_editor_content();
+                self.refresh_editor();
                 Task::none()
             }
             Message::NewEntryButtonClicked => {
                 self.editor_ui.on_new_entry();
-                self.update_editor_content();
+                self.refresh_editor();
                 Task::none()
             }
 
@@ -105,7 +105,7 @@ impl EditorPage {
 
             Message::CommandLineSubmited => {
                 self.editor_ui.on_cli_submit();
-                self.update_editor_content();
+                self.refresh_editor();
                 Task::none()
             }
 
@@ -132,7 +132,7 @@ impl EditorPage {
 
             Message::SyncStatusClicked => {
                 self.editor_ui.on_sync_clicked();
-                self.update_editor_content();
+                self.refresh_editor();
                 Task::none()
             }
         }
@@ -455,7 +455,7 @@ impl EditorPage {
         }
     }
 
-    fn update_editor_content(&mut self) {
+    fn refresh_editor(&mut self) {
         match self.editor_ui.current_entry() {
             Some(entry) => {
                 self.content = text_editor::Content::with_text(&entry.text);
