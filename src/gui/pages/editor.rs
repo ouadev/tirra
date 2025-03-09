@@ -89,16 +89,8 @@ impl EditorPage {
                 }
             }
             Message::EntryButtonClicked(entry_id) => {
-                // Save first
-                if self.editor_ui.is_dirty {
-                    self.save();
-                    self.editor_ui.entries =
-                        Self::reload_all(&self.editor_ui.crypto, &self.editor_ui.load_request);
-                    self.editor_ui.is_dirty = false;
-                }
-                //
-                self.show_entry(entry_id);
-
+                self.editor_ui.on_entry_selected(entry_id);
+                self.update_editor_content();
                 Task::none()
             }
             Message::NewEntryButtonClicked => {
@@ -131,7 +123,7 @@ impl EditorPage {
             }
 
             Message::CommandLineInputChanged(s) => {
-                self.editor_ui.cmd_line_text = s;
+                self.editor_ui.on_cli_input(s);
                 Task::none()
             }
 
@@ -625,6 +617,17 @@ impl EditorPage {
             }
         } else {
             self.content = text_editor::Content::with_text(" Nothing was found");
+        }
+    }
+
+    fn update_editor_content(&mut self) {
+        match self.editor_ui.current_entry() {
+            Some(entry) => {
+                self.content = text_editor::Content::with_text(&entry.text);
+            }
+            _ => {
+                self.content = text_editor::Content::with_text(" Nothing was found");
+            }
         }
     }
 

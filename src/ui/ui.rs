@@ -220,11 +220,28 @@ impl EditorUi {
         }
     }
 
+    pub fn current_entry(&self) -> Option<&TirraEntry> {
+        self.entry_by_id(self.curr_entry_id)
+    }
+
     /**
      * response to action: show_cli command line
      */
     pub fn on_show_cli(&mut self) {
         self.cmd_line_show = !self.cmd_line_show;
+    }
+    /**
+     * response to action: cli_input command line
+     */
+    pub fn on_cli_input(&mut self, s: String) {
+        self.cmd_line_text = s;
+    }
+    /**
+     * response to action: entry_selected command line
+     */
+    pub fn on_entry_selected(&mut self, entry_id: u32) {
+        self.save_and_reload();
+        self.curr_entry_id = entry_id;
     }
 
     /**
@@ -261,7 +278,7 @@ impl EditorUi {
                     _ => {}
                 }
             }
-            None => {}
+            _ => {}
         }
     }
 
