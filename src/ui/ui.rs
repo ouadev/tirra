@@ -237,6 +237,28 @@ impl EditorUi {
         self.cmd_line_text = s;
     }
     /**
+     * response to action: cli_submit
+     */
+    pub fn on_cli_submit(&mut self) {
+        if self.is_dirty {
+            self.write_current_entry();
+            self.is_dirty = false;
+        }
+        // check if the request would work !
+        let entries_opt = db::tirra_db_get_all_entries(&self.crypto, &self.cmd_line_text).ok();
+        match entries_opt {
+            Some(entries) => {
+                self.entries = entries;
+                self.curr_entry_id = self.entry_greatest_id();
+                self.load_request = self.cmd_line_text.clone();
+            }
+            _ => {
+                println!("New Loader request failed !!!");
+                self.cmd_line_text = self.load_request.clone();
+            }
+        }
+    }
+    /**
      * response to action: entry_selected
      */
     pub fn on_entry_selected(&mut self, entry_id: u32) {

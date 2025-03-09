@@ -105,28 +105,8 @@ impl EditorPage {
             }
 
             Message::CommandLineSubmited => {
-                if self.editor_ui.is_dirty {
-                    self.save();
-                    self.editor_ui.is_dirty = false;
-                }
-                // check if the request would work !
-                let entries_opt = db::tirra_db_get_all_entries(
-                    &self.editor_ui.crypto,
-                    &self.editor_ui.cmd_line_text,
-                )
-                .ok();
-                match entries_opt {
-                    Some(entries) => {
-                        self.editor_ui.entries = entries;
-                        self.show_entry(self.entry_greatest_id());
-                        self.editor_ui.load_request = self.editor_ui.cmd_line_text.clone();
-                    }
-                    _ => {
-                        println!("New Loader request failed !!!");
-                        self.editor_ui.cmd_line_text = self.editor_ui.load_request.clone();
-                    }
-                }
-
+                self.editor_ui.on_cli_submit();
+                self.update_editor_content();
                 Task::none()
             }
 
