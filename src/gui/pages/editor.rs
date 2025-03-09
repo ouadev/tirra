@@ -2,7 +2,7 @@ use crate::common::exception::exception;
 use crate::common::utils;
 use crate::gui::styles::{self, style_conf};
 use crate::storage::sync::{self, SyncDecision};
-use crate::ui::ui::{EditorUi, TirraInterface};
+use crate::ui::ui::{WriterUi, TirraInterface};
 use iced::theme::Theme;
 use iced::widget::{
     column, container, horizontal_space, row, scrollable, text, text_editor, Button, MouseArea,
@@ -19,7 +19,7 @@ use chrono::{DateTime, Utc};
 //use unicode_segmentation::UnicodeSegmentation;
 
 pub struct EditorPage {
-    pub editor_ui: EditorUi,
+    pub writer_ui: WriterUi,
     pub content: text_editor::Content,
 }
 
@@ -38,15 +38,15 @@ pub enum Message {
 impl EditorPage {
     pub fn new(db_location: &str, crypto_pwd: &[u8]) -> (Self, Task<Message>) {
         //instantiate Editor UI
-        let editor_ui = EditorUi::new(db_location, crypto_pwd);
+        let writer_ui = WriterUi::new(db_location, crypto_pwd);
         // initial editor content
-        let init_content = text_editor::Content::with_text(&editor_ui.entries[0].text);
-        let db_id = editor_ui.db_id;
-        let db_ver = editor_ui.db_ver;
+        let init_content = text_editor::Content::with_text(&writer_ui.entries[0].text);
+        let db_id = writer_ui.db_id;
+        let db_ver = writer_ui.db_ver;
         //return
         (
             Self {
-                editor_ui: editor_ui,
+                writer_ui: writer_ui,
                 content: init_content,
             },
             if db_ver >= 1 {
@@ -65,9 +65,9 @@ impl EditorPage {
                 match &action {
                     text_editor::Action::Edit(_edit) => {
                         // block editing when in readonly mode
-                        if !self.editor_ui.is_readonly() {
+                        if !self.writer_ui.is_readonly() {
                             self.content.perform(action);
-                            self.editor_ui.content_changed(&self.content.text());
+                            self.writer_ui.content_changed(&self.content.text());
                         }
                     }
                     _ => self.content.perform(action),
@@ -77,10 +77,10 @@ impl EditorPage {
             }
 
             Message::Tick => {
-                self.editor_ui.on_tick();
-                if self.editor_ui.sync_fetch_needed() {
+                self.writer_ui.on_tick();
+                if self.writer_ui.sync_fetch_needed() {
                     Task::perform(
-                        sync::sync_download(self.editor_ui.db_id),
+                        sync::sync_download(self.writer_ui.db_id),
                         |value: sync::SyncState| Message::SyncFetchDone(value),
                     )
                 } else {
@@ -88,37 +88,37 @@ impl EditorPage {
                 }
             }
             Message::EntryButtonClicked(entry_id) => {
-                self.editor_ui.on_entry_selected(entry_id);
+                self.writer_ui.on_entry_selected(entry_id);
                 self.refresh_editor();
                 Task::none()
             }
             Message::NewEntryButtonClicked => {
-                self.editor_ui.on_new_entry();
+                self.writer_ui.on_new_entry();
                 self.refresh_editor();
                 Task::none()
             }
 
             Message::CommandLineInputChanged(s) => {
-                self.editor_ui.on_cli_input(s);
+                self.writer_ui.on_cli_input(s);
                 Task::none()
             }
 
             Message::CommandLineSubmited => {
-                self.editor_ui.on_cli_submit();
+                self.writer_ui.on_cli_submit();
                 self.refresh_editor();
                 Task::none()
             }
 
             Message::SyncFetchDone(state) => {
-                let decision = self.editor_ui.on_sync_fetched(state);
+                let decision = self.writer_ui.on_sync_fetched(state);
                 //TODO: move async ops to ui.
                 if decision == SyncDecision::Push {
-                    let db_loc = self.editor_ui.crypto.get_db_location();
+                    let db_loc = self.writer_ui.crypto.get_db_location();
                     Task::perform(sync::sync_upload(1, db_loc), |value: sync::SyncState| {
                         Message::SyncPushDone(value)
                     })
                 } else if decision == SyncDecision::UpdateCommits {
-                    sync::update_origin_commit(&self.editor_ui.crypto);
+                    sync::update_origin_commit(&self.writer_ui.crypto);
                     Task::none()
                 } else {
                     Task::none()
@@ -126,12 +126,12 @@ impl EditorPage {
             }
 
             Message::SyncPushDone(value) => {
-                self.editor_ui.on_sync_pushed(value);
+                self.writer_ui.on_sync_pushed(value);
                 Task::none()
             }
 
             Message::SyncStatusClicked => {
-                self.editor_ui.on_sync_clicked();
+                self.writer_ui.on_sync_clicked();
                 self.refresh_editor();
                 Task::none()
             }
@@ -165,20 +165,20 @@ impl EditorPage {
                 .width(Length::Fill)
                 .style(styles::button::button_main);
 
-        if self.editor_ui.curr_entry_id > 0 && !self.editor_ui.is_readonly() {
+        if self.writer_ui.curr_entry_id > 0 && !self.writer_ui.is_readonly() {
             div_add = div_add.on_press(Message::NewEntryButtonClicked);
         }
 
         //DIV : list of entries
         let div_entries = column(
-            self.editor_ui.entries.iter().map(|ent| {
-                let title = EditorUi::entry_title(ent, 30);
+            self.writer_ui.entries.iter().map(|ent| {
+                let title = WriterUi::entry_title(ent, 30);
                 let link_text = text(title)
                     .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
                     .shaping(text::Shaping::Advanced);
                 let ent_button = Button::new(link_text)
                     .width(Length::Fill)
-                    .style(if ent.id == self.editor_ui.curr_entry_id {
+                    .style(if ent.id == self.writer_ui.curr_entry_id {
                         styles::button::button_entry_selected
                     } else {
                         styles::button::button_entry
@@ -266,8 +266,8 @@ impl EditorPage {
         let div_date_create;
         let div_date_modify;
         let entry_id;
-        if self.editor_ui.curr_entry_id > 0 {
-            if let Some(entry) = self.editor_ui.current_entry() {
+        if self.writer_ui.curr_entry_id > 0 {
+            if let Some(entry) = self.writer_ui.current_entry() {
                 entry_id = entry.id;
                 let date_create_ts = entry.date_create;
                 let date_modify_ts = entry.date_modify;
@@ -301,7 +301,7 @@ impl EditorPage {
             });
 
         // sync
-        let div_sync = if self.editor_ui.db_ver >= 1 {
+        let div_sync = if self.writer_ui.db_ver >= 1 {
             self.view_sync_status()
         } else {
             horizontal_space().into()
@@ -347,7 +347,7 @@ impl EditorPage {
                     color: Some(palette.text),
                 }
             });
-        let sync_text = text(format!("{} ", self.editor_ui.sync_status.1))
+        let sync_text = text(format!("{} ", self.writer_ui.sync_status.1))
             .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
             .style(|_theme: &Theme| {
                 let palette = style_conf::palette();
@@ -356,7 +356,7 @@ impl EditorPage {
                 }
             });
 
-        if self.editor_ui.sync_status.0 {
+        if self.writer_ui.sync_status.0 {
             sync_button = text("[+]")
                 .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS_HIGHLIGHT)
                 .font(style_conf::FONT_STATUS_DATE_BOLD)
@@ -383,7 +383,7 @@ impl EditorPage {
         // DIV : Command line experimentation
         let div_cmd_input = TextInput::new(
             "> SELECT * FROM entries WHERE ...",
-            &self.editor_ui.cmd_line_text,
+            &self.writer_ui.cmd_line_text,
         )
         .width(Length::Fill)
         .size(style_conf::STYLE_TEXT_SIZE_COMMAND)
@@ -392,7 +392,7 @@ impl EditorPage {
         .on_input(Message::CommandLineInputChanged);
 
         let mut div_command_cont;
-        if self.editor_ui.cmd_line_show {
+        if self.writer_ui.cmd_line_show {
             div_command_cont = container(div_cmd_input).height(40);
         } else {
             div_command_cont = container("").height(10);
@@ -411,7 +411,7 @@ impl EditorPage {
             .padding(20)
             .font(style_conf::FONT_EDITOR)
             .style(styles::text_editor::main_style);
-        if self.editor_ui.curr_entry_id > 0 {
+        if self.writer_ui.curr_entry_id > 0 {
             // let the editor disabled if there is no current entry.
             div_editor_text = div_editor_text.on_action(Message::ActionPerformed);
         }
@@ -424,7 +424,7 @@ impl EditorPage {
     }
 
     fn refresh_editor(&mut self) {
-        match self.editor_ui.current_entry() {
+        match self.writer_ui.current_entry() {
             Some(entry) => {
                 self.content = text_editor::Content::with_text(&entry.text);
             }
@@ -435,7 +435,7 @@ impl EditorPage {
     }
 
     pub fn title(&self) -> String {
-        format!("Tirra{} ", if self.editor_ui.is_dirty { "*" } else { "" })
+        format!("Tirra{} ", if self.writer_ui.is_dirty { "*" } else { "" })
     }
 
     /*

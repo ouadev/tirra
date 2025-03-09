@@ -132,8 +132,8 @@ impl TirraInterface for LoginUi {
     }
 }
 
-//Tirra UI : Editor
-pub struct EditorUi {
+//Tirra UI : Writer
+pub struct WriterUi {
     pub is_dirty: bool,
     pub last_act: i64,
     pub entries: Vec<TirraEntry>,
@@ -150,7 +150,7 @@ pub struct EditorUi {
     pub sync_state: SyncState,
 }
 
-impl EditorUi {
+impl WriterUi {
     const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
 
     pub fn new(db_location: &str, crypto_pwd: &[u8]) -> Self {
@@ -469,7 +469,7 @@ impl EditorUi {
     }
 }
 
-impl TirraInterface for EditorUi {
+impl TirraInterface for WriterUi {
     fn on_tick(&mut self) {
         self.ticks += 1;
         // periodic save

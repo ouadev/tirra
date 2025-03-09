@@ -130,7 +130,7 @@ impl TirraIced {
                 match &mut self.page {
                     RunningPage::Editor(page_editor) => {
                         // inactivity
-                        if page_editor.editor_ui.is_inactivity() {
+                        if page_editor.writer_ui.is_inactivity() {
                             println!("Inactivity: logging out");
                             let (login_page, _login_cmd) = LoginPage::new(&self.db_location);
                             self.page = RunningPage::Login(login_page);
@@ -149,7 +149,7 @@ impl TirraIced {
             }
             Message::CtrlPlusKey(key) => match &mut self.page {
                 RunningPage::Editor(editor_page) => {
-                    editor_page.editor_ui.on_ctrl(key);
+                    editor_page.writer_ui.on_ctrl(key);
                     Task::none()
                 }
 
@@ -200,7 +200,7 @@ impl TirraIced {
                         if let RunningPage::Editor(_editor) = &self.page {
                             match &mut self.page {
                                 RunningPage::Editor(editor_page) => {
-                                    editor_page.editor_ui.on_close();
+                                    editor_page.writer_ui.on_close();
                                 }
 
                                 RunningPage::Login(login_page) => {
