@@ -135,9 +135,11 @@ impl TirraIced {
                             let (login_page, _login_cmd) = LoginPage::new(&self.db_location);
                             self.page = RunningPage::Login(login_page);
                             // TODO: make sure the Editor and its content are destroyed !!
+                            Task::none()
+                        } else {
+                            // trigger a file save
+                            self.update_editor_page(editor::Message::Tick)
                         }
-                        // trigger a file save
-                        self.update_editor_page(editor::Message::Tick)
                     }
                     RunningPage::Login(login_page) => {
                         login_page.login_ui.on_tick();
@@ -265,7 +267,7 @@ impl TirraIced {
         if let RunningPage::Editor(editor_page) = &mut self.page {
             editor_page.update(message).map(Message::Editor)
         } else {
-            exception("running page should ");
+            exception("running page should editor");
             Task::none()
         }
     }
@@ -274,7 +276,7 @@ impl TirraIced {
         if let RunningPage::Login(login_page) = &mut self.page {
             login_page.update(message).map(Message::Login)
         } else {
-            exception("running page should ");
+            exception("running page should login ");
             Task::none()
         }
     }
