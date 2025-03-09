@@ -1,8 +1,7 @@
 use crate::common::exception::exception;
 use crate::gui::styles::{self, style_conf};
-use crate::storage::db::{self, TirraEntry};
-use crate::storage::sync::{self, SyncDecision, SyncState};
-use crate::storage::tirracrypto::TirraCrypto;
+use crate::storage::db::TirraEntry;
+use crate::storage::sync::{self, SyncDecision};
 use crate::ui::ui::{EditorUi, TirraInterface};
 use iced::theme::Theme;
 use iced::widget::{
@@ -111,32 +110,8 @@ impl EditorPage {
             }
 
             Message::SyncFetchDone(state) => {
-                self.editor_ui.sync_state = state;
-                println!("------------------");
-                // debug:  print local info
-                if let Ok(local_info) = db::tirra_db_information(&self.editor_ui.crypto) {
-                    println!("Ours:");
-                    sync::info_sync_debug(&local_info);
-                } else {
-                    println!("local db: couldn't retrieve info block");
-                }
-
-                // debug: print origin database info.
-                if state == SyncState::Fetched {
-                    if let Some(origin_info) =
-                        sync::sync_retrieve_information(&self.editor_ui.crypto)
-                    {
-                        println!("Theirs:");
-                        sync::info_sync_debug(&origin_info);
-                        println!("");
-                    } else {
-                        println!("origin db: couldn't retrieve info block");
-                    }
-                }
-                // compute decision and apply it.
-                let decision = sync::process_after_fetch(state, &self.editor_ui.crypto);
-                self.update_sync_status(&decision);
-
+                let decision = self.editor_ui.on_sync_fetched(state);
+                //TODO: move async ops to ui.
                 if decision == SyncDecision::Push {
                     let db_loc = self.editor_ui.crypto.get_db_location();
                     Task::perform(sync::sync_upload(1, db_loc), |value: sync::SyncState| {
@@ -151,70 +126,15 @@ impl EditorPage {
             }
 
             Message::SyncPushDone(value) => {
-                self.editor_ui.sync_state = value;
-                println!("sync: pushing is done");
-                if value == SyncState::Pushed {
-                    self.editor_ui.sync_status.1 = format!("{}", "up to date");
-                    // change commits
-                    sync::update_origin_commit(&self.editor_ui.crypto);
-                } else {
-                    self.editor_ui.sync_status.1 = format!("{}", "error pushing");
-                }
+                self.editor_ui.on_sync_pushed(value);
                 Task::none()
             }
 
             Message::SyncStatusClicked => {
-                if self.editor_ui.is_dirty {
-                    println!("editor is dirty. dropping latest changes.");
-                }
-                self.save();
-                match db::tirra_db_replace(&self.editor_ui.crypto, &sync::origin_db_temp_file()) {
-                    Ok(()) => {
-                        self.editor_ui.entries =
-                            Self::reload_all(&self.editor_ui.crypto, &self.editor_ui.load_request);
-                        self.editor_ui.is_dirty = false;
-                        self.show_entry(self.entry_greatest_id());
-                        // change commits
-                        sync::update_origin_commit(&self.editor_ui.crypto);
-                        self.editor_ui.sync_status = (false, format!("{}", "replaced"));
-                    }
-                    _ => {
-                        println!("error: sync failed to replace local db");
-                    }
-                }
-
+                self.editor_ui.on_sync_clicked();
+                self.update_editor_content();
                 Task::none()
             }
-        }
-    }
-
-    fn update_sync_status(&mut self, decision: &SyncDecision) {
-        let status_text: String;
-        self.editor_ui.sync_status.0 = false;
-        match decision {
-            SyncDecision::ReplaceLocal => {
-                self.editor_ui.sync_status.0 = true;
-                status_text = format!("{}", "replace");
-            }
-            SyncDecision::Push => {
-                status_text = format!("{}", "to upload");
-            }
-            SyncDecision::ResolveConflict => {
-                status_text = format!("{}", "conflict [O] [T]");
-            }
-            SyncDecision::UpdateCommits => {
-                status_text = format!("{}", "up to date*");
-            }
-            SyncDecision::StatusQuo => {
-                status_text = format!("{}", "up to date");
-            }
-            SyncDecision::Failure => {
-                status_text = format!("{}", "failure");
-            }
-        }
-        if status_text != self.editor_ui.sync_status.1 {
-            self.editor_ui.sync_status.1 = status_text;
-            println!("sync dec: {}", self.editor_ui.sync_status.1);
         }
     }
 
@@ -502,32 +422,6 @@ impl EditorPage {
         //Editor
         column![div_command_cont, div_editor_text, div_editor_status].into()
     }
-
-    fn save(&mut self) -> () {
-        let updated = db::tirra_db_update_entry(
-            &self.content.text(),
-            self.editor_ui.curr_entry_id,
-            &self.editor_ui.crypto,
-        );
-        match updated {
-            Err(err) => {
-                exception(&format!("update entry {:?}", err));
-            }
-            _ => {}
-        }
-    }
-
-    fn reload_all(crypto: &TirraCrypto, request_string: &String) -> Vec<TirraEntry> {
-        // Load all entries into memory:
-        match db::tirra_db_get_all_entries(&crypto, &request_string) {
-            Ok(entries) => entries,
-            Err(_error) => {
-                exception("loading entries");
-                vec![]
-            }
-        }
-    }
-
     /**
      * convert a timestamp into a datatime structure
      */
@@ -561,22 +455,6 @@ impl EditorPage {
         }
     }
 
-    /**
-     * Show an entry defined by ID in the editor
-     */
-    fn show_entry(&mut self, id: u32) {
-        self.editor_ui.curr_entry_id = id;
-        if id > 0 {
-            if let Some(entry) = self.entry_by_id(id) {
-                self.content = text_editor::Content::with_text(&entry.text);
-            } else {
-                exception("entry with id is not found");
-            }
-        } else {
-            self.content = text_editor::Content::with_text(" Nothing was found");
-        }
-    }
-
     fn update_editor_content(&mut self) {
         match self.editor_ui.current_entry() {
             Some(entry) => {
@@ -594,16 +472,6 @@ impl EditorPage {
 
     fn entry_by_id(&self, id: u32) -> Option<&TirraEntry> {
         self.editor_ui.entries.iter().find(|ent| ent.id == id)
-    }
-
-    fn entry_greatest_id(&self) -> u32 {
-        let mut id = 0u32;
-        for entry in self.editor_ui.entries.iter() {
-            if entry.id > id {
-                id = entry.id;
-            }
-        }
-        id
     }
 
     /*

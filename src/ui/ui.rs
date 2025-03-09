@@ -289,6 +289,68 @@ impl EditorUi {
     }
 
     /**
+     * response to Sync Operatoins
+     */
+    pub fn on_sync_fetched(&mut self, state: sync::SyncState) -> sync::SyncDecision {
+        self.sync_state = state;
+        println!("------------------");
+        // debug:  print local info
+        if let Ok(local_info) = db::tirra_db_information(&self.crypto) {
+            println!("Ours:");
+            sync::info_sync_debug(&local_info);
+        } else {
+            println!("local db: couldn't retrieve info block");
+        }
+
+        // debug: print origin database info.
+        if state == SyncState::Fetched {
+            if let Some(origin_info) = sync::sync_retrieve_information(&self.crypto) {
+                println!("Theirs:");
+                sync::info_sync_debug(&origin_info);
+                println!("");
+            } else {
+                println!("origin db: couldn't retrieve info block");
+            }
+        }
+        // compute decision and apply it.
+        let decision = sync::process_after_fetch(state, &self.crypto);
+        self.update_sync_status(&decision);
+
+        decision
+    }
+
+    pub fn on_sync_pushed(&mut self, state: sync::SyncState) {
+        self.sync_state = state;
+        println!("sync: pushing is done");
+        if state == SyncState::Pushed {
+            self.sync_status.1 = format!("{}", "up to date");
+            // change commits
+            sync::update_origin_commit(&self.crypto);
+        } else {
+            self.sync_status.1 = format!("{}", "error pushing");
+        }
+    }
+
+    pub fn on_sync_clicked(&mut self) {
+        if self.is_dirty {
+            println!("editor is dirty. dropping latest changes.");
+        }
+        self.write_current_entry();
+        match db::tirra_db_replace(&self.crypto, &sync::origin_db_temp_file()) {
+            Ok(()) => {
+                self.entries = Self::reload_all(&self.crypto, &self.load_request);
+                self.is_dirty = false;
+                self.curr_entry_id = self.entry_greatest_id();
+                // change commits
+                sync::update_origin_commit(&self.crypto);
+                self.sync_status = (false, format!("{}", "replaced"));
+            }
+            _ => {
+                println!("error: sync failed to replace local db");
+            }
+        }
+    }
+    /**
      * check of the editor is in read_only mode
      */
     pub fn is_readonly(&self) -> bool {
