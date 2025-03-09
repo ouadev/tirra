@@ -1,6 +1,6 @@
 use crate::common::exception::exception;
+use crate::common::utils;
 use crate::gui::styles::{self, style_conf};
-use crate::storage::db::TirraEntry;
 use crate::storage::sync::{self, SyncDecision};
 use crate::ui::ui::{EditorUi, TirraInterface};
 use iced::theme::Theme;
@@ -172,7 +172,7 @@ impl EditorPage {
         //DIV : list of entries
         let div_entries = column(
             self.editor_ui.entries.iter().map(|ent| {
-                let title = EditorPage::entry_title(ent, 30);
+                let title = EditorUi::entry_title(ent, 30);
                 let link_text = text(title)
                     .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
                     .shaping(text::Shaping::Advanced);
@@ -215,7 +215,7 @@ impl EditorPage {
             let year_month_day = format!(
                 "{} {} {}",
                 dt.date_naive().year_ce().1,
-                EditorPage::month_abr(dt.month()),
+                utils::month_abr(dt.month()),
                 dt.date_naive().day(),
             );
 
@@ -267,13 +267,13 @@ impl EditorPage {
         let div_date_modify;
         let entry_id;
         if self.editor_ui.curr_entry_id > 0 {
-            if let Some(entry) = self.entry_by_id(self.editor_ui.curr_entry_id) {
+            if let Some(entry) = self.editor_ui.current_entry() {
                 entry_id = entry.id;
                 let date_create_ts = entry.date_create;
                 let date_modify_ts = entry.date_modify;
 
-                let dt_create = EditorPage::datetime_from_unix(date_create_ts as i64);
-                let dt_modify = EditorPage::datetime_from_unix(date_modify_ts as i64);
+                let dt_create = utils::datetime_from_unix(date_create_ts as i64);
+                let dt_modify = utils::datetime_from_unix(date_modify_ts as i64);
 
                 div_date_create = dt_format(dt_create);
                 div_date_modify = dt_format(dt_modify);
@@ -422,38 +422,6 @@ impl EditorPage {
         //Editor
         column![div_command_cont, div_editor_text, div_editor_status].into()
     }
-    /**
-     * convert a timestamp into a datatime structure
-     */
-    fn datetime_from_unix(unix_ts: i64) -> DateTime<Utc> {
-        match DateTime::from_timestamp(unix_ts, 0) {
-            Some(date) => date,
-            None => {
-                exception("invalid timestamp");
-                DateTime::<Utc>::MIN_UTC
-            }
-        }
-    }
-    /**
-     * generate an abreviated string for the name of a month
-     */
-    fn month_abr(month: u32) -> &'static str {
-        match month {
-            1 => "Jan",
-            2 => "Feb",
-            3 => "Mar",
-            4 => "Apr",
-            5 => "May",
-            6 => "Jun",
-            7 => "Jul",
-            8 => "Aug",
-            9 => "Sep",
-            10 => "Oct",
-            11 => "Nov",
-            12 => "Dec",
-            _ => "-",
-        }
-    }
 
     fn refresh_editor(&mut self) {
         match self.editor_ui.current_entry() {
@@ -468,10 +436,6 @@ impl EditorPage {
 
     pub fn title(&self) -> String {
         format!("Tirra{} ", if self.editor_ui.is_dirty { "*" } else { "" })
-    }
-
-    fn entry_by_id(&self, id: u32) -> Option<&TirraEntry> {
-        self.editor_ui.entries.iter().find(|ent| ent.id == id)
     }
 
     /*
@@ -509,35 +473,4 @@ impl EditorPage {
             //
         }
     */
-    fn entry_title(entry: &TirraEntry, max_chars: u8) -> &str {
-        let mut last_index: usize = 0;
-        let mut first_index: usize = 0;
-        let mut first_found = false;
-        let mut collected = 0u8;
-        for (i, c) in entry.text.chars().enumerate() {
-            if !first_found && c != ' ' && c != '\n' {
-                first_found = true;
-                first_index = i;
-            }
-
-            if first_found && (collected == max_chars || c == '\n') {
-                break;
-            }
-
-            if first_found {
-                collected += 1;
-            }
-
-            last_index = i;
-        }
-
-        if collected != 0 {
-            while entry.text.is_char_boundary(last_index + 1) == false {
-                last_index += 1;
-            }
-            &entry.text[first_index..last_index + 1]
-        } else {
-            "..."
-        }
-    }
 }

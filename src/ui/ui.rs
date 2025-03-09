@@ -367,6 +367,38 @@ impl EditorUi {
         (current_timestamp() - self.last_act) > Self::TIRRA_INACTIVITY_SECONDS
     }
 
+    pub fn entry_title(entry: &TirraEntry, max_chars: u8) -> &str {
+        let mut last_index: usize = 0;
+        let mut first_index: usize = 0;
+        let mut first_found = false;
+        let mut collected = 0u8;
+        for (i, c) in entry.text.chars().enumerate() {
+            if !first_found && c != ' ' && c != '\n' {
+                first_found = true;
+                first_index = i;
+            }
+
+            if first_found && (collected == max_chars || c == '\n') {
+                break;
+            }
+
+            if first_found {
+                collected += 1;
+            }
+
+            last_index = i;
+        }
+
+        if collected != 0 {
+            while entry.text.is_char_boundary(last_index + 1) == false {
+                last_index += 1;
+            }
+            &entry.text[first_index..last_index + 1]
+        } else {
+            "..."
+        }
+    }
+
     fn save_and_reload(&mut self) {
         if self.is_dirty {
             self.write_current_entry();
