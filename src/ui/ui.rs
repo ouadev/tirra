@@ -22,6 +22,16 @@ pub enum KbCtrl {
 }
 
 /**
+ * Background code
+ */
+#[derive(Debug, Clone, Copy)]
+pub enum BgRun {
+    SyncDownload,
+    SyncUpload,
+    Nothing,
+}
+
+/**
  * Tirra Interface Trait. each graphical interface page should implement it.
  */
 pub trait TirraInterface {
@@ -32,6 +42,8 @@ pub trait TirraInterface {
     fn on_activity(&mut self);
     //window title definition
     fn title(&self) -> String;
+    //is there background code to run
+    fn background_work(&self) -> BgRun;
 }
 
 //Tirra UI : Login
@@ -136,6 +148,10 @@ impl TirraInterface for LoginUi {
     fn title(&self) -> String {
         format!("Tirra - Open")
     }
+
+    fn background_work(&self) -> BgRun {
+        BgRun::Nothing
+    }
 }
 
 //Tirra UI : Writer
@@ -154,6 +170,7 @@ pub struct WriterUi {
     pub load_request: String,
     pub sync_status: (bool, String),
     pub sync_state: SyncState,
+    bg_run_unit: BgRun,
 }
 
 impl WriterUi {
@@ -181,6 +198,13 @@ impl WriterUi {
         //let init_content = text_editor::Content::with_text(&all_entries[0].text);
         let id = all_entries[0].id;
         let db_id = db::tirra_db_id(&tirra_crypto);
+        //Run an initial Sync Download or not ?
+        let bg_run_unit: BgRun;
+        if schema_version >= 1 {
+            bg_run_unit = BgRun::SyncDownload;
+        } else {
+            bg_run_unit = BgRun::Nothing;
+        }
 
         //return
         Self {
@@ -198,19 +222,10 @@ impl WriterUi {
             sync_status: (false, String::from("not connected")),
             crypto: tirra_crypto,
             sync_state: SyncState::NoOp,
+            bg_run_unit: bg_run_unit,
         }
     }
 
-    fn reload_all(crypto: &TirraCrypto, request_string: &String) -> Vec<TirraEntry> {
-        // Load all entries into memory:
-        match db::tirra_db_get_all_entries(&crypto, &request_string) {
-            Ok(entries) => entries,
-            Err(_error) => {
-                exception("loading entries");
-                vec![]
-            }
-        }
-    }
     /**
      * to be called when the Editor Widget content has changed.
      */
@@ -297,7 +312,7 @@ impl WriterUi {
     /**
      * response to Sync Operatoins
      */
-    pub fn on_sync_fetched(&mut self, state: sync::SyncState) -> sync::SyncDecision {
+    pub fn on_sync_fetched(&mut self, state: sync::SyncState) {
         self.sync_state = state;
         println!("------------------");
         // debug:  print local info
@@ -322,7 +337,17 @@ impl WriterUi {
         let decision = sync::process_after_fetch(state, &self.crypto);
         self.update_sync_status(&decision);
 
-        decision
+        if decision == SyncDecision::Push {
+            //let db_loc = self.crypto.get_db_location();
+            //Task::perform(sync::sync_upload(1, db_loc), |value: sync::SyncState| {
+            //    Message::SyncPushDone(value)
+            //})
+            self.bg_run_unit = BgRun::SyncUpload;
+        } else if decision == SyncDecision::UpdateCommits {
+            sync::update_origin_commit(&self.crypto);
+        }
+
+        //decision
     }
 
     pub fn on_sync_pushed(&mut self, state: sync::SyncState) {
@@ -405,6 +430,17 @@ impl WriterUi {
         }
     }
 
+    fn reload_all(crypto: &TirraCrypto, request_string: &String) -> Vec<TirraEntry> {
+        // Load all entries into memory:
+        match db::tirra_db_get_all_entries(&crypto, &request_string) {
+            Ok(entries) => entries,
+            Err(_error) => {
+                exception("loading entries");
+                vec![]
+            }
+        }
+    }
+
     fn save_and_reload(&mut self) {
         if self.is_dirty {
             self.write_current_entry();
@@ -412,6 +448,7 @@ impl WriterUi {
             self.is_dirty = false;
         }
     }
+
     fn write_current_entry(&mut self) -> () {
         match self.entry_by_id(self.curr_entry_id) {
             Some(entry) => {
@@ -485,6 +522,10 @@ impl TirraInterface for WriterUi {
             // periodic sync : check information
             let decision = sync::process_after_fetch(self.sync_state, &self.crypto);
             self.update_sync_status(&decision);
+            //
+            if self.ticks % 7 == 0 {
+                self.bg_run_unit = BgRun::SyncDownload;
+            }
         }
     }
 
@@ -516,7 +557,11 @@ impl TirraInterface for WriterUi {
     }
 
     fn title(&self) -> String {
-        format!("Tirra - Open")
+        format!("Tirra{} ", if self.is_dirty { "*" } else { "" })
+    }
+
+    fn background_work(&self) -> BgRun {
+        self.bg_run_unit
     }
 }
 

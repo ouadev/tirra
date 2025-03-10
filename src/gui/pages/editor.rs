@@ -1,8 +1,8 @@
 use crate::common::exception::exception;
 use crate::common::utils;
 use crate::gui::styles::{self, style_conf};
-use crate::storage::sync::{self, SyncDecision};
-use crate::ui::ui::{WriterUi, TirraInterface};
+use crate::storage::sync;
+use crate::ui::ui::{BgRun, TirraInterface, WriterUi};
 use iced::theme::Theme;
 use iced::widget::{
     column, container, horizontal_space, row, scrollable, text, text_editor, Button, MouseArea,
@@ -41,21 +41,13 @@ impl EditorPage {
         let writer_ui = WriterUi::new(db_location, crypto_pwd);
         // initial editor content
         let init_content = text_editor::Content::with_text(&writer_ui.entries[0].text);
-        let db_id = writer_ui.db_id;
-        let db_ver = writer_ui.db_ver;
         //return
         (
             Self {
                 writer_ui: writer_ui,
                 content: init_content,
             },
-            if db_ver >= 1 {
-                Task::perform(sync::sync_download(db_id), |value: sync::SyncState| {
-                    Message::SyncFetchDone(value)
-                })
-            } else {
-                Task::none()
-            },
+            Task::none(),
         )
     }
 
@@ -78,14 +70,7 @@ impl EditorPage {
 
             Message::Tick => {
                 self.writer_ui.on_tick();
-                if self.writer_ui.sync_fetch_needed() {
-                    Task::perform(
-                        sync::sync_download(self.writer_ui.db_id),
-                        |value: sync::SyncState| Message::SyncFetchDone(value),
-                    )
-                } else {
-                    Task::none()
-                }
+                self.task_from_ui()
             }
             Message::EntryButtonClicked(entry_id) => {
                 self.writer_ui.on_entry_selected(entry_id);
@@ -110,19 +95,8 @@ impl EditorPage {
             }
 
             Message::SyncFetchDone(state) => {
-                let decision = self.writer_ui.on_sync_fetched(state);
-                //TODO: move async ops to ui.
-                if decision == SyncDecision::Push {
-                    let db_loc = self.writer_ui.crypto.get_db_location();
-                    Task::perform(sync::sync_upload(1, db_loc), |value: sync::SyncState| {
-                        Message::SyncPushDone(value)
-                    })
-                } else if decision == SyncDecision::UpdateCommits {
-                    sync::update_origin_commit(&self.writer_ui.crypto);
-                    Task::none()
-                } else {
-                    Task::none()
-                }
+                self.writer_ui.on_sync_fetched(state);
+                self.task_from_ui()
             }
 
             Message::SyncPushDone(value) => {
@@ -435,7 +409,28 @@ impl EditorPage {
     }
 
     pub fn title(&self) -> String {
-        format!("Tirra{} ", if self.writer_ui.is_dirty { "*" } else { "" })
+        self.writer_ui.title()
+    }
+
+    /**
+     * convert Tirra UI BgWork object to an Iced executable Task
+     */
+    fn task_from_ui(&self) -> Task<Message> {
+        let bg_work = self.writer_ui.background_work();
+        match bg_work {
+            BgRun::Nothing => Task::none(),
+            BgRun::SyncUpload => {
+                //TODO: editor page shouldn't bother accessing internal crypto object.
+                let db_loc = self.writer_ui.crypto.get_db_location();
+                Task::perform(sync::sync_upload(1, db_loc), |value: sync::SyncState| {
+                    Message::SyncPushDone(value)
+                })
+            }
+            BgRun::SyncDownload => Task::perform(
+                sync::sync_download(self.writer_ui.db_id),
+                |value: sync::SyncState| Message::SyncFetchDone(value),
+            ),
+        }
     }
 
     /*
