@@ -25,15 +25,15 @@ pub struct EditorPage {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    ActionPerformed(text_editor::Action),
     Tick,
-    EntryButtonClicked(u32),
-    NewEntryButtonClicked,
+    EditorAction(text_editor::Action),
+    EntryClicked(u32),
+    NewEntryClicked,
     SyncStatusClicked,
-    CommandLineSubmited,
-    CommandLineInputChanged(String),
-    SyncFetchDone(sync::SyncState),
-    SyncPushDone(sync::SyncState),
+    CliSubmited,
+    CliChanged(String),
+    TaskSyncFetchDone(sync::SyncState),
+    TaskSyncPushDone(sync::SyncState),
 }
 impl EditorPage {
     pub fn new(db_location: &str, crypto_pwd: &[u8]) -> (Self, Task<Message>) {
@@ -53,7 +53,7 @@ impl EditorPage {
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::ActionPerformed(action) => {
+            Message::EditorAction(action) => {
                 match &action {
                     text_editor::Action::Edit(_edit) => {
                         // block editing when in readonly mode
@@ -72,34 +72,34 @@ impl EditorPage {
                 self.writer_ui.on_tick();
                 self.task_from_ui()
             }
-            Message::EntryButtonClicked(entry_id) => {
+            Message::EntryClicked(entry_id) => {
                 self.writer_ui.on_entry_selected(entry_id);
                 self.refresh_editor();
                 Task::none()
             }
-            Message::NewEntryButtonClicked => {
+            Message::NewEntryClicked => {
                 self.writer_ui.on_new_entry();
                 self.refresh_editor();
                 Task::none()
             }
 
-            Message::CommandLineInputChanged(s) => {
+            Message::CliChanged(s) => {
                 self.writer_ui.on_cli_input(s);
                 Task::none()
             }
 
-            Message::CommandLineSubmited => {
+            Message::CliSubmited => {
                 self.writer_ui.on_cli_submit();
                 self.refresh_editor();
                 Task::none()
             }
 
-            Message::SyncFetchDone(state) => {
+            Message::TaskSyncFetchDone(state) => {
                 self.writer_ui.on_sync_fetched(state);
                 self.task_from_ui()
             }
 
-            Message::SyncPushDone(value) => {
+            Message::TaskSyncPushDone(value) => {
                 self.writer_ui.on_sync_pushed(value);
                 Task::none()
             }
@@ -140,7 +140,7 @@ impl EditorPage {
                 .style(styles::button::button_main);
 
         if self.writer_ui.curr_entry_id > 0 && !self.writer_ui.is_readonly() {
-            div_add = div_add.on_press(Message::NewEntryButtonClicked);
+            div_add = div_add.on_press(Message::NewEntryClicked);
         }
 
         //DIV : list of entries
@@ -158,7 +158,7 @@ impl EditorPage {
                         styles::button::button_entry
                     })
                     .clip(true)
-                    .on_press(Message::EntryButtonClicked(ent.id));
+                    .on_press(Message::EntryClicked(ent.id));
 
                 //let ent_separator: Rule = horizontal_rule(1);
                 column![ent_button].into()
@@ -362,8 +362,8 @@ impl EditorPage {
         .width(Length::Fill)
         .size(style_conf::STYLE_TEXT_SIZE_COMMAND)
         .font(style_conf::FONT_COMMAND_LINE)
-        .on_submit(Message::CommandLineSubmited)
-        .on_input(Message::CommandLineInputChanged);
+        .on_submit(Message::CliSubmited)
+        .on_input(Message::CliChanged);
 
         let mut div_command_cont;
         if self.writer_ui.cmd_line_show {
@@ -387,7 +387,7 @@ impl EditorPage {
             .style(styles::text_editor::main_style);
         if self.writer_ui.curr_entry_id > 0 {
             // let the editor disabled if there is no current entry.
-            div_editor_text = div_editor_text.on_action(Message::ActionPerformed);
+            div_editor_text = div_editor_text.on_action(Message::EditorAction);
         }
 
         // DIV : Editor Status Zone
@@ -423,12 +423,12 @@ impl EditorPage {
                 //TODO: editor page shouldn't bother accessing internal crypto object.
                 let db_loc = self.writer_ui.crypto.get_db_location();
                 Task::perform(sync::sync_upload(1, db_loc), |value: sync::SyncState| {
-                    Message::SyncPushDone(value)
+                    Message::TaskSyncPushDone(value)
                 })
             }
             BgRun::SyncDownload => Task::perform(
                 sync::sync_download(self.writer_ui.db_id),
-                |value: sync::SyncState| Message::SyncFetchDone(value),
+                |value: sync::SyncState| Message::TaskSyncFetchDone(value),
             ),
         }
     }
