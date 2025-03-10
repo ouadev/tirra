@@ -10,6 +10,9 @@ use crate::{
     },
 };
 
+/**
+ * Keyboard control keys
+ */
 #[derive(Debug, Clone)]
 pub enum KbCtrl {
     CtrlS,
@@ -18,14 +21,17 @@ pub enum KbCtrl {
     CtrlK,
 }
 
+/**
+ * Tirra Interface Trait. each graphical interface page should implement it.
+ */
 pub trait TirraInterface {
-    fn title(&self) -> String;
-    //fn init() -> Self;
-    //fn deinit();
+    //response to common actions
     fn on_close(&mut self);
     fn on_tick(&mut self);
     fn on_ctrl(&mut self, control: KbCtrl);
     fn on_activity(&mut self);
+    //window title definition
+    fn title(&self) -> String;
 }
 
 //Tirra UI : Login
