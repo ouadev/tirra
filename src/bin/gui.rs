@@ -1,9 +1,7 @@
 #![windows_subsystem = "windows"]
 use std::env;
-use std::path::Path;
 
 use crate::widget::text_input;
-use chrono::Utc;
 use iced::highlighter::{self};
 use iced::theme::Theme;
 use iced::time::{self, every};

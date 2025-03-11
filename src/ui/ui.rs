@@ -1,5 +1,3 @@
-use chrono::Utc;
-
 use crate::{
     common::{exception::exception, utils},
     gui::styles::style_conf,
@@ -564,4 +562,3 @@ impl TirraInterface for WriterUi {
         self.bg_run_unit
     }
 }
-

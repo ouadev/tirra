@@ -16,8 +16,6 @@ use chrono::Datelike;
 use chrono::Timelike;
 use chrono::{DateTime, Utc};
 
-//use unicode_segmentation::UnicodeSegmentation;
-
 pub struct EditorPage {
     pub writer_ui: WriterUi,
     pub content: text_editor::Content,
