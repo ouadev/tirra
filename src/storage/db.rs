@@ -2,6 +2,7 @@ use crate::storage::tirracrypto::TirraCrypto;
 use rusqlite::params;
 use rusqlite::Connection;
 use rusqlite::Transaction;
+use std::env;
 use std::fs;
 use std::path::Path;
 use std::process;
@@ -14,6 +15,14 @@ pub const TIRRA_FIRST_ENTRY_TEXT: &str =
 "The History of each Day.
 
 What is it that constitutes the history of each day for you? Look at your habits of which it consists: are they the product of numberless little acts of cowardice and laziness, or of your bravery and inventive reason? Although the two cases are so different, it is possible that men might bestow the same praise upon you, and that you might also be equally useful to them in the one case as in the other. But praise and utility and respectability may suffice for him whose only desire is to have a good conscience, - not however for you, the \"trier of the reins,\" who has a consciousness of the conscience!";
+// HOME per platform
+#[cfg(target_os = "linux")]
+const TIRRA_HOME_DIR_PATH: &str = "HOME";
+#[cfg(target_os = "macos")]
+const TIRRA_HOME_DIR_PATH: &str = "HOME";
+#[cfg(target_os = "windows")]
+const TIRRA_HOME_DIR_PATH: &str = "USERPROFILE";
+const TIRRA_DEFAULT_DB_NAME: &str = "awal.tirra";
 
 pub struct TirraEntry {
     pub id: u32,
@@ -558,7 +567,6 @@ pub fn information_set_origin_commit(crypto: &TirraCrypto) -> Result<(), TirraDb
     Ok(())
 }
 
-
 pub fn commit_id_string(commit_id: &Vec<u8>) -> String {
     let mut commit_str = String::new();
     for byte in commit_id.iter() {
@@ -590,4 +598,17 @@ pub fn db_information_debug(info: &TirraDbInformation) {
         commit_str_origin, info.origin_source, info.origin_ts
     );
     println!("");
+}
+
+pub fn default_user_db_path() -> String {
+    // pick up HOME environment variable.
+    let home_path = match env::var(TIRRA_HOME_DIR_PATH) {
+        Ok(var) => var,
+        _ => String::from(TIRRA_DEFAULT_DB_NAME),
+    };
+    let db_path = Path::new(home_path.as_str()).join(TIRRA_DEFAULT_DB_NAME);
+    match db_path.to_str() {
+        None => String::from(TIRRA_DEFAULT_DB_NAME), // create default db in the same directory as the binary file.
+        Some(path) => String::from(path),
+    }
 }

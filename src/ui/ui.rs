@@ -1,7 +1,7 @@
 use chrono::Utc;
 
 use crate::{
-    common::exception::exception,
+    common::{exception::exception, utils},
     gui::styles::style_conf,
     storage::{
         db::{self, TirraEntry},
@@ -210,7 +210,7 @@ impl WriterUi {
         Self {
             curr_entry_id: id,
             is_dirty: false,
-            last_act: current_timestamp(),
+            last_act: utils::current_timestamp(),
             entries: all_entries,
             readonly_mode: false,
             db_id: db_id,
@@ -395,7 +395,7 @@ impl WriterUi {
      * the UI is idle.
      */
     pub fn is_inactivity(&self) -> bool {
-        (current_timestamp() - self.last_act) > Self::TIRRA_INACTIVITY_SECONDS
+        (utils::current_timestamp() - self.last_act) > Self::TIRRA_INACTIVITY_SECONDS
     }
 
     pub fn entry_title(entry: &TirraEntry, max_chars: u8) -> &str {
@@ -553,7 +553,7 @@ impl TirraInterface for WriterUi {
     }
 
     fn on_activity(&mut self) {
-        self.last_act = current_timestamp();
+        self.last_act = utils::current_timestamp();
     }
 
     fn title(&self) -> String {
@@ -565,6 +565,3 @@ impl TirraInterface for WriterUi {
     }
 }
 
-fn current_timestamp() -> i64 {
-    Utc::now().timestamp()
-}

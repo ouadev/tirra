@@ -14,19 +14,12 @@ use iced::{Element, Settings, Subscription};
 
 extern crate tirra;
 use tirra::common::exception::exception;
+use tirra::common::utils;
 use tirra::gui::pages::editor::{self, EditorPage};
 use tirra::gui::pages::login::{self, LoginPage};
 use tirra::gui::styles::style_conf;
+use tirra::storage::db;
 use tirra::ui::ui::{KbCtrl, TirraInterface};
-
-// Constants
-#[cfg(target_os = "linux")]
-const TIRRA_HOME_DIR_PATH: &str = "HOME";
-#[cfg(target_os = "macos")]
-const TIRRA_HOME_DIR_PATH: &str = "HOME";
-#[cfg(target_os = "windows")]
-const TIRRA_HOME_DIR_PATH: &str = "USERPROFILE";
-const TIRRA_DEFAULT_DB_NAME: &str = "awal.tirra";
 
 // String : database (plaintext) locationPixels
 
@@ -91,7 +84,7 @@ enum Message {
 
 impl TirraIced {
     fn new() -> (Self, Task<Message>) {
-        let mut db_to_use = default_user_db_path();
+        let mut db_to_use = db::default_user_db_path();
         // check arguments
         let args: Vec<String> = env::args().collect();
         if args.len() == 2 {
@@ -109,7 +102,7 @@ impl TirraIced {
                 theme: highlighter::Theme::InspiredGitHub,
                 page: RunningPage::Login(login_page),
                 db_location: db_to_use,
-                last_act: current_timestamp(),
+                last_act: utils::current_timestamp(),
             },
             //command.map(Message::Editor),
             Task::none(),
@@ -214,7 +207,7 @@ impl TirraIced {
                     _ => Task::none(),
                 },
                 _ => {
-                    self.last_act = current_timestamp();
+                    self.last_act = utils::current_timestamp();
                     Task::none()
                 }
             },
@@ -279,25 +272,5 @@ impl TirraIced {
             exception("running page should login ");
             Task::none()
         }
-    }
-}
-
-fn current_timestamp() -> i64 {
-    Utc::now().timestamp()
-}
-
-fn default_user_db_path() -> String {
-    // pick up HOME environment variable.
-    let home_path = match env::var(TIRRA_HOME_DIR_PATH) {
-        Ok(var) => var,
-        _ => {
-            exception("cannot read environment variable");
-            String::from("")
-        }
-    };
-    let db_path = Path::new(home_path.as_str()).join(TIRRA_DEFAULT_DB_NAME);
-    match db_path.to_str() {
-        None => String::from(TIRRA_DEFAULT_DB_NAME), // create default db in the same directory as the binary file.
-        Some(path) => String::from(path),
     }
 }

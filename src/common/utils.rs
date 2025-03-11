@@ -33,3 +33,8 @@ pub fn month_abr(month: u32) -> &'static str {
         _ => "-",
     }
 }
+
+
+pub fn current_timestamp() -> i64 {
+    Utc::now().timestamp()
+}
