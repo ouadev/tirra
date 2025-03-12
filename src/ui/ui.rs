@@ -306,6 +306,16 @@ impl WriterUi {
         self.save_and_reload();
         self.curr_entry_id = entry_id;
     }
+
+    /**
+     * response to action: entry_selected (index)
+     */
+    pub fn on_entry_selected_by_index(&mut self, index: usize) {
+        //TODO: check if index exists ????
+        let entry_id = self.entries[index].id;
+        self.save_and_reload();
+        self.curr_entry_id = entry_id;
+    }
     /**
      * response to action: new_entry
      */
