@@ -65,7 +65,7 @@ impl LoginPage {
         let div_db_cont = container(div_db).center_x(Length::Fill).padding(20);
         // DIV : Text Input
         let div_pwd = TextInput::new(
-            ui::WriterUi::UI_LOGIN_PWDINPUT_PLACEHOLDER,
+            ui::LoginUi::UI_LOGIN_PWDINPUT_PLACEHOLDER,
             &self.login_ui.password,
         )
         .width(300)
@@ -78,9 +78,9 @@ impl LoginPage {
         let div_pwd_cont = container(div_pwd).center_x(Length::Fill);
         // DIV : Login Button
         let button_text = if self.login_ui.db_found {
-            ui::WriterUi::UI_LOGIN_BUTTON_TEXT_DECRYPT
+            ui::LoginUi::UI_LOGIN_BUTTON_TEXT_DECRYPT
         } else {
-            ui::WriterUi::UI_LOGIN_BUTTON_TEXT_NEWDB
+            ui::LoginUi::UI_LOGIN_BUTTON_TEXT_NEWDB
         };
         let div_decrypt_button =
             Button::new(text(button_text).size(style_conf::STYLE_TEXT_SIZE_NORMAL))
