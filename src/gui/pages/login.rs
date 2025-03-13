@@ -4,7 +4,7 @@ use iced::{Background, Task};
 use iced::{Element, Length};
 
 use crate::gui::styles::{self, style_conf};
-use crate::ui::ui::{LoginUi, TirraInterface};
+use crate::ui::ui::{self, LoginUi, TirraInterface};
 
 const LOGIN_INPUT_ICED_ID: &str = "pwdinput-id";
 pub struct LoginPage {
@@ -64,20 +64,23 @@ impl LoginPage {
             });
         let div_db_cont = container(div_db).center_x(Length::Fill).padding(20);
         // DIV : Text Input
-        let div_pwd = TextInput::new("Passphrase", &self.login_ui.password)
-            .width(300)
-            .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
-            .secure(true)
-            .on_submit(Message::LoginButtonPressed)
-            .on_input(Message::PwdInputChanged)
-            .id(text_input::Id::new(LOGIN_INPUT_ICED_ID));
+        let div_pwd = TextInput::new(
+            ui::WriterUi::UI_LOGIN_PWDINPUT_PLACEHOLDER,
+            &self.login_ui.password,
+        )
+        .width(300)
+        .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
+        .secure(true)
+        .on_submit(Message::LoginButtonPressed)
+        .on_input(Message::PwdInputChanged)
+        .id(text_input::Id::new(LOGIN_INPUT_ICED_ID));
 
         let div_pwd_cont = container(div_pwd).center_x(Length::Fill);
         // DIV : Login Button
         let button_text = if self.login_ui.db_found {
-            "Decrypt & Access"
+            ui::WriterUi::UI_LOGIN_BUTTON_TEXT_DECRYPT
         } else {
-            "New Database"
+            ui::WriterUi::UI_LOGIN_BUTTON_TEXT_NEWDB
         };
         let div_decrypt_button =
             Button::new(text(button_text).size(style_conf::STYLE_TEXT_SIZE_NORMAL))

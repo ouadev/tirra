@@ -172,6 +172,10 @@ pub struct WriterUi {
 }
 
 impl WriterUi {
+    pub const UI_LOGIN_BUTTON_TEXT_DECRYPT: &str = "Decrypt & Access";
+    pub const UI_LOGIN_BUTTON_TEXT_NEWDB: &str = "New Database";
+    pub const UI_LOGIN_PWDINPUT_PLACEHOLDER: &str = "Passphrase";
+
     const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
 
     pub fn new(db_location: &str, crypto_pwd: &[u8]) -> Self {
