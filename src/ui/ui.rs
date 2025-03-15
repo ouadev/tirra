@@ -1,3 +1,5 @@
+use std::env;
+
 use crate::{
     common::{exception::exception, utils},
     gui::styles::style_conf,
@@ -565,4 +567,21 @@ impl TirraInterface for WriterUi {
     fn background_work(&self) -> BgRun {
         self.bg_run_unit
     }
+}
+
+/**
+ * Misc Functions
+ */
+
+/**
+ * parse_args: for now, it only returns the db_to_use
+ */
+pub fn parse_args() -> String {
+    let mut db_to_use = db::default_user_db_path();
+    // check arguments
+    let args: Vec<String> = env::args().collect();
+    if args.len() == 2 {
+        db_to_use = String::from(&args[1]);
+    }
+    db_to_use
 }

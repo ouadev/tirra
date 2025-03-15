@@ -1,6 +1,4 @@
 #![windows_subsystem = "windows"]
-use std::env;
-
 use crate::widget::text_input;
 use iced::highlighter::{self};
 use iced::theme::Theme;
@@ -16,8 +14,7 @@ use tirra::common::utils;
 use tirra::gui::pages::editor::{self, EditorPage};
 use tirra::gui::pages::login::{self, LoginPage};
 use tirra::gui::styles::style_conf;
-use tirra::storage::db;
-use tirra::ui::ui::{KbCtrl, TirraInterface};
+use tirra::ui::ui::{self, KbCtrl, TirraInterface};
 
 // String : database (plaintext) locationPixels
 
@@ -82,14 +79,9 @@ enum Message {
 
 impl TirraIced {
     fn new() -> (Self, Task<Message>) {
-        let mut db_to_use = db::default_user_db_path();
-        // check arguments
-        let args: Vec<String> = env::args().collect();
-        if args.len() == 2 {
-            db_to_use = String::from(&args[1]);
-        }
+        let db_to_use = ui::parse_args();
 
-        let (login_page, _login_cmd) = LoginPage::new(&db_to_use);
+        let (login_page, _) = LoginPage::new(&db_to_use);
 
         // decide if dark_mode should be used by default.
         style_conf::dark_mode_in_paris();
