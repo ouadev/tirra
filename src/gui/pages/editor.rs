@@ -39,7 +39,11 @@ impl EditorPage {
         let mut writer_ui = WriterUi::new();
         writer_ui.connect(db_location, crypto_pwd);
         // initial editor content
-        let init_content = text_editor::Content::with_text(&writer_ui.entries[0].text);
+        let init_content = match writer_ui.current_entry() {
+            Some(entry) => text_editor::Content::with_text(&entry.text),
+            _ => text_editor::Content::with_text("no entry is found !!"),
+        };
+
         //return
         (
             Self {
