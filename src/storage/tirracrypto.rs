@@ -24,6 +24,16 @@ pub struct TirraCrypto {
     secrets: TirraSecrets,
 }
 
+impl Default for TirraCrypto {
+    fn default() -> Self {
+        Self {
+            db_location: String::new(),
+            db_location_pt: String::new(),
+            secrets: TirraCrypto::key_and_nonce_from_pwd("".as_bytes()),
+        }
+    }
+}
+
 impl TirraCrypto {
     pub fn new(location: &str, password: &[u8]) -> Self {
         Self {

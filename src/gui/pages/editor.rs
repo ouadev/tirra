@@ -36,7 +36,8 @@ pub enum Message {
 impl EditorPage {
     pub fn new(db_location: &str, crypto_pwd: &[u8]) -> (Self, Task<Message>) {
         //instantiate Editor UI
-        let writer_ui = WriterUi::new(db_location, crypto_pwd);
+        let mut writer_ui = WriterUi::new();
+        writer_ui.connect(db_location, crypto_pwd);
         // initial editor content
         let init_content = text_editor::Content::with_text(&writer_ui.entries[0].text);
         //return

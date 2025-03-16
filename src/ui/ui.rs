@@ -180,7 +180,28 @@ pub struct WriterUi {
 impl WriterUi {
     const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
 
-    pub fn new(db_location: &str, crypto_pwd: &[u8]) -> Self {
+    pub fn new() -> Self {
+        //return
+        Self {
+            curr_entry_id: 0,
+            is_dirty: false,
+            last_act: 0,
+            entries: vec![],
+            readonly_mode: false,
+            db_id: 0,
+            db_ver: 0,
+            ticks: 0,
+            cmd_line_show: false,
+            cmd_line_text: String::new(),
+            load_request: String::new(),
+            sync_status: (false, String::from("not connected")),
+            crypto: Default::default(),
+            sync_state: SyncState::NoOp,
+            bg_run_unit: BgRun::Nothing,
+        }
+    }
+
+    pub fn connect(&mut self, db_location: &str, crypto_pwd: &[u8]) {
         //Init Crypto
         let tirra_crypto = TirraCrypto::new(db_location, crypto_pwd);
         // intialize the backend
@@ -210,24 +231,16 @@ impl WriterUi {
             bg_run_unit = BgRun::Nothing;
         }
 
-        //return
-        Self {
-            curr_entry_id: id,
-            is_dirty: false,
-            last_act: utils::current_timestamp(),
-            entries: all_entries,
-            readonly_mode: false,
-            db_id: db_id,
-            db_ver: schema_version,
-            ticks: 0,
-            cmd_line_show: false,
-            cmd_line_text: def_req.clone(),
-            load_request: def_req,
-            sync_status: (false, String::from("not connected")),
-            crypto: tirra_crypto,
-            sync_state: SyncState::NoOp,
-            bg_run_unit: bg_run_unit,
-        }
+        // assignments
+        self.db_ver = schema_version;
+        self.db_id = db_id;
+        self.crypto = tirra_crypto;
+        self.entries = all_entries;
+        self.curr_entry_id = id;
+        self.cmd_line_text = def_req.clone();
+        self.load_request = def_req;
+        self.bg_run_unit = bg_run_unit;
+        self.last_act = utils::current_timestamp();
     }
 
     /**
