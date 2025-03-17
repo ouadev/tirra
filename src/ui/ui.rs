@@ -180,6 +180,7 @@ pub struct WriterUi {
 }
 
 impl WriterUi {
+    pub const UI_WRITER_NEWENTRY_TEXT: &str = " + New paper ";
     const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
 
     pub fn new() -> Self {
@@ -449,6 +450,9 @@ impl WriterUi {
         }
     }
 
+    /**
+     * view status bar contents
+     */
     pub fn view_status_current_entry_date(&self) -> Option<(u32, String, String, String, String)> {
         //
         let dt_format = |dt: DateTime<Utc>| {
@@ -492,6 +496,17 @@ impl WriterUi {
             }
         } else {
             None
+        }
+    }
+
+    /**
+     * view button new_entry_enabled attribute.
+     */
+    pub fn view_button_newentry_enabled(&self) -> bool {
+        if self.curr_entry_id > 0 && !self.is_readonly() {
+            true
+        } else {
+            false
         }
     }
 

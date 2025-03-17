@@ -131,12 +131,13 @@ impl EditorPage {
      */
     fn view_left_pan(&self) -> Element<Message> {
         // DIV : ADD Button
-        let mut div_add =
-            Button::new(text(format!(" + New paper ")).size(style_conf::STYLE_TEXT_SIZE_NORMAL))
-                .width(Length::Fill)
-                .style(styles::button::button_main);
+        let mut div_add = Button::new(
+            text(WriterUi::UI_WRITER_NEWENTRY_TEXT).size(style_conf::STYLE_TEXT_SIZE_NORMAL),
+        )
+        .width(Length::Fill)
+        .style(styles::button::button_main);
 
-        if self.writer_ui.curr_entry_id > 0 && !self.writer_ui.is_readonly() {
+        if self.writer_ui.view_button_newentry_enabled() {
             div_add = div_add.on_press(Message::NewEntryClicked);
         }
 
