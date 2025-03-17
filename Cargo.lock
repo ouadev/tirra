@@ -3402,10 +3402,8 @@ dependencies = [
  "chrono",
  "iced",
  "pbkdf2",
- "rand",
  "rusqlite",
  "sha2",
- "unicode-segmentation",
 ]
 
 [[package]]
