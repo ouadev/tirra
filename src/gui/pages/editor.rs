@@ -142,26 +142,25 @@ impl EditorPage {
         }
 
         //DIV : list of entries
-        let div_entries = column(
-            self.writer_ui.entries.iter().map(|ent| {
-                let title = WriterUi::entry_title(ent, 30);
-                let link_text = text(title)
-                    .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
-                    .shaping(text::Shaping::Advanced);
-                let ent_button = Button::new(link_text)
-                    .width(Length::Fill)
-                    .style(if ent.id == self.writer_ui.curr_entry_id {
-                        styles::button::button_entry_selected
-                    } else {
-                        styles::button::button_entry
-                    })
-                    .clip(true)
-                    .on_press(Message::EntryClicked(ent.id));
+        let div_entries = column(self.writer_ui.entry_view_iter().map(|entry_view| {
+            // entry link text
+            let link_text = text(entry_view.title)
+                .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
+                .shaping(text::Shaping::Advanced);
+            //entry button
+            let ent_button = Button::new(link_text)
+                .width(Length::Fill)
+                .style(if entry_view.selected {
+                    styles::button::button_entry_selected
+                } else {
+                    styles::button::button_entry
+                })
+                .clip(true)
+                .on_press(Message::EntryClicked(entry_view.id));
 
-                //let ent_separator: Rule = horizontal_rule(1);
-                column![ent_button].into()
-            }), //map
-        ); //Column
+            //let ent_separator: Rule = horizontal_rule(1);
+            column![ent_button].into()
+        })); //Column
 
         let div_entries_scroll = scrollable(div_entries);
 

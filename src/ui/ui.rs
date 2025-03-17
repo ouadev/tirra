@@ -161,6 +161,17 @@ impl TirraInterface for LoginUi {
 }
 
 //Tirra UI : Writer
+pub struct EntryView {
+    pub title: String,
+    pub id: u32,
+    pub selected: bool,
+}
+
+pub struct EntryViewIterator<'a> {
+    inner: &'a WriterUi,
+    pos: usize,
+}
+
 pub struct WriterUi {
     pub is_dirty: bool,
     pub last_act: i64,
@@ -510,6 +521,16 @@ impl WriterUi {
         }
     }
 
+    /**
+     * Iterator over entries that generate view information
+     */
+    pub fn entry_view_iter<'a>(&'a self) -> EntryViewIterator<'a> {
+        EntryViewIterator {
+            inner: self,
+            pos: 0,
+        }
+    }
+
     fn reload_all(crypto: &TirraCrypto, request_string: &String) -> Vec<TirraEntry> {
         // Load all entries into memory:
         match db::tirra_db_get_all_entries(&crypto, &request_string) {
@@ -645,6 +666,31 @@ impl TirraInterface for WriterUi {
     }
 }
 
+impl<'a> Iterator for EntryViewIterator<'a> {
+    // we will be counting with usize
+    type Item = EntryView;
+
+    // next() is the only required method
+    fn next(&mut self) -> Option<Self::Item> {
+        let return_item: Option<Self::Item>;
+        match self.inner.entries.get(self.pos) {
+            Some(entry) => {
+                return_item = Some(EntryView {
+                    title: String::from(WriterUi::entry_title(entry, 30)),
+                    id: entry.id,
+                    selected: (entry.id == self.inner.curr_entry_id),
+                });
+                self.pos += 1;
+            }
+            _ => {
+                return_item = None;
+                //self.pos = 0;
+            }
+        }
+
+        return_item
+    }
+}
 /**
  * Misc Functions
  */
