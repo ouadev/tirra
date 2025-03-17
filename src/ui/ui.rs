@@ -7,6 +7,7 @@ use crate::{
     gui::styles::style_conf,
     storage::{
         db::{self, TirraEntry},
+        sync::{self, SyncDecision, SyncState},
         tirracrypto::TirraCrypto,
     },
 };
@@ -27,6 +28,8 @@ pub enum KbCtrl {
  */
 #[derive(Debug, Clone, Copy)]
 pub enum BgRun {
+    SyncDownload(u64),
+    SyncUpload,
     Nothing,
 }
 
@@ -170,6 +173,8 @@ pub struct EntryViewIterator<'a> {
 pub struct WriterUi {
     pub cmd_line_show: bool,
     pub cmd_line_text: String,
+    pub sync_status: (bool, String),
+    pub sync_state: SyncState,
 
     db_id: u64,
     db_ver: u32,
@@ -203,7 +208,9 @@ impl WriterUi {
             cmd_line_show: false,
             cmd_line_text: String::new(),
             load_request: String::new(),
+            sync_status: (false, String::from("not connected")),
             crypto: Default::default(),
+            sync_state: SyncState::NoOp,
             bg_run_unit: BgRun::Nothing,
         }
     }
@@ -230,6 +237,13 @@ impl WriterUi {
         //let init_content = text_editor::Content::with_text(&all_entries[0].text);
         let id = all_entries[0].id;
         let db_id = db::tirra_db_id(&tirra_crypto);
+        //Run an initial Sync Download or not ?
+        let bg_run_unit: BgRun;
+        if schema_version >= 1 {
+            bg_run_unit = BgRun::SyncDownload(self.db_id);
+        } else {
+            bg_run_unit = BgRun::Nothing;
+        }
 
         // assignments
         self.db_ver = schema_version;
@@ -239,6 +253,7 @@ impl WriterUi {
         self.curr_entry_id = id;
         self.cmd_line_text = def_req.clone();
         self.load_request = def_req;
+        self.bg_run_unit = bg_run_unit;
         self.last_act = utils::current_timestamp();
     }
 
@@ -330,10 +345,86 @@ impl WriterUi {
     }
 
     /**
+     * response to Sync Operatoins
+     */
+    pub fn on_sync_fetched(&mut self, state: sync::SyncState) {
+        self.sync_state = state;
+        println!("------------------");
+        // debug:  print local info
+        if let Ok(local_info) = db::tirra_db_information(&self.crypto) {
+            println!("Ours:");
+            sync::info_sync_debug(&local_info);
+        } else {
+            println!("local db: couldn't retrieve info block");
+        }
+
+        // debug: print origin database info.
+        if state == SyncState::Fetched {
+            if let Some(origin_info) = sync::sync_retrieve_information(&self.crypto) {
+                println!("Theirs:");
+                sync::info_sync_debug(&origin_info);
+                println!("");
+            } else {
+                println!("origin db: couldn't retrieve info block");
+            }
+        }
+        // compute decision and apply it.
+        let decision = sync::process_after_fetch(state, &self.crypto);
+        self.update_sync_status(&decision);
+
+        if decision == SyncDecision::Push {
+            //let db_loc = self.crypto.get_db_location();
+            //Task::perform(sync::sync_upload(1, db_loc), |value: sync::SyncState| {
+            //    Message::SyncPushDone(value)
+            //})
+            self.bg_run_unit = BgRun::SyncUpload;
+        } else if decision == SyncDecision::UpdateCommits {
+            sync::update_origin_commit(&self.crypto);
+        }
+
+        //decision
+    }
+
+    pub fn on_sync_pushed(&mut self, state: sync::SyncState) {
+        self.sync_state = state;
+        println!("sync: pushing is done");
+        if state == SyncState::Pushed {
+            self.sync_status.1 = format!("{}", "up to date");
+            // change commits
+            sync::update_origin_commit(&self.crypto);
+        } else {
+            self.sync_status.1 = format!("{}", "error pushing");
+        }
+    }
+
+    pub fn on_sync_clicked(&mut self) {
+        if self.is_dirty {
+            println!("editor is dirty. dropping latest changes.");
+        }
+        self.write_current_entry();
+        match db::tirra_db_replace(&self.crypto, &sync::origin_db_temp_file()) {
+            Ok(()) => {
+                self.entries = Self::reload_all(&self.crypto, &self.load_request);
+                self.is_dirty = false;
+                self.curr_entry_id = self.entry_greatest_id();
+                // change commits
+                sync::update_origin_commit(&self.crypto);
+                self.sync_status = (false, format!("{}", "replaced"));
+            }
+            _ => {
+                println!("error: sync failed to replace local db");
+            }
+        }
+    }
+    /**
      * check of the editor is in read_only mode
      */
     pub fn is_readonly(&self) -> bool {
         self.readonly_mode
+    }
+
+    pub fn sync_fetch_needed(&self) -> bool {
+        self.db_ver >= 1 && self.ticks % 7 == 0
     }
     /**
      * the UI is idle.
@@ -434,6 +525,10 @@ impl WriterUi {
         }
     }
 
+    pub fn view_sync_status_visible(&self) -> bool {
+        self.db_ver >= 1
+    }
+
     pub fn is_entry_selected(&self) -> bool {
         self.curr_entry_id > 0
     }
@@ -498,6 +593,36 @@ impl WriterUi {
         }
         id
     }
+
+    fn update_sync_status(&mut self, decision: &SyncDecision) {
+        let status_text: String;
+        self.sync_status.0 = false;
+        match decision {
+            SyncDecision::ReplaceLocal => {
+                self.sync_status.0 = true;
+                status_text = format!("{}", "replace");
+            }
+            SyncDecision::Push => {
+                status_text = format!("{}", "to upload");
+            }
+            SyncDecision::ResolveConflict => {
+                status_text = format!("{}", "conflict [O] [T]");
+            }
+            SyncDecision::UpdateCommits => {
+                status_text = format!("{}", "up to date*");
+            }
+            SyncDecision::StatusQuo => {
+                status_text = format!("{}", "up to date");
+            }
+            SyncDecision::Failure => {
+                status_text = format!("{}", "failure");
+            }
+        }
+        if status_text != self.sync_status.1 {
+            self.sync_status.1 = status_text;
+            println!("sync dec: {}", self.sync_status.1);
+        }
+    }
 }
 
 impl TirraInterface for WriterUi {
@@ -505,6 +630,16 @@ impl TirraInterface for WriterUi {
         self.ticks += 1;
         // periodic save
         self.save_and_reload();
+        // Sync
+        if self.db_ver >= 1 {
+            // periodic sync : check information
+            let decision = sync::process_after_fetch(self.sync_state, &self.crypto);
+            self.update_sync_status(&decision);
+            //
+            if self.ticks % 7 == 0 {
+                self.bg_run_unit = BgRun::SyncDownload(self.db_id);
+            }
+        }
     }
 
     fn on_ctrl(&mut self, control: KbCtrl) {
