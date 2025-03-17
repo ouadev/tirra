@@ -192,6 +192,7 @@ pub struct WriterUi {
 
 impl WriterUi {
     pub const UI_WRITER_NEWENTRY_TEXT: &str = " + New paper ";
+    pub const UI_WRITER_CLI_PLACEHOLDER: &str = "> SELECT * FROM entries WHERE ...";
     const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
 
     pub fn new() -> Self {
@@ -519,6 +520,10 @@ impl WriterUi {
         } else {
             false
         }
+    }
+
+    pub fn is_entry_selected(&self) -> bool {
+        self.curr_entry_id > 0
     }
 
     /**

@@ -326,7 +326,7 @@ impl EditorPage {
     fn view_editor(&self) -> Element<Message> {
         // DIV : Command line experimentation
         let div_cmd_input = TextInput::new(
-            "> SELECT * FROM entries WHERE ...",
+            WriterUi::UI_WRITER_CLI_PLACEHOLDER,
             &self.writer_ui.cmd_line_text,
         )
         .width(Length::Fill)
@@ -355,7 +355,7 @@ impl EditorPage {
             .padding(20)
             .font(style_conf::FONT_EDITOR)
             .style(styles::text_editor::main_style);
-        if self.writer_ui.curr_entry_id > 0 {
+        if self.writer_ui.is_entry_selected() {
             // let the editor disabled if there is no current entry.
             div_editor_text = div_editor_text.on_action(Message::EditorAction);
         }
