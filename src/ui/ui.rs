@@ -86,8 +86,6 @@ impl LoginUi {
 
     pub fn on_pwd(&mut self, s: String) {
         self.password = s;
-        self.info_text = self.password.clone();
-        self.info_text = format!("");
     }
 
     pub fn on_login(&mut self) {
