@@ -1,10 +1,9 @@
 use crate::gui::styles::{self, style_conf};
-use crate::storage::sync;
 use crate::ui::ui::{BgRun, TirraInterface, WriterUi};
 use iced::theme::Theme;
 use iced::widget::{
-    column, container, horizontal_space, row, scrollable, text, text_editor, Button, MouseArea,
-    Space, TextInput,
+    column, container, horizontal_space, row, scrollable, text, text_editor, Button, Space,
+    TextInput,
 };
 use iced::Background;
 use iced::Task;
@@ -21,11 +20,8 @@ pub enum Message {
     EditorAction(text_editor::Action),
     EntryClicked(u32),
     NewEntryClicked,
-    SyncStatusClicked,
     CliSubmited,
     CliChanged(String),
-    TaskSyncFetchDone(sync::SyncState),
-    TaskSyncPushDone(sync::SyncState),
 }
 impl EditorPage {
     pub fn new(db_location: &str, crypto_pwd: &[u8]) -> (Self, Task<Message>) {
@@ -87,22 +83,6 @@ impl EditorPage {
 
             Message::CliSubmited => {
                 self.writer_ui.on_cli_submit();
-                self.refresh_editor();
-                Task::none()
-            }
-
-            Message::TaskSyncFetchDone(state) => {
-                self.writer_ui.on_sync_fetched(state);
-                self.task_from_ui()
-            }
-
-            Message::TaskSyncPushDone(value) => {
-                self.writer_ui.on_sync_pushed(value);
-                Task::none()
-            }
-
-            Message::SyncStatusClicked => {
-                self.writer_ui.on_sync_clicked();
                 self.refresh_editor();
                 Task::none()
             }
@@ -244,13 +224,6 @@ impl EditorPage {
                 }
             });
 
-        // sync
-        let div_sync = if self.writer_ui.view_sync_status_visible() {
-            self.view_sync_status()
-        } else {
-            horizontal_space().into()
-        };
-
         // status bar
         container(row![
             Space::with_width(20),
@@ -266,8 +239,6 @@ impl EditorPage {
                 }),
             div_date_modify,
             horizontal_space(),
-            div_sync,
-            horizontal_space(),
             div_id
         ])
         .style(|_theme: &Theme| {
@@ -275,49 +246,6 @@ impl EditorPage {
             container::Style::default().background(Background::Color(palette.background_main))
         })
         .into()
-    }
-
-    /**
-     * View for Sync Status box
-     */
-    fn view_sync_status(&self) -> Element<Message> {
-        let sync_button;
-        // sync state
-        let sync_label = text("sync : ")
-            .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
-            .style(|_theme: &Theme| {
-                let palette = style_conf::palette();
-                text::Style {
-                    color: Some(palette.text),
-                }
-            });
-        let sync_text = text(format!("{} ", self.writer_ui.sync_status.1))
-            .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
-            .style(|_theme: &Theme| {
-                let palette = style_conf::palette();
-                text::Style {
-                    color: Some(palette.text),
-                }
-            });
-
-        if self.writer_ui.sync_status.0 {
-            sync_button = text("[+]")
-                .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS_HIGHLIGHT)
-                .font(style_conf::FONT_STATUS_DATE_BOLD)
-                .style(|_theme: &Theme| {
-                    let palette = style_conf::palette();
-                    text::Style {
-                        color: Some(palette.text),
-                    }
-                });
-        } else {
-            sync_button = text("");
-        }
-
-        let sync_button_mouse: MouseArea<'_, Message> =
-            MouseArea::new(sync_button).on_press(Message::SyncStatusClicked);
-
-        row![sync_label, sync_text, sync_button_mouse].into()
     }
 
     /**
@@ -389,18 +317,6 @@ impl EditorPage {
         let bg_work = self.writer_ui.background_work();
         match bg_work {
             BgRun::Nothing => Task::none(),
-            BgRun::SyncUpload => {
-                //TODO: editor page shouldn't bother accessing internal crypto object.
-                let db_loc = self.writer_ui.get_db_location();
-                Task::perform(sync::sync_upload(1, db_loc), |value: sync::SyncState| {
-                    Message::TaskSyncPushDone(value)
-                })
-            }
-            BgRun::SyncDownload(db_id) => {
-                Task::perform(sync::sync_download(db_id), |value: sync::SyncState| {
-                    Message::TaskSyncFetchDone(value)
-                })
-            }
         }
     }
 
