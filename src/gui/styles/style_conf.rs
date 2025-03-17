@@ -24,7 +24,7 @@ pub fn dark_mode_in_paris() -> () {
     // Calculate theme
     let timenow = Local::now();
     let month = timenow.month0() as usize;
-    let light = paris.get(month).unwrap_or_else(|| &(5,22));
+    let light = paris.get(month).unwrap_or_else(|| &(5, 22));
     let now_hour = timenow.hour();
 
     let dark_mode = if now_hour > light.0 && now_hour < light.1 {
