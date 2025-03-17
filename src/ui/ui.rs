@@ -1,5 +1,7 @@
 use std::env;
 
+use chrono::{DateTime, Datelike, Timelike, Utc};
+
 use crate::{
     common::{exception::exception, utils},
     gui::styles::style_conf,
@@ -444,6 +446,52 @@ impl WriterUi {
             &entry.text[first_index..last_index + 1]
         } else {
             "..."
+        }
+    }
+
+    pub fn view_status_current_entry_date(&self) -> Option<(u32, String, String, String, String)> {
+        //
+        let dt_format = |dt: DateTime<Utc>| {
+            let year_month_day = format!(
+                "{} {} {}",
+                dt.date_naive().year_ce().1,
+                utils::month_abr(dt.month()),
+                dt.date_naive().day(),
+            );
+
+            let weekday_time = format!(
+                "{}.{:02}:{:02}",
+                dt.date_naive().weekday(),
+                dt.time().hour(),
+                dt.time().minute(),
+            );
+            (year_month_day, weekday_time)
+        };
+        //current entry
+        if self.curr_entry_id > 0 {
+            match self.entry_by_id(self.curr_entry_id) {
+                Some(entry) => {
+                    let dt_create = utils::datetime_from_unix(entry.date_create as i64);
+                    let dt_modify = utils::datetime_from_unix(entry.date_modify as i64);
+                    //
+                    let (create_date_str, create_time_str) = dt_format(dt_create);
+                    let (modify_date_str, modify_time_str) = dt_format(dt_modify);
+                    //
+                    Some((
+                        entry.id,
+                        create_date_str,
+                        create_time_str,
+                        modify_date_str,
+                        modify_time_str,
+                    ))
+                }
+                _ => {
+                    exception("misalignment between gui and model (curr_entry_id)");
+                    None
+                }
+            }
+        } else {
+            None
         }
     }
 

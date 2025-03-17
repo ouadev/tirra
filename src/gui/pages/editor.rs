@@ -1,5 +1,3 @@
-use crate::common::exception::exception;
-use crate::common::utils;
 use crate::gui::styles::{self, style_conf};
 use crate::storage::sync;
 use crate::ui::ui::{BgRun, TirraInterface, WriterUi};
@@ -11,10 +9,6 @@ use iced::widget::{
 use iced::Background;
 use iced::Task;
 use iced::{Element, Length};
-
-use chrono::Datelike;
-use chrono::Timelike;
-use chrono::{DateTime, Utc};
 
 pub struct EditorPage {
     pub writer_ui: WriterUi,
@@ -188,26 +182,11 @@ impl EditorPage {
      */
     fn view_editor_status(&self) -> Element<Message> {
         // Closure : generate datetime formatting
-        let dt_format = |dt: DateTime<Utc>| {
-            let year_month_day = format!(
-                "{} {} {}",
-                dt.date_naive().year_ce().1,
-                utils::month_abr(dt.month()),
-                dt.date_naive().day(),
-            );
-
-            let weekday_time = format!(
-                "{}.{:02}:{:02}",
-                dt.date_naive().weekday(),
-                dt.time().hour(),
-                dt.time().minute(),
-            );
-
-            let text_ymd = text(year_month_day)
+        let dt_view = |date_str: String, time_str: String| {
+            let text_ymd = text(date_str)
                 .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS_HIGHLIGHT)
                 .font(style_conf::FONT_STATUS_DATE_BOLD)
                 .style(|_theme: &Theme| {
-                    //let palette = theme.extended_palette();
                     let palette = style_conf::palette();
                     text::Style {
                         color: Some(palette.text),
@@ -218,18 +197,16 @@ impl EditorPage {
                 .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
                 .font(style_conf::FONT_STATUS_DATE)
                 .style(|_theme: &Theme| {
-                    //let palette = theme.extended_palette();
                     let palette = style_conf::palette();
                     text::Style {
                         color: Some(palette.text),
                     }
                 });
 
-            let text_wdm = text(weekday_time)
+            let text_wdm = text(time_str)
                 .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
                 .font(style_conf::FONT_STATUS_DATE)
                 .style(|_theme: &Theme| {
-                    //let palette = theme.extended_palette();
                     let palette = style_conf::palette();
                     text::Style {
                         color: Some(palette.text),
@@ -239,31 +216,21 @@ impl EditorPage {
             row![text_ymd, text_space, text_wdm].height(Length::Shrink)
         };
 
-        // dates
+        //calculate the date_time to display
         let div_date_create;
         let div_date_modify;
         let entry_id;
-        if self.writer_ui.curr_entry_id > 0 {
-            if let Some(entry) = self.writer_ui.current_entry() {
-                entry_id = entry.id;
-                let date_create_ts = entry.date_create;
-                let date_modify_ts = entry.date_modify;
-
-                let dt_create = utils::datetime_from_unix(date_create_ts as i64);
-                let dt_modify = utils::datetime_from_unix(date_modify_ts as i64);
-
-                div_date_create = dt_format(dt_create);
-                div_date_modify = dt_format(dt_modify);
-            } else {
+        match self.writer_ui.view_status_current_entry_date() {
+            Some((id, dt_create, tm_create, dt_modify, tm_modify)) => {
+                entry_id = id;
+                div_date_create = dt_view(dt_create, tm_create);
+                div_date_modify = dt_view(tm_modify, dt_modify);
+            }
+            None => {
                 entry_id = 0;
                 div_date_create = row![];
                 div_date_modify = row![];
-                exception("misalignment between gui and model (curr_entry_id)");
             }
-        } else {
-            entry_id = 0;
-            div_date_create = row![];
-            div_date_modify = row![];
         }
 
         // id
