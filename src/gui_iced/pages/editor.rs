@@ -1,4 +1,4 @@
-use crate::gui::styles::{self, style_conf};
+use crate::gui_iced::styles::{self, style_conf};
 use crate::ui::ui::{BgRun, TirraInterface, WriterUi};
 use iced::theme::Theme;
 use iced::widget::{

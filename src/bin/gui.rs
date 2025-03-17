@@ -10,9 +10,9 @@ use iced::{Element, Settings, Subscription};
 
 extern crate tirra;
 use tirra::common::exception::exception;
-use tirra::gui::pages::editor::{self, EditorPage};
-use tirra::gui::pages::login::{self, LoginPage};
-use tirra::gui::styles::style_conf;
+use tirra::gui_iced::pages::editor::{self, EditorPage};
+use tirra::gui_iced::pages::login::{self, LoginPage};
+use tirra::gui_iced::styles::style_conf;
 use tirra::ui::ui::{self, KbCtrl, TirraInterface};
 
 // String : database (plaintext) locationPixels

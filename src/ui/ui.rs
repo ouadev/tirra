@@ -4,7 +4,7 @@ use chrono::{DateTime, Datelike, Timelike, Utc};
 
 use crate::{
     common::{exception::exception, utils},
-    gui::styles::style_conf,
+    gui_iced::styles::style_conf,
     storage::{
         db::{self, TirraEntry},
         tirracrypto::TirraCrypto,

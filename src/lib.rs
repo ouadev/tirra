@@ -1,4 +1,4 @@
 pub mod storage;
-pub mod gui;
+pub mod gui_iced;
 pub mod common;
 pub mod ui;

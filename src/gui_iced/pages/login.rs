@@ -3,7 +3,7 @@ use iced::widget::{column, container, text, text_input, Button, Text, TextInput}
 use iced::{Background, Task};
 use iced::{Element, Length};
 
-use crate::gui::styles::{self, style_conf};
+use crate::gui_iced::styles::{self, style_conf};
 use crate::ui::ui::{self, LoginUi, TirraInterface};
 
 const LOGIN_INPUT_ICED_ID: &str = "pwdinput-id";
