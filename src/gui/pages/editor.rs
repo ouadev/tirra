@@ -245,7 +245,7 @@ impl EditorPage {
             });
 
         // sync
-        let div_sync = if self.writer_ui.db_ver >= 1 {
+        let div_sync = if self.writer_ui.view_sync_status_visible() {
             self.view_sync_status()
         } else {
             horizontal_space().into()
@@ -391,15 +391,16 @@ impl EditorPage {
             BgRun::Nothing => Task::none(),
             BgRun::SyncUpload => {
                 //TODO: editor page shouldn't bother accessing internal crypto object.
-                let db_loc = self.writer_ui.crypto.get_db_location();
+                let db_loc = self.writer_ui.get_db_location();
                 Task::perform(sync::sync_upload(1, db_loc), |value: sync::SyncState| {
                     Message::TaskSyncPushDone(value)
                 })
             }
-            BgRun::SyncDownload => Task::perform(
-                sync::sync_download(self.writer_ui.db_id),
-                |value: sync::SyncState| Message::TaskSyncFetchDone(value),
-            ),
+            BgRun::SyncDownload(db_id) => {
+                Task::perform(sync::sync_download(db_id), |value: sync::SyncState| {
+                    Message::TaskSyncFetchDone(value)
+                })
+            }
         }
     }
 

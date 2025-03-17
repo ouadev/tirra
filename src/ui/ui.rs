@@ -28,7 +28,7 @@ pub enum KbCtrl {
  */
 #[derive(Debug, Clone, Copy)]
 pub enum BgRun {
-    SyncDownload,
+    SyncDownload(u64),
     SyncUpload,
     Nothing,
 }
@@ -173,20 +173,21 @@ pub struct EntryViewIterator<'a> {
 }
 
 pub struct WriterUi {
-    pub is_dirty: bool,
-    pub last_act: i64,
-    pub entries: Vec<TirraEntry>,
-    pub curr_entry_id: u32,
-    pub crypto: TirraCrypto,
-    pub readonly_mode: bool,
-    pub db_id: u64,
-    pub db_ver: u32,
-    pub ticks: u64,
     pub cmd_line_show: bool,
     pub cmd_line_text: String,
-    pub load_request: String,
     pub sync_status: (bool, String),
     pub sync_state: SyncState,
+
+    db_id: u64,
+    db_ver: u32,
+    crypto: TirraCrypto,
+    entries: Vec<TirraEntry>,
+    load_request: String,
+    is_dirty: bool,
+    curr_entry_id: u32,
+    readonly_mode: bool,
+    last_act: i64,
+    ticks: u64,
     bg_run_unit: BgRun,
 }
 
@@ -241,7 +242,7 @@ impl WriterUi {
         //Run an initial Sync Download or not ?
         let bg_run_unit: BgRun;
         if schema_version >= 1 {
-            bg_run_unit = BgRun::SyncDownload;
+            bg_run_unit = BgRun::SyncDownload(self.db_id);
         } else {
             bg_run_unit = BgRun::Nothing;
         }
@@ -275,6 +276,10 @@ impl WriterUi {
 
     pub fn current_entry(&self) -> Option<&TirraEntry> {
         self.entry_by_id(self.curr_entry_id)
+    }
+
+    pub fn get_db_location(&self) -> String {
+        self.crypto.get_db_location()
     }
 
     /**
@@ -522,6 +527,10 @@ impl WriterUi {
         }
     }
 
+    pub fn view_sync_status_visible(&self) -> bool {
+        self.db_ver >= 1
+    }
+
     pub fn is_entry_selected(&self) -> bool {
         self.curr_entry_id > 0
     }
@@ -630,7 +639,7 @@ impl TirraInterface for WriterUi {
             self.update_sync_status(&decision);
             //
             if self.ticks % 7 == 0 {
-                self.bg_run_unit = BgRun::SyncDownload;
+                self.bg_run_unit = BgRun::SyncDownload(self.db_id);
             }
         }
     }

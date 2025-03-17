@@ -10,7 +10,6 @@ use iced::{Element, Settings, Subscription};
 
 extern crate tirra;
 use tirra::common::exception::exception;
-use tirra::common::utils;
 use tirra::gui::pages::editor::{self, EditorPage};
 use tirra::gui::pages::login::{self, LoginPage};
 use tirra::gui::styles::style_conf;
@@ -65,7 +64,6 @@ struct TirraIced {
     theme: highlighter::Theme,
     page: RunningPage,
     db_location: String,
-    last_act: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -92,7 +90,6 @@ impl TirraIced {
                 theme: highlighter::Theme::InspiredGitHub,
                 page: RunningPage::Login(login_page),
                 db_location: db_to_use,
-                last_act: utils::current_timestamp(),
             },
             //command.map(Message::Editor),
             Task::none(),
@@ -197,7 +194,6 @@ impl TirraIced {
                     _ => Task::none(),
                 },
                 _ => {
-                    self.last_act = utils::current_timestamp();
                     Task::none()
                 }
             },
