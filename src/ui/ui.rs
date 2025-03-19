@@ -1,15 +1,10 @@
-use std::env;
-
-use chrono::{DateTime, Datelike, Timelike, Utc};
-
 use crate::{
     common::{exception::exception, utils},
     gui_iced::styles::style_conf,
-    storage::{
-        db::{self, TirraEntry, TirraEntryList},
-        tirracrypto::TirraCrypto,
-    },
+    storage::db::{self, TirraDb, TirraEntry, TirraEntryList},
 };
+use chrono::{DateTime, Datelike, Timelike, Utc};
+use std::env;
 
 /**
  * Keyboard control keys
@@ -65,7 +60,7 @@ impl LoginUi {
         // Check database file existence
         let mut info_text = String::new();
         let db_found: bool;
-        if db::tirra_db_found(db_location) == true {
+        if TirraDb::db_exists(db_location) == true {
             db_found = true;
         } else {
             info_text.push_str(&format!(" Database file was not found.\n"));
@@ -86,22 +81,21 @@ impl LoginUi {
     }
 
     pub fn on_login(&mut self) {
-        let crypto = TirraCrypto::new(&self.db_location, self.password.as_bytes());
+        //let crypto = TirraCrypto::new(&self.db_location, self.password.as_bytes());
+        let mut tirra_db = TirraDb::new();
+        let inited = tirra_db.init(&self.db_location, self.password.as_bytes());
+
         if self.db_found == false {
             // Database is not found, start initialization of a new one at the same location.
             // intialize the backend
-            if crypto.enc_db_found() == false {
+            if TirraDb::db_exists(&self.db_location) == false {
                 // create new db
-                let inited = db::tirra_db_init(&crypto);
                 if let Err(_x) = inited {
                     exception("database init");
                 }
                 // insert first empty entry
-                let empty_added = db::tirra_db_add_entry(
-                    db::TIRRA_ENTRY_TYPE_GENERAL,
-                    db::TIRRA_FIRST_ENTRY_TEXT,
-                    &crypto,
-                );
+                let empty_added =
+                    tirra_db.add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, db::TIRRA_FIRST_ENTRY_TEXT);
                 if let Err(_x) = empty_added {
                     exception("database init");
                 }
@@ -110,7 +104,7 @@ impl LoginUi {
                 panic!("something is up. database is not supposed to be found");
             }
         } else {
-            if db::tirra_db_try_access(&crypto) {
+            if tirra_db.try_access() {
                 self.logged_in = true;
             } else {
                 self.info_text = format!("Decryption failure: Wrong key");
@@ -125,8 +119,7 @@ impl LoginUi {
 }
 
 impl TirraInterface for LoginUi {
-    fn on_tick(&mut self) {
-    }
+    fn on_tick(&mut self) {}
 
     fn on_ctrl(&mut self, control: KbCtrl) {
         match control {
@@ -168,7 +161,7 @@ pub struct EntryViewIterator<'a> {
 
 pub struct WriterUi {
     //db access
-    crypto: TirraCrypto,
+    tirra_db: TirraDb,
     //entries
     load_request: String,
     entry_list: TirraEntryList,
@@ -200,31 +193,31 @@ impl WriterUi {
             cli_visible: false,
             cli_text: String::new(),
             load_request: String::new(),
-            crypto: Default::default(),
+            tirra_db: TirraDb::new(),
             bg_work: BgRun::Nothing,
         }
     }
 
     pub fn connect(&mut self, db_location: &str, crypto_pwd: &[u8]) {
         //Init Crypto
-        let tirra_crypto = TirraCrypto::new(db_location, crypto_pwd);
+        //let tirra_crypto = TirraCrypto::new(db_location, crypto_pwd);
+        let inited = self.tirra_db.init(db_location, crypto_pwd);
         // intialize the backend
-        if tirra_crypto.enc_db_found() == false {
+        if TirraDb::db_exists(db_location) == false {
             panic!("we are not supposed to be here without an encrypted database");
         }
         // database information block.
-        if let Ok(local_info) = db::tirra_db_information(&tirra_crypto) {
-            db::db_information_debug(&local_info);
+        if let Ok(local_info) = self.tirra_db.information() {
+            TirraDb::information_debug(&local_info);
         } else {
             println!("info: Info Block is not found");
         }
         // Load all entries into memory and display the first one
-        let def_req = db::tirra_db_default_read_req();
-        let entry_list = Self::reload_all(&tirra_crypto, &def_req);
+        let def_req = TirraDb::default_read_req();
+        let entry_list = self.reload_all(&def_req);
 
         // assignments
-        self.crypto = tirra_crypto;
-        self.curr_entry_id = entry_list.smallest_id_entry().map(|ent| ent.id);
+        self.curr_entry_id = entry_list.get_entry(0).map(|ent| ent.id);
         self.entry_list = entry_list;
         self.cli_text = def_req.clone();
         self.load_request = def_req;
@@ -259,7 +252,7 @@ impl WriterUi {
     }
 
     pub fn get_db_location(&self) -> String {
-        self.crypto.get_db_location()
+        self.tirra_db.get_db_location()
     }
 
     /**
@@ -283,7 +276,7 @@ impl WriterUi {
             self.editor_dirty = false;
         }
         // check if the request would work !
-        match db::tirra_db_get_all_entries(&self.crypto, &self.cli_text) {
+        match self.tirra_db.get_all_entries(&self.cli_text) {
             Ok(entries) => {
                 self.entry_list = entries;
                 self.curr_entry_id = self.entry_list.greatest_id_entry().map(|ent| ent.id);
@@ -313,9 +306,9 @@ impl WriterUi {
         }
 
         if !self.is_readonly() {
-            match db::tirra_db_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", &self.crypto) {
+            match self.tirra_db.add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "") {
                 Ok(()) => {
-                    self.entry_list = Self::reload_all(&self.crypto, &self.load_request);
+                    self.entry_list = self.reload_all(&self.load_request);
                     self.curr_entry_id = self.entry_list.greatest_id_entry().map(|ent| ent.id);
                 }
                 _ => {
@@ -427,9 +420,9 @@ impl WriterUi {
         }
     }
 
-    fn reload_all(crypto: &TirraCrypto, request_string: &String) -> TirraEntryList {
+    fn reload_all(&self, request_string: &String) -> TirraEntryList {
         // Load all entries into memory:
-        match db::tirra_db_get_all_entries(&crypto, &request_string) {
+        match self.tirra_db.get_all_entries(&request_string) {
             Ok(entry_list) => entry_list,
             Err(_error) => {
                 exception("loading entries");
@@ -441,7 +434,7 @@ impl WriterUi {
     fn save_and_reload(&mut self) {
         if self.editor_dirty {
             self.write_current_entry();
-            self.entry_list = Self::reload_all(&self.crypto, &self.load_request);
+            self.entry_list = self.reload_all(&self.load_request);
             self.editor_dirty = false;
         }
     }
@@ -449,7 +442,7 @@ impl WriterUi {
     fn write_current_entry(&mut self) -> () {
         if let Some(id) = self.curr_entry_id {
             match self.entry_list.find_by_id(id) {
-                Some(entry) => match db::tirra_db_update_entry(&entry.text, id, &self.crypto) {
+                Some(entry) => match self.tirra_db.update_entry(&entry.text, id) {
                     Err(err) => {
                         exception(&format!("update entry {:?}", err));
                     }

@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use std::time::SystemTime;
 
 /**
  * convert a timestamp into a datatime structure
@@ -34,7 +35,17 @@ pub fn month_abr(month: u32) -> &'static str {
     }
 }
 
-
 pub fn current_timestamp() -> i64 {
     Utc::now().timestamp()
+}
+
+/**
+ * time now
+ */
+pub fn time_now() -> u64 {
+    //calculate timestamp
+    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+        Ok(n) => n.as_secs(),
+        Err(_) => 0,
+    }
 }

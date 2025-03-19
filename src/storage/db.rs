@@ -1,3 +1,4 @@
+use crate::common::utils;
 use crate::storage::tirracrypto::TirraCrypto;
 use rusqlite::params;
 use rusqlite::Connection;
@@ -7,7 +8,6 @@ use std::fs;
 use std::path::Path;
 use std::process;
 use std::result::Result;
-use std::time::SystemTime;
 
 pub const TIRRA_ENTRY_TYPE_GENERAL: u8 = 0;
 pub const TIRRA_DB_SCHEMA_VER: u8 = 0;
@@ -23,6 +23,13 @@ const TIRRA_HOME_DIR_PATH: &str = "HOME";
 #[cfg(target_os = "windows")]
 const TIRRA_HOME_DIR_PATH: &str = "USERPROFILE";
 const TIRRA_DEFAULT_DB_NAME: &str = "awal.tirra";
+
+/**
+ * @brief Tirra Database.
+ */
+pub struct TirraDb {
+    crypto: TirraCrypto,
+}
 
 /**
 * @brief    representation of the `information` table latest row.
@@ -158,177 +165,186 @@ impl TirraEntryList {
         ptr_entry
     }
 }
+
 /**
- * Create new database
+ * TirraDb
  */
-pub fn tirra_db_init(crypto: &TirraCrypto) -> Result<(), TirraDbError> {
-    let db = Connection::open(crypto.plaintext_db_location())
-        .map_err(|_e| TirraDbError::DbOpenFailure)?;
 
-    db.execute(
-        "CREATE TABLE entries (
-            id          INTEGER PRIMARY KEY,
-            date_create INTEGER NOT NULL,
-            date_modify INTEGER NOT NULL,
-            type        INTEGER,
-            text        BLOB
-        )",
-        (),
-    )
-    .map_err(|_e| TirraDbError::DbInitError)?;
+impl TirraDb {
+    pub fn new() -> Self {
+        Self {
+            crypto: Default::default(),
+        }
+    }
+    /**
+     * Create new database
+     */
+    pub fn init(&mut self, location: &str, password: &[u8]) -> Result<(), TirraDbError> {
+        let crypto = TirraCrypto::new(location, password);
+        self.crypto = crypto;
+        let db = Connection::open(self.crypto.plaintext_db_location())
+            .map_err(|_e| TirraDbError::DbOpenFailure)?;
 
-    db.execute(
-        "CREATE TABLE information (
-            id              INTEGER PRIMARY KEY,
-            schema_ver      INTEGER,
-            local_commit    BLOB,
-            origin_commit   BLOB,
-            local_source    BLOB,
-            origin_source   BLOB,
-            local_ts        INTEGER NOT NULL,
-            origin_ts       INTEGER NOT NULL
-        )",
-        (),
-    )
-    .map_err(|_e| TirraDbError::DbInitError)?;
-
-    // Init information Row
-    let init_commit_id = gen_commit_id("");
-    let now = time_now();
-    db.execute(
-        "INSERT INTO information
-        (schema_ver, local_commit, origin_commit, local_source, origin_source, local_ts, origin_ts) VALUES
-        ( ?1, ?2, ?3, 'localsource-init', 'originsource-init', ?4, ?5)",
-        params![TIRRA_DB_SCHEMA_VER, init_commit_id, init_commit_id, now, now],
-    )
-    .map_err(|_e| TirraDbError::DbRequestError)?;
-
-    db.close().map_err(|_e| TirraDbError::DbInitError)?;
-
-    //encrypt db
-    crypto
-        .tirra_encrypt_db()
+        db.execute(
+            "CREATE TABLE entries (
+                id          INTEGER PRIMARY KEY,
+                date_create INTEGER NOT NULL,
+                date_modify INTEGER NOT NULL,
+                type        INTEGER,
+                text        BLOB
+            )",
+            (),
+        )
         .map_err(|_e| TirraDbError::DbInitError)?;
 
-    fs::remove_file(crypto.plaintext_db_location())
-        .map_err(|_e| TirraDbError::DbRemoveFileError)?;
+        db.execute(
+            "CREATE TABLE information (
+                id              INTEGER PRIMARY KEY,
+                schema_ver      INTEGER,
+                local_commit    BLOB,
+                origin_commit   BLOB,
+                local_source    BLOB,
+                origin_source   BLOB,
+                local_ts        INTEGER NOT NULL,
+                origin_ts       INTEGER NOT NULL
+            )",
+            (),
+        )
+        .map_err(|_e| TirraDbError::DbInitError)?;
 
-    Ok(())
-}
-
-/**
- * Create a new entry in the database
- */
-pub fn tirra_db_add_entry(
-    type_entry: u8,
-    text_entry: &str,
-    crypto: &TirraCrypto,
-) -> Result<(), TirraDbError> {
-    let now = time_now();
-
-    add_entry(type_entry, text_entry, now, now, crypto)
-}
-
-/**
- * Save content to db
- */
-pub fn tirra_db_update_entry(
-    text_entry: &str,
-    entry_id: u32,
-    crypto: &TirraCrypto,
-) -> Result<(), TirraDbError> {
-    let mut db = access_start(crypto)?;
-    let now = time_now();
-
-    // start transaction
-    let transaction = db
-        .transaction()
-        .map_err(|_e| TirraDbError::DbRequestError)?;
-
-    //save
-    transaction
-        .execute(
-            "UPDATE entries SET
-        date_modify = ?1,
-        text        = ?2
-        WHERE id    = ?3",
-            (now, text_entry, entry_id),
+        // Init information Row
+        let init_commit_id = TirraDb::gen_commit_id("");
+        let now = utils::time_now();
+        db.execute(
+            "INSERT INTO information
+            (schema_ver, local_commit, origin_commit, local_source, origin_source, local_ts, origin_ts) VALUES
+            ( ?1, ?2, ?3, 'localsource-init', 'originsource-init', ?4, ?5)",
+            params![TIRRA_DB_SCHEMA_VER, init_commit_id, init_commit_id, now, now],
         )
         .map_err(|_e| TirraDbError::DbRequestError)?;
 
-    // record commit
-    let _ = information_commit(&transaction, now, "macos-ouadv", text_entry);
+        db.close().map_err(|_e| TirraDbError::DbInitError)?;
 
-    // end transaction
-    transaction
-        .commit()
-        .map_err(|_e| TirraDbError::DbRequestError)?;
+        //encrypt db
+        self.crypto
+            .tirra_encrypt_db()
+            .map_err(|_e| TirraDbError::DbInitError)?;
 
-    access_stop(crypto)?;
+        fs::remove_file(self.crypto.plaintext_db_location())
+            .map_err(|_e| TirraDbError::DbRemoveFileError)?;
 
-    Ok(())
-}
+        Ok(())
+    }
 
-/**
- * Create a new entry in the database
- */
-pub fn tirra_db_remove_entry(id_entry: u32, crypto: &TirraCrypto) -> Result<(), TirraDbError> {
-    let mut db = access_start(crypto)?;
-    let now = time_now();
+    /**
+     * get encrypted db location
+     */
+    pub fn get_db_location(&self) -> String {
+        self.crypto.get_db_location()
+    }
 
-    // start transaction
-    let transaction = db
-        .transaction()
-        .map_err(|_e| TirraDbError::DbRequestError)?;
+    /**
+     * Create a new entry in the database
+     */
+    pub fn add_entry(&self, type_entry: u8, text_entry: &str) -> Result<(), TirraDbError> {
+        let now = utils::time_now();
 
-    //save
-    transaction
-        .execute("DELETE FROM entries WHERE id = ?1", params![id_entry])
-        .map_err(|_e| TirraDbError::DbRequestError)?;
+        self.internal_add_entry(type_entry, text_entry, now, now)
+    }
 
-    // record commit
-    let _ = information_commit(&transaction, now, "macos-ouadv", "");
+    /**
+     * Save content to db
+     */
+    pub fn update_entry(&self, text_entry: &str, entry_id: u32) -> Result<(), TirraDbError> {
+        let mut db = self.access_start()?;
+        let now = utils::time_now();
 
-    // end transaction
-    transaction
-        .commit()
-        .map_err(|_e| TirraDbError::DbRequestError)?;
+        // start transaction
+        let transaction = db
+            .transaction()
+            .map_err(|_e| TirraDbError::DbRequestError)?;
 
-    access_stop(crypto)?;
+        //save
+        transaction
+            .execute(
+                "UPDATE entries SET
+        date_modify = ?1,
+        text        = ?2
+        WHERE id    = ?3",
+                (now, text_entry, entry_id),
+            )
+            .map_err(|_e| TirraDbError::DbRequestError)?;
 
-    Ok(())
-}
+        // record commit
+        let _ = TirraDb::information_commit(&transaction, now, "macos-ouadv", text_entry);
 
-/**
- * check the provided crypto can access the database
- */
-pub fn tirra_db_try_access(crypto: &TirraCrypto) -> bool {
-    // decrypt the db
-    let result = crypto.tirra_decrypt_db();
+        // end transaction
+        transaction
+            .commit()
+            .map_err(|_e| TirraDbError::DbRequestError)?;
 
-    match result {
-        Ok(_b) => {
-            return true;
-        }
-        Err(_) => {
-            return false;
+        self.access_stop()?;
+
+        Ok(())
+    }
+
+    /**
+     * Create a new entry in the database
+     */
+    pub fn remove_entry(&self, id_entry: u32) -> Result<(), TirraDbError> {
+        let mut db = self.access_start()?;
+        let now = utils::time_now();
+
+        // start transaction
+        let transaction = db
+            .transaction()
+            .map_err(|_e| TirraDbError::DbRequestError)?;
+
+        //save
+        transaction
+            .execute("DELETE FROM entries WHERE id = ?1", params![id_entry])
+            .map_err(|_e| TirraDbError::DbRequestError)?;
+
+        // record commit
+        let _ = TirraDb::information_commit(&transaction, now, "macos-ouadv", "");
+
+        // end transaction
+        transaction
+            .commit()
+            .map_err(|_e| TirraDbError::DbRequestError)?;
+
+        self.access_stop()?;
+
+        Ok(())
+    }
+
+    /**
+     * check the provided crypto can access the database
+     */
+    pub fn try_access(&self) -> bool {
+        // decrypt the db
+        let result = self.crypto.tirra_decrypt_db();
+
+        match result {
+            Ok(_b) => {
+                return true;
+            }
+            Err(_) => {
+                return false;
+            }
         }
     }
-}
 
-/**
- * Retrieve all entries to memory. NO PAGING
- */
-pub fn tirra_db_get_all_entries(
-    crypto: &TirraCrypto,
-    filter: &str,
-) -> Result<TirraEntryList, TirraDbError> {
-    let db = access_start(crypto)?;
-    let mut vec_entries = Vec::new();
+    /**
+     * Retrieve all entries to memory. NO PAGING
+     */
+    pub fn get_all_entries(&self, filter: &str) -> Result<TirraEntryList, TirraDbError> {
+        let db = self.access_start()?;
+        let mut vec_entries = Vec::new();
 
-    {
-        let sql = format!(
-            "SELECT
+        {
+            let sql = format!(
+                "SELECT
             id,
             date_create,
             date_modify,
@@ -336,67 +352,60 @@ pub fn tirra_db_get_all_entries(
             text
             FROM entries
             {}",
-            filter
-        );
+                filter
+            );
 
-        let Ok(mut stmt) = db.prepare(&sql) else {
-            access_stop(crypto)?;
-            return Err(TirraDbError::DbRequestErrorPrepare);
-        };
+            let Ok(mut stmt) = db.prepare(&sql) else {
+                self.access_stop()?;
+                return Err(TirraDbError::DbRequestErrorPrepare);
+            };
 
-        let entry_iter = match stmt.query_map([], |row| {
-            Ok(TirraEntry {
-                id: row.get(0)?,
-                date_create: row.get(1)?,
-                date_modify: row.get(2)?,
-                type_entry: row.get(3)?,
-                text: row.get(4)?,
-            })
-        }) {
-            Ok(iter) => iter,
-            Err(_) => {
-                access_stop(crypto)?;
-                return Err(TirraDbError::DbRequestErrorQuery);
-            }
-        };
+            let entry_iter = match stmt.query_map([], |row| {
+                Ok(TirraEntry {
+                    id: row.get(0)?,
+                    date_create: row.get(1)?,
+                    date_modify: row.get(2)?,
+                    type_entry: row.get(3)?,
+                    text: row.get(4)?,
+                })
+            }) {
+                Ok(iter) => iter,
+                Err(_) => {
+                    self.access_stop()?;
+                    return Err(TirraDbError::DbRequestErrorQuery);
+                }
+            };
 
-        for entry in entry_iter {
-            if let Ok(entry_ok) = entry {
-                vec_entries.push(entry_ok);
-            } else {
-                access_stop(crypto)?;
-                return Err(TirraDbError::DbRequestErrorIter);
+            for entry in entry_iter {
+                if let Ok(entry_ok) = entry {
+                    vec_entries.push(entry_ok);
+                } else {
+                    self.access_stop()?;
+                    return Err(TirraDbError::DbRequestErrorIter);
+                }
             }
         }
+        self.access_stop()?;
+        return Ok(TirraEntryList::from_vec(vec_entries));
     }
-    access_stop(crypto)?;
-    return Ok(TirraEntryList::from_vec(vec_entries));
-}
 
-/**
- * default SQL request to use for the initial loading
- */
-pub fn tirra_db_default_read_req() -> String {
-    String::from("WHERE id > 0 ORDER BY date_modify DESC LIMIT 20")
-}
+    /**
+     * Check if database file exists
+     */
+    pub fn db_exists(db_enc_loc: &str) -> bool {
+        Path::new(db_enc_loc).exists()
+    }
 
-/**
- * Check if database file exists
- */
-pub fn tirra_db_found(db_enc_loc: &str) -> bool {
-    Path::new(db_enc_loc).exists()
-}
+    /**
+     * retrieve information block from database.
+     */
+    pub fn information(&self) -> Result<TirraDbInformation, TirraDbError> {
+        let db = self.access_start()?;
+        let result: Result<TirraDbInformation, TirraDbError>;
 
-/**
- * retrieve information block from database.
- */
-pub fn tirra_db_information(crypto: &TirraCrypto) -> Result<TirraDbInformation, TirraDbError> {
-    let db = access_start(crypto)?;
-    let result: Result<TirraDbInformation, TirraDbError>;
-
-    {
-        let sql = format!(
-            "SELECT
+        {
+            let sql = format!(
+                "SELECT
             id,
             schema_ver,
             local_commit,
@@ -409,293 +418,281 @@ pub fn tirra_db_information(crypto: &TirraCrypto) -> Result<TirraDbInformation, 
             ORDER BY id DESC
             LIMIT 1
             "
-        );
+            );
 
-        let mut stmt = db
-            .prepare(&sql)
-            .map_err(|_e| TirraDbError::DbRequestError)?;
+            let mut stmt = db
+                .prepare(&sql)
+                .map_err(|_e| TirraDbError::DbRequestError)?;
 
-        let mut info_iter = stmt
-            .query_map([], |row| {
-                Ok(TirraDbInformation {
-                    id: row.get(0)?,
-                    schema_ver: row.get(1)?,
-                    local_commit: row.get(2)?,
-                    origin_commit: row.get(3)?,
-                    local_source: row.get(4)?,
-                    origin_source: row.get(5)?,
-                    local_ts: row.get(6)?,
-                    origin_ts: row.get(7)?,
+            let mut info_iter = stmt
+                .query_map([], |row| {
+                    Ok(TirraDbInformation {
+                        id: row.get(0)?,
+                        schema_ver: row.get(1)?,
+                        local_commit: row.get(2)?,
+                        origin_commit: row.get(3)?,
+                        local_source: row.get(4)?,
+                        origin_source: row.get(5)?,
+                        local_ts: row.get(6)?,
+                        origin_ts: row.get(7)?,
+                    })
                 })
-            })
+                .map_err(|_e| TirraDbError::DbRequestError)?;
+
+            match info_iter.next() {
+                Some(info_row) => {
+                    result = info_row.map_err(|_e| TirraDbError::DbRequestError);
+                }
+                None => result = Err(TirraDbError::DbRequestError),
+            }
+        }
+        self.access_stop()?;
+        result
+    }
+
+    /**
+     * get the database ID. it should be unique if different people use the same database.
+     * Note: for now one user is supported.
+     */
+    pub fn tirra_db_id() -> u64 {
+        1u64
+    }
+
+    /**
+     *
+     * Root Access DB functions: priviliged access to the database. Used by CLI.
+     *
+     */
+
+    /**
+     * Create a new entry in the database
+     */
+    pub fn tirra_db_root_add_entry(
+        &self,
+        type_entry: u8,
+        text_entry: &str,
+        create_date: u64,
+    ) -> Result<(), TirraDbError> {
+        self.internal_add_entry(type_entry, text_entry, create_date, create_date)
+    }
+
+    /**
+     * decrypt db file and write it to disk for possible manual analysis
+     */
+    pub fn root_reveal_to_disk(&self) -> Result<bool, TirraDbError> {
+        // decrypt the db
+        self.crypto
+            .tirra_decrypt_db()
+            .map_err(|_e| TirraDbError::CryptoAccessFailure)
+    }
+
+    /**
+     * re-encrypt a plaintext db file
+     */
+    pub fn root_encrypt_plaintext(&self, db_plain: &str) -> Result<bool, TirraDbError> {
+        // encrypt the db
+        self.crypto
+            .tirra_encrypt_db_file(db_plain)
+            .map_err(|_e| TirraDbError::CryptoAccessFailure)
+    }
+
+    /**
+     * replace the current database with another file (usually obtained from a Sync destination)
+     */
+    pub fn replace(&self, new_db: &str) -> std::io::Result<()> {
+        // backup locally the current db
+        fs::copy(new_db, &self.crypto.get_db_location())?;
+        Ok(())
+    }
+
+    /**
+     *
+     * Private Internal Functions
+     *
+     */
+
+    /**
+     * generate unique commit id
+     */
+    pub fn gen_commit_id(entropy: &str) -> Vec<u8> {
+        let now = utils::time_now();
+        let unique_id_feed = format!(
+            "{}{}{}{}",
+            now,
+            entropy,
+            process::id(),
+            std::env::consts::OS
+        );
+        TirraCrypto::tirra_hash_sha256(unique_id_feed.as_str())
+    }
+
+    /**
+     * Start access to db.
+     */
+
+    fn access_start(&self) -> Result<Connection, TirraDbError> {
+        // decrypt the db
+        self.crypto
+            .tirra_decrypt_db()
+            .map_err(|_e| TirraDbError::CryptoAccessFailure)?;
+
+        // Open connection
+        let db_result = Connection::open(self.crypto.plaintext_db_location());
+
+        match db_result {
+            Ok(db) => {
+                return Ok(db);
+            }
+            Err(_e) => {
+                return Err(TirraDbError::DbOpenFailure);
+            }
+        }
+    }
+
+    /**
+     * Stop access to db, close connection and remove plaintext file.
+     */
+    fn access_stop(&self) -> Result<(), TirraDbError> {
+        //db.close().map_err(|_e| TirraDbError::DbCloseFailure)?;
+        //re-encrypt db
+        self.crypto
+            .tirra_encrypt_db()
+            .map_err(|_e| TirraDbError::CryptoAccessFailure)?;
+
+        fs::remove_file(self.crypto.plaintext_db_location())
+            .map_err(|_e| TirraDbError::DbCloseFailure)?;
+
+        Ok(())
+    }
+
+    /**
+     * Helper Function: Add Entry.
+     */
+    fn internal_add_entry(
+        &self,
+        type_entry: u8,
+        text_entry: &str,
+        create_date: u64,
+        modify_date: u64,
+    ) -> Result<(), TirraDbError> {
+        let mut db = self.access_start()?;
+        let now = utils::time_now();
+
+        // start transaction
+        let transaction = db
+            .transaction()
             .map_err(|_e| TirraDbError::DbRequestError)?;
 
-        match info_iter.next() {
-            Some(info_row) => {
-                result = info_row.map_err(|_e| TirraDbError::DbRequestError);
-            }
-            None => result = Err(TirraDbError::DbRequestError),
-        }
-    }
-    access_stop(crypto)?;
-    result
-}
-
-/**
- * get the database ID. it should be unique if different people use the same database.
- * Note: for now one user is supported.
- */
-pub fn tirra_db_id(_crypto: &TirraCrypto) -> u64 {
-    1u64
-}
-/**
- *
- * Root Access DB functions: priviliged access to the database. Used by CLI.
- *
- */
-
-/**
- * Create a new entry in the database
- */
-pub fn tirra_db_root_add_entry(
-    type_entry: u8,
-    text_entry: &str,
-    create_date: u64,
-    crypto: &TirraCrypto,
-) -> Result<(), TirraDbError> {
-    add_entry(type_entry, text_entry, create_date, create_date, crypto)
-}
-
-/**
- * decrypt db file and write it to disk for possible manual analysis
- */
-pub fn tirra_db_root_reveal_to_disk(crypto: &TirraCrypto) -> Result<bool, TirraDbError> {
-    // decrypt the db
-    crypto
-        .tirra_decrypt_db()
-        .map_err(|_e| TirraDbError::CryptoAccessFailure)
-}
-
-/**
- * re-encrypt a plaintext db file
- */
-pub fn tirra_db_root_encrypt_plaintext(
-    crypto: &TirraCrypto,
-    db_plain: &str,
-) -> Result<bool, TirraDbError> {
-    // encrypt the db
-    crypto
-        .tirra_encrypt_db_file(db_plain)
-        .map_err(|_e| TirraDbError::CryptoAccessFailure)
-}
-
-/**
- * replace the current database with another file (usually obtained from a Sync destination)
- */
-pub fn tirra_db_replace(crypto: &TirraCrypto, new_db: &str) -> std::io::Result<()> {
-    // backup locally the current db
-    fs::copy(new_db, crypto.get_db_location())?;
-    Ok(())
-}
-
-/**
- *
- * Private Internal Functions
- *
- */
-
-/**
-* generate unique commit id
-*/
-fn gen_commit_id(entropy: &str) -> Vec<u8> {
-    let now = time_now();
-    let unique_id_feed = format!(
-        "{}{}{}{}",
-        now,
-        entropy,
-        process::id(),
-        std::env::consts::OS
-    );
-    TirraCrypto::tirra_hash_sha256(unique_id_feed.as_str())
-}
-
-/**
- * time now
- */
-fn time_now() -> u64 {
-    //calculate timestamp
-    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-        Ok(n) => n.as_secs(),
-        Err(_) => 0,
-    }
-}
-
-/**
- * Start access to db.
- */
-
-fn access_start(crypto: &TirraCrypto) -> Result<Connection, TirraDbError> {
-    // decrypt the db
-    crypto
-        .tirra_decrypt_db()
-        .map_err(|_e| TirraDbError::CryptoAccessFailure)?;
-
-    // Open connection
-    let db_result = Connection::open(crypto.plaintext_db_location());
-
-    match db_result {
-        Ok(db) => {
-            return Ok(db);
-        }
-        Err(_e) => {
-            return Err(TirraDbError::DbOpenFailure);
-        }
-    }
-}
-
-/**
- * Stop access to db, close connection and remove plaintext file.
- */
-fn access_stop(crypto: &TirraCrypto) -> Result<(), TirraDbError> {
-    //db.close().map_err(|_e| TirraDbError::DbCloseFailure)?;
-    //re-encrypt db
-    crypto
-        .tirra_encrypt_db()
-        .map_err(|_e| TirraDbError::CryptoAccessFailure)?;
-
-    fs::remove_file(crypto.plaintext_db_location()).map_err(|_e| TirraDbError::DbCloseFailure)?;
-
-    Ok(())
-}
-
-/**
- * Helper Function: Add Entry.
- */
-fn add_entry(
-    type_entry: u8,
-    text_entry: &str,
-    create_date: u64,
-    modify_date: u64,
-    crypto: &TirraCrypto,
-) -> Result<(), TirraDbError> {
-    let mut db = access_start(crypto)?;
-    let now = time_now();
-
-    // start transaction
-    let transaction = db
-        .transaction()
-        .map_err(|_e| TirraDbError::DbRequestError)?;
-
-    //save
-    transaction
-        .execute(
-            "INSERT INTO entries
+        //save
+        transaction
+            .execute(
+                "INSERT INTO entries
         (date_create, date_modify, type, text) VALUES
         ( ?1, ?2, ?3, ?4)",
-            params![create_date, modify_date, type_entry, text_entry],
-        )
-        .map_err(|_e| TirraDbError::DbRequestError)?;
+                params![create_date, modify_date, type_entry, text_entry],
+            )
+            .map_err(|_e| TirraDbError::DbRequestError)?;
 
-    // record commit
-    let _ = information_commit(&transaction, now, "macos-ouadv", text_entry);
+        // record commit
+        let _ = TirraDb::information_commit(&transaction, now, "macos-ouadv", text_entry);
 
-    // end transaction
-    transaction
-        .commit()
-        .map_err(|_e| TirraDbError::DbRequestError)?;
+        // end transaction
+        transaction
+            .commit()
+            .map_err(|_e| TirraDbError::DbRequestError)?;
 
-    access_stop(crypto)?;
+        self.access_stop()?;
 
-    Ok(())
-}
+        Ok(())
+    }
 
-/**
-* Record commit information after an update to the database.
-*/
-fn information_commit(
-    conn_transaction: &Transaction,
-    now: u64,
-    author: &str,
-    additional: &str,
-) -> Result<(), TirraDbError> {
-
-    conn_transaction
-        .execute(
-            "UPDATE information SET
+    /**
+     * Record commit information after an update to the database.
+     */
+    fn information_commit(
+        conn_transaction: &Transaction,
+        now: u64,
+        author: &str,
+        additional: &str,
+    ) -> Result<(), TirraDbError> {
+        conn_transaction
+            .execute(
+                "UPDATE information SET
             local_commit = ?1, local_source = ?2, local_ts = ?3
             where id = 1",
-            params![gen_commit_id(additional), author, now],
-        )
-        .map_err(|_e| TirraDbError::DbRequestError)?;
-    Ok(())
-}
+                params![TirraDb::gen_commit_id(additional), author, now],
+            )
+            .map_err(|_e| TirraDbError::DbRequestError)?;
+        Ok(())
+    }
 
-/**
- * Set Origin Commit
- */
-pub fn information_set_origin_commit(crypto: &TirraCrypto) -> Result<(), TirraDbError> {
-    let mut db = access_start(crypto)?;
+    /**
+     * Set Origin Commit
+     */
+    pub fn information_set_origin_commit(&self) -> Result<(), TirraDbError> {
+        let mut db = self.access_start()?;
 
-    // start transaction
-    let Ok(transaction) = db.transaction() else {
-        access_stop(crypto)?;
-        return Err(TirraDbError::DbRequestErrorPrepare);
-    };
+        // start transaction
+        let Ok(transaction) = db.transaction() else {
+            self.access_stop()?;
+            return Err(TirraDbError::DbRequestErrorPrepare);
+        };
 
-    //save
-    if let Err(_) = transaction.execute(
-        "UPDATE information SET
+        //save
+        if let Err(_) = transaction.execute(
+            "UPDATE information SET
             origin_commit = local_commit,
             local_source  = origin_source,
             local_ts      = origin_ts
             WHERE id      = 1",
-        (),
-    ) {
-        access_stop(crypto)?;
-        return Err(TirraDbError::DbRequestErrorQuery);
-    };
+            (),
+        ) {
+            self.access_stop()?;
+            return Err(TirraDbError::DbRequestErrorQuery);
+        };
 
-    // end transaction
-    if let Err(_) = transaction.commit() {
-        access_stop(crypto)?;
-        return Err(TirraDbError::DbRequestErrorCommit);
-    };
+        // end transaction
+        if let Err(_) = transaction.commit() {
+            self.access_stop()?;
+            return Err(TirraDbError::DbRequestErrorCommit);
+        };
 
-    access_stop(crypto)?;
-    Ok(())
-}
-
-pub fn commit_id_string(commit_id: &Vec<u8>) -> String {
-    let mut commit_str = String::new();
-    for byte in commit_id.iter() {
-        commit_str.push_str(format!("{:02x?}", byte).as_str());
+        self.access_stop()?;
+        Ok(())
     }
-    commit_str
-}
 
-pub fn db_information_debug(info: &TirraDbInformation) {
-    let commit_str_local = match &info.local_commit {
-        Some(c) => commit_id_string(&c),
-        _ => String::from("empty"),
-    };
-    let commit_str_origin = match &info.origin_commit {
-        Some(c) => commit_id_string(&c),
-        _ => String::from("empty"),
-    };
+    fn commit_id_string(commit_id: &Vec<u8>) -> String {
+        let mut commit_str = String::new();
+        for byte in commit_id.iter() {
+            commit_str.push_str(format!("{:02x?}", byte).as_str());
+        }
+        commit_str
+    }
 
-    println!("database information:");
-    println!("---------------------");
-    println!("schema version\t: {}", info.schema_ver);
-    println!(
-        "local commit:\n\tid:\t{}\n\tAuthor: {}\n\tDate:\t{}",
-        commit_str_local, info.local_source, info.local_ts
-    );
-    print!("");
-    println!(
-        "origin commit:\n\tid:\t{}\n\tAuthor: {}\n\tDate:\t{}",
-        commit_str_origin, info.origin_source, info.origin_ts
-    );
-    println!("");
+    pub fn information_debug(info: &TirraDbInformation) {
+        let commit_str_local = match &info.local_commit {
+            Some(c) => TirraDb::commit_id_string(&c),
+            _ => String::from("empty"),
+        };
+        let commit_str_origin = match &info.origin_commit {
+            Some(c) => TirraDb::commit_id_string(&c),
+            _ => String::from("empty"),
+        };
+
+        println!("database information:");
+        println!("---------------------");
+        println!("schema version\t: {}", info.schema_ver);
+        println!(
+            "local commit:\n\tid:\t{}\n\tAuthor: {}\n\tDate:\t{}",
+            commit_str_local, info.local_source, info.local_ts
+        );
+        print!("");
+        println!(
+            "origin commit:\n\tid:\t{}\n\tAuthor: {}\n\tDate:\t{}",
+            commit_str_origin, info.origin_source, info.origin_ts
+        );
+        println!("");
+    }
 }
 
 pub fn default_user_db_path() -> String {
