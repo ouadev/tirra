@@ -191,7 +191,17 @@ impl TirraIced {
                     }
                     _ => Task::none(),
                 },
-                _ => Task::none(),
+                _ => match &mut self.page {
+                    RunningPage::Editor(editor_page) => {
+                        editor_page.writer_ui.on_activity();
+                        Task::none()
+                    }
+
+                    RunningPage::Login(login_page) => {
+                        login_page.login_ui.on_activity();
+                        Task::none()
+                    }
+                },
             },
         }
     }
