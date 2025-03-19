@@ -126,7 +126,6 @@ impl LoginUi {
 
 impl TirraInterface for LoginUi {
     fn on_tick(&mut self) {
-        //println!("Login Page: tick {}", ticks);
     }
 
     fn on_ctrl(&mut self, control: KbCtrl) {
@@ -168,20 +167,21 @@ pub struct EntryViewIterator<'a> {
 }
 
 pub struct WriterUi {
-    pub cmd_line_show: bool,
-    pub cmd_line_text: String,
-
-    db_id: u64,
-    db_ver: u32,
+    //db access
     crypto: TirraCrypto,
+    //entries
+    load_request: String,
     entry_list: TirraEntryList,
     curr_entry_id: Option<u32>,
-    load_request: String,
-    is_dirty: bool,
+    //configuration
     readonly_mode: bool,
-    last_act: i64,
-    ticks: u64,
-    bg_run_unit: BgRun,
+    //view parameters
+    editor_dirty: bool,
+    cli_visible: bool,
+    cli_text: String,
+    last_activity: i64,
+    //background work
+    bg_work: BgRun,
 }
 
 impl WriterUi {
@@ -193,18 +193,15 @@ impl WriterUi {
         //return
         Self {
             curr_entry_id: None,
-            is_dirty: false,
-            last_act: 0,
+            editor_dirty: false,
+            last_activity: 0,
             entry_list: TirraEntryList::new(),
             readonly_mode: false,
-            db_id: 0,
-            db_ver: 0,
-            ticks: 0,
-            cmd_line_show: false,
-            cmd_line_text: String::new(),
+            cli_visible: false,
+            cli_text: String::new(),
             load_request: String::new(),
             crypto: Default::default(),
-            bg_run_unit: BgRun::Nothing,
+            bg_work: BgRun::Nothing,
         }
     }
 
@@ -216,28 +213,22 @@ impl WriterUi {
             panic!("we are not supposed to be here without an encrypted database");
         }
         // database information block.
-        let schema_version: u32;
         if let Ok(local_info) = db::tirra_db_information(&tirra_crypto) {
             db::db_information_debug(&local_info);
-            schema_version = local_info.schema_ver;
         } else {
-            schema_version = 0;
             println!("info: Info Block is not found");
         }
         // Load all entries into memory and display the first one
         let def_req = db::tirra_db_default_read_req();
         let entry_list = Self::reload_all(&tirra_crypto, &def_req);
-        let db_id = db::tirra_db_id(&tirra_crypto);
 
         // assignments
-        self.db_ver = schema_version;
-        self.db_id = db_id;
         self.crypto = tirra_crypto;
         self.curr_entry_id = entry_list.smallest_id_entry().map(|ent| ent.id);
         self.entry_list = entry_list;
-        self.cmd_line_text = def_req.clone();
+        self.cli_text = def_req.clone();
         self.load_request = def_req;
-        self.last_act = utils::current_timestamp();
+        self.last_activity = utils::current_timestamp();
     }
 
     /**
@@ -248,7 +239,7 @@ impl WriterUi {
             Some(id) => match self.entry_list.find_by_id_mut(id) {
                 Some(entry) => {
                     entry.text = String::from(new_text);
-                    self.is_dirty = true;
+                    self.editor_dirty = true;
                 }
                 _ => {
                     exception("ui: current entry id mismatch");
@@ -275,32 +266,32 @@ impl WriterUi {
      * response to action: show_cli command line
      */
     pub fn on_show_cli(&mut self) {
-        self.cmd_line_show = !self.cmd_line_show;
+        self.cli_visible = !self.cli_visible;
     }
     /**
      * response to action: cli_input command line
      */
     pub fn on_cli_input(&mut self, s: String) {
-        self.cmd_line_text = s;
+        self.cli_text = s;
     }
     /**
      * response to action: cli_submit
      */
     pub fn on_cli_submit(&mut self) {
-        if self.is_dirty {
+        if self.editor_dirty {
             self.write_current_entry();
-            self.is_dirty = false;
+            self.editor_dirty = false;
         }
         // check if the request would work !
-        match db::tirra_db_get_all_entries(&self.crypto, &self.cmd_line_text) {
+        match db::tirra_db_get_all_entries(&self.crypto, &self.cli_text) {
             Ok(entries) => {
                 self.entry_list = entries;
                 self.curr_entry_id = self.entry_list.greatest_id_entry().map(|ent| ent.id);
-                self.load_request = self.cmd_line_text.clone();
+                self.load_request = self.cli_text.clone();
             }
             _ => {
                 println!("New Loader request failed !!!");
-                self.cmd_line_text = self.load_request.clone();
+                self.cli_text = self.load_request.clone();
             }
         }
     }
@@ -316,9 +307,9 @@ impl WriterUi {
      */
     pub fn on_new_entry(&mut self) {
         // Save before creating a new entry
-        if self.is_dirty {
+        if self.editor_dirty {
             self.write_current_entry();
-            self.is_dirty = false;
+            self.editor_dirty = false;
         }
 
         if !self.is_readonly() {
@@ -344,7 +335,21 @@ impl WriterUi {
      * the UI is idle.
      */
     pub fn is_inactivity(&self) -> bool {
-        (utils::current_timestamp() - self.last_act) > Self::TIRRA_INACTIVITY_SECONDS
+        (utils::current_timestamp() - self.last_activity) > Self::TIRRA_INACTIVITY_SECONDS
+    }
+
+    /**
+     * The CLI bar is visible ?
+     */
+    pub fn is_cli_visible(&self) -> bool {
+        self.cli_visible
+    }
+
+    /**
+     * get the text to show in the cli bar
+     */
+    pub fn cli_text(&self) -> String {
+        self.cli_text.clone()
     }
 
     /**
@@ -434,10 +439,10 @@ impl WriterUi {
     }
 
     fn save_and_reload(&mut self) {
-        if self.is_dirty {
+        if self.editor_dirty {
             self.write_current_entry();
             self.entry_list = Self::reload_all(&self.crypto, &self.load_request);
-            self.is_dirty = false;
+            self.editor_dirty = false;
         }
     }
 
@@ -458,7 +463,6 @@ impl WriterUi {
 
 impl TirraInterface for WriterUi {
     fn on_tick(&mut self) {
-        self.ticks += 1;
         // periodic save
         self.save_and_reload();
     }
@@ -487,15 +491,15 @@ impl TirraInterface for WriterUi {
     }
 
     fn on_activity(&mut self) {
-        self.last_act = utils::current_timestamp();
+        self.last_activity = utils::current_timestamp();
     }
 
     fn title(&self) -> String {
-        format!("Tirra{} ", if self.is_dirty { "*" } else { "" })
+        format!("Tirra{} ", if self.editor_dirty { "*" } else { "" })
     }
 
     fn background_work(&self) -> BgRun {
-        self.bg_run_unit
+        self.bg_work
     }
 }
 

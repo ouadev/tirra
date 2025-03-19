@@ -255,7 +255,7 @@ impl EditorPage {
         // DIV : Command line experimentation
         let div_cmd_input = TextInput::new(
             WriterUi::UI_WRITER_CLI_PLACEHOLDER,
-            &self.writer_ui.cmd_line_text,
+            &self.writer_ui.cli_text(),
         )
         .width(Length::Fill)
         .size(style_conf::STYLE_TEXT_SIZE_COMMAND)
@@ -264,7 +264,7 @@ impl EditorPage {
         .on_input(Message::CliChanged);
 
         let mut div_command_cont;
-        if self.writer_ui.cmd_line_show {
+        if self.writer_ui.is_cli_visible() {
             div_command_cont = container(div_cmd_input).height(40);
         } else {
             div_command_cont = container("").height(10);
