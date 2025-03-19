@@ -693,17 +693,24 @@ impl TirraDb {
         );
         println!("");
     }
-}
 
-pub fn default_user_db_path() -> String {
-    // pick up HOME environment variable.
-    let home_path = match env::var(TIRRA_HOME_DIR_PATH) {
-        Ok(var) => var,
-        _ => String::from(TIRRA_DEFAULT_DB_NAME),
-    };
-    let db_path = Path::new(home_path.as_str()).join(TIRRA_DEFAULT_DB_NAME);
-    match db_path.to_str() {
-        None => String::from(TIRRA_DEFAULT_DB_NAME), // create default db in the same directory as the binary file.
-        Some(path) => String::from(path),
+    /**
+     * default SQL request to use for the initial loading
+     */
+    pub fn default_read_req() -> String {
+        String::from("WHERE id > 0 ORDER BY date_modify DESC LIMIT 20")
+    }
+
+    pub fn default_user_db_path() -> String {
+        // pick up HOME environment variable.
+        let home_path = match env::var(TIRRA_HOME_DIR_PATH) {
+            Ok(var) => var,
+            _ => String::from(TIRRA_DEFAULT_DB_NAME),
+        };
+        let db_path = Path::new(home_path.as_str()).join(TIRRA_DEFAULT_DB_NAME);
+        match db_path.to_str() {
+            None => String::from(TIRRA_DEFAULT_DB_NAME), // create default db in the same directory as the binary file.
+            Some(path) => String::from(path),
+        }
     }
 }

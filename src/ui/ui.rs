@@ -201,7 +201,7 @@ impl WriterUi {
     pub fn connect(&mut self, db_location: &str, crypto_pwd: &[u8]) {
         //Init Crypto
         //let tirra_crypto = TirraCrypto::new(db_location, crypto_pwd);
-        let inited = self.tirra_db.init(db_location, crypto_pwd);
+        let _ = self.tirra_db.init(db_location, crypto_pwd);
         // intialize the backend
         if TirraDb::db_exists(db_location) == false {
             panic!("we are not supposed to be here without an encrypted database");
@@ -532,7 +532,7 @@ impl<'a> Iterator for EntryViewIterator<'a> {
  * parse_args: for now, it only returns the db_to_use
  */
 pub fn parse_args() -> String {
-    let mut db_to_use = db::default_user_db_path();
+    let mut db_to_use = TirraDb::default_user_db_path();
     // check arguments
     let args: Vec<String> = env::args().collect();
     if args.len() == 2 {
