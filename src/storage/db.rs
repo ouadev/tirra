@@ -93,6 +93,73 @@ impl TirraEntry {
     }
 }
 
+pub struct TirraEntryList {
+    entries: Vec<TirraEntry>,
+}
+
+impl TirraEntryList {
+    /**
+     * new empty list of entries
+     */
+    pub fn new() -> Self {
+        Self { entries: vec![] }
+    }
+
+    pub fn from_vec(entries: Vec<TirraEntry>) -> Self {
+        Self { entries: entries }
+    }
+
+    pub fn get_entry(&self, position: usize) -> Option<&TirraEntry> {
+        self.entries.get(position)
+    }
+
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    /**
+     * find an entry by its id
+     */
+    pub fn find_by_id(&self, id: u32) -> Option<&TirraEntry> {
+        self.entries.iter().find(|ent| ent.id == id)
+    }
+
+    pub fn find_by_id_mut(&mut self, id: u32) -> Option<&mut TirraEntry> {
+        self.entries.iter_mut().find(|ent| ent.id == id)
+    }
+
+    /**
+     * find entry with the greatest id
+     */
+    pub fn find_greatest_id(&self) -> u32 {
+        let mut id = 0u32;
+        for entry in self.entries.iter() {
+            if entry.id > id {
+                id = entry.id;
+            }
+        }
+        id
+    }
+
+    /**
+     * find entry with the greatest id
+     */
+    pub fn find_smallest_id(&self) -> u32 {
+        let mut started = false;
+        let mut id = 0u32;
+        for entry in self.entries.iter() {
+            if !started {
+                started = true;
+                id = entry.id;
+            } else {
+                if entry.id < id {
+                    id = entry.id;
+                }
+            }
+        }
+        id
+    }
+}
 /**
  * Create new database
  */
@@ -257,7 +324,7 @@ pub fn tirra_db_try_access(crypto: &TirraCrypto) -> bool {
 pub fn tirra_db_get_all_entries(
     crypto: &TirraCrypto,
     filter: &str,
-) -> Result<Vec<TirraEntry>, TirraDbError> {
+) -> Result<TirraEntryList, TirraDbError> {
     let db = access_start(crypto)?;
     let mut vec_entries = Vec::new();
 
@@ -305,7 +372,7 @@ pub fn tirra_db_get_all_entries(
         }
     }
     access_stop(crypto)?;
-    return Ok(vec_entries);
+    return Ok(TirraEntryList::from_vec(vec_entries));
 }
 
 /**

@@ -6,7 +6,7 @@ use crate::{
     common::{exception::exception, utils},
     gui_iced::styles::style_conf,
     storage::{
-        db::{self, TirraEntry},
+        db::{self, TirraEntry, TirraEntryList},
         tirracrypto::TirraCrypto,
     },
 };
@@ -174,7 +174,7 @@ pub struct WriterUi {
     db_id: u64,
     db_ver: u32,
     crypto: TirraCrypto,
-    entries: Vec<TirraEntry>,
+    entry_list: TirraEntryList,
     load_request: String,
     is_dirty: bool,
     curr_entry_id: u32,
@@ -195,7 +195,7 @@ impl WriterUi {
             curr_entry_id: 0,
             is_dirty: false,
             last_act: 0,
-            entries: vec![],
+            entry_list: TirraEntryList::new(),
             readonly_mode: false,
             db_id: 0,
             db_ver: 0,
@@ -226,16 +226,15 @@ impl WriterUi {
         }
         // Load all entries into memory and display the first one
         let def_req = db::tirra_db_default_read_req();
-        let all_entries = Self::reload_all(&tirra_crypto, &def_req);
-        //let init_content = text_editor::Content::with_text(&all_entries[0].text);
-        let id = all_entries[0].id;
+        let entry_list = Self::reload_all(&tirra_crypto, &def_req);
+        let id = entry_list.find_smallest_id();
         let db_id = db::tirra_db_id(&tirra_crypto);
 
         // assignments
         self.db_ver = schema_version;
         self.db_id = db_id;
         self.crypto = tirra_crypto;
-        self.entries = all_entries;
+        self.entry_list = entry_list;
         self.curr_entry_id = id;
         self.cmd_line_text = def_req.clone();
         self.load_request = def_req;
@@ -246,7 +245,7 @@ impl WriterUi {
      * to be called when the Editor Widget content has changed.
      */
     pub fn content_changed(&mut self, new_text: &str) {
-        match self.entry_by_id_mut(self.curr_entry_id) {
+        match self.entry_list.find_by_id_mut(self.curr_entry_id) {
             Some(entry) => {
                 entry.text = String::from(new_text);
                 self.is_dirty = true;
@@ -258,7 +257,7 @@ impl WriterUi {
     }
 
     pub fn current_entry(&self) -> Option<&TirraEntry> {
-        self.entry_by_id(self.curr_entry_id)
+        self.entry_list.find_by_id(self.curr_entry_id)
     }
 
     pub fn get_db_location(&self) -> String {
@@ -286,11 +285,10 @@ impl WriterUi {
             self.is_dirty = false;
         }
         // check if the request would work !
-        let entries_opt = db::tirra_db_get_all_entries(&self.crypto, &self.cmd_line_text).ok();
-        match entries_opt {
-            Some(entries) => {
-                self.entries = entries;
-                self.curr_entry_id = self.entry_greatest_id();
+        match db::tirra_db_get_all_entries(&self.crypto, &self.cmd_line_text) {
+            Ok(entries) => {
+                self.entry_list = entries;
+                self.curr_entry_id = self.entry_list.find_greatest_id();
                 self.load_request = self.cmd_line_text.clone();
             }
             _ => {
@@ -319,8 +317,8 @@ impl WriterUi {
         if !self.is_readonly() {
             match db::tirra_db_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", &self.crypto) {
                 Ok(()) => {
-                    self.entries = Self::reload_all(&self.crypto, &self.load_request);
-                    self.curr_entry_id = self.entry_greatest_id();
+                    self.entry_list = Self::reload_all(&self.crypto, &self.load_request);
+                    self.curr_entry_id = self.entry_list.find_greatest_id();
                 }
                 _ => {
                     println!("error: failure adding new entry, continuing ...");
@@ -365,7 +363,7 @@ impl WriterUi {
         };
         //current entry
         if self.curr_entry_id > 0 {
-            match self.entry_by_id(self.curr_entry_id) {
+            match self.entry_list.find_by_id(self.curr_entry_id) {
                 Some(entry) => {
                     let dt_create = utils::datetime_from_unix(entry.date_create as i64);
                     let dt_modify = utils::datetime_from_unix(entry.date_modify as i64);
@@ -416,13 +414,13 @@ impl WriterUi {
         }
     }
 
-    fn reload_all(crypto: &TirraCrypto, request_string: &String) -> Vec<TirraEntry> {
+    fn reload_all(crypto: &TirraCrypto, request_string: &String) -> TirraEntryList {
         // Load all entries into memory:
         match db::tirra_db_get_all_entries(&crypto, &request_string) {
-            Ok(entries) => entries,
+            Ok(entry_list) => entry_list,
             Err(_error) => {
                 exception("loading entries");
-                vec![]
+                TirraEntryList::new()
             }
         }
     }
@@ -430,13 +428,13 @@ impl WriterUi {
     fn save_and_reload(&mut self) {
         if self.is_dirty {
             self.write_current_entry();
-            self.entries = Self::reload_all(&self.crypto, &self.load_request);
+            self.entry_list = Self::reload_all(&self.crypto, &self.load_request);
             self.is_dirty = false;
         }
     }
 
     fn write_current_entry(&mut self) -> () {
-        match self.entry_by_id(self.curr_entry_id) {
+        match self.entry_list.find_by_id(self.curr_entry_id) {
             Some(entry) => {
                 match db::tirra_db_update_entry(&entry.text, self.curr_entry_id, &self.crypto) {
                     Err(err) => {
@@ -447,24 +445,6 @@ impl WriterUi {
             }
             _ => {}
         }
-    }
-
-    fn entry_by_id(&self, id: u32) -> Option<&TirraEntry> {
-        self.entries.iter().find(|ent| ent.id == id)
-    }
-
-    fn entry_by_id_mut(&mut self, id: u32) -> Option<&mut TirraEntry> {
-        self.entries.iter_mut().find(|ent| ent.id == id)
-    }
-
-    fn entry_greatest_id(&self) -> u32 {
-        let mut id = 0u32;
-        for entry in self.entries.iter() {
-            if entry.id > id {
-                id = entry.id;
-            }
-        }
-        id
     }
 }
 
@@ -518,7 +498,7 @@ impl<'a> Iterator for EntryViewIterator<'a> {
     // next() is the only required method
     fn next(&mut self) -> Option<Self::Item> {
         let return_item: Option<Self::Item>;
-        match self.inner.entries.get(self.pos) {
+        match self.inner.entry_list.get_entry(self.pos) {
             Some(entry) => {
                 return_item = Some(EntryView {
                     title: entry.title(30),
