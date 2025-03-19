@@ -175,9 +175,9 @@ pub struct WriterUi {
     db_ver: u32,
     crypto: TirraCrypto,
     entry_list: TirraEntryList,
+    curr_entry_id: Option<u32>,
     load_request: String,
     is_dirty: bool,
-    curr_entry_id: u32,
     readonly_mode: bool,
     last_act: i64,
     ticks: u64,
@@ -192,7 +192,7 @@ impl WriterUi {
     pub fn new() -> Self {
         //return
         Self {
-            curr_entry_id: 0,
+            curr_entry_id: None,
             is_dirty: false,
             last_act: 0,
             entry_list: TirraEntryList::new(),
@@ -227,15 +227,14 @@ impl WriterUi {
         // Load all entries into memory and display the first one
         let def_req = db::tirra_db_default_read_req();
         let entry_list = Self::reload_all(&tirra_crypto, &def_req);
-        let id = entry_list.find_smallest_id();
         let db_id = db::tirra_db_id(&tirra_crypto);
 
         // assignments
         self.db_ver = schema_version;
         self.db_id = db_id;
         self.crypto = tirra_crypto;
+        self.curr_entry_id = entry_list.smallest_id_entry().map(|ent| ent.id);
         self.entry_list = entry_list;
-        self.curr_entry_id = id;
         self.cmd_line_text = def_req.clone();
         self.load_request = def_req;
         self.last_act = utils::current_timestamp();
@@ -245,19 +244,27 @@ impl WriterUi {
      * to be called when the Editor Widget content has changed.
      */
     pub fn content_changed(&mut self, new_text: &str) {
-        match self.entry_list.find_by_id_mut(self.curr_entry_id) {
-            Some(entry) => {
-                entry.text = String::from(new_text);
-                self.is_dirty = true;
-            }
+        match self.curr_entry_id {
+            Some(id) => match self.entry_list.find_by_id_mut(id) {
+                Some(entry) => {
+                    entry.text = String::from(new_text);
+                    self.is_dirty = true;
+                }
+                _ => {
+                    exception("ui: current entry id mismatch");
+                }
+            },
             _ => {
-                exception("ui: current entry id mismatch");
+                exception("ui: current id should be set");
             }
         }
     }
 
     pub fn current_entry(&self) -> Option<&TirraEntry> {
-        self.entry_list.find_by_id(self.curr_entry_id)
+        match self.curr_entry_id {
+            Some(id) => self.entry_list.find_by_id(id),
+            _ => None,
+        }
     }
 
     pub fn get_db_location(&self) -> String {
@@ -288,7 +295,7 @@ impl WriterUi {
         match db::tirra_db_get_all_entries(&self.crypto, &self.cmd_line_text) {
             Ok(entries) => {
                 self.entry_list = entries;
-                self.curr_entry_id = self.entry_list.find_greatest_id();
+                self.curr_entry_id = self.entry_list.greatest_id_entry().map(|ent| ent.id);
                 self.load_request = self.cmd_line_text.clone();
             }
             _ => {
@@ -302,7 +309,7 @@ impl WriterUi {
      */
     pub fn on_entry_selected(&mut self, entry_id: u32) {
         self.save_and_reload();
-        self.curr_entry_id = entry_id;
+        self.curr_entry_id = Some(entry_id);
     }
     /**
      * response to action: new_entry
@@ -318,7 +325,7 @@ impl WriterUi {
             match db::tirra_db_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", &self.crypto) {
                 Ok(()) => {
                     self.entry_list = Self::reload_all(&self.crypto, &self.load_request);
-                    self.curr_entry_id = self.entry_list.find_greatest_id();
+                    self.curr_entry_id = self.entry_list.greatest_id_entry().map(|ent| ent.id);
                 }
                 _ => {
                     println!("error: failure adding new entry, continuing ...");
@@ -362,30 +369,31 @@ impl WriterUi {
             (year_month_day, weekday_time)
         };
         //current entry
-        if self.curr_entry_id > 0 {
-            match self.entry_list.find_by_id(self.curr_entry_id) {
-                Some(entry) => {
-                    let dt_create = utils::datetime_from_unix(entry.date_create as i64);
-                    let dt_modify = utils::datetime_from_unix(entry.date_modify as i64);
-                    //
-                    let (create_date_str, create_time_str) = dt_format(dt_create);
-                    let (modify_date_str, modify_time_str) = dt_format(dt_modify);
-                    //
-                    Some((
-                        entry.id,
-                        create_date_str,
-                        create_time_str,
-                        modify_date_str,
-                        modify_time_str,
-                    ))
-                }
-                _ => {
-                    exception("misalignment between gui and model (curr_entry_id)");
-                    None
+        match self.curr_entry_id {
+            Some(id) => {
+                match self.entry_list.find_by_id(id) {
+                    Some(entry) => {
+                        let dt_create = utils::datetime_from_unix(entry.date_create as i64);
+                        let dt_modify = utils::datetime_from_unix(entry.date_modify as i64);
+                        //
+                        let (create_date_str, create_time_str) = dt_format(dt_create);
+                        let (modify_date_str, modify_time_str) = dt_format(dt_modify);
+                        //
+                        Some((
+                            entry.id,
+                            create_date_str,
+                            create_time_str,
+                            modify_date_str,
+                            modify_time_str,
+                        ))
+                    }
+                    _ => {
+                        exception("misalignment between gui and model (curr_entry_id)");
+                        None
+                    }
                 }
             }
-        } else {
-            None
+            _ => None,
         }
     }
 
@@ -393,7 +401,7 @@ impl WriterUi {
      * view button new_entry_enabled attribute.
      */
     pub fn view_button_newentry_enabled(&self) -> bool {
-        if self.curr_entry_id > 0 && !self.is_readonly() {
+        if self.curr_entry_id.is_some() && !self.is_readonly() {
             true
         } else {
             false
@@ -401,7 +409,7 @@ impl WriterUi {
     }
 
     pub fn is_entry_selected(&self) -> bool {
-        self.curr_entry_id > 0
+        self.curr_entry_id.is_some()
     }
 
     /**
@@ -434,16 +442,16 @@ impl WriterUi {
     }
 
     fn write_current_entry(&mut self) -> () {
-        match self.entry_list.find_by_id(self.curr_entry_id) {
-            Some(entry) => {
-                match db::tirra_db_update_entry(&entry.text, self.curr_entry_id, &self.crypto) {
+        if let Some(id) = self.curr_entry_id {
+            match self.entry_list.find_by_id(id) {
+                Some(entry) => match db::tirra_db_update_entry(&entry.text, id, &self.crypto) {
                     Err(err) => {
                         exception(&format!("update entry {:?}", err));
                     }
                     _ => {}
-                }
+                },
+                _ => {}
             }
-            _ => {}
         }
     }
 }
@@ -503,7 +511,10 @@ impl<'a> Iterator for EntryViewIterator<'a> {
                 return_item = Some(EntryView {
                     title: entry.title(30),
                     id: entry.id,
-                    selected: (entry.id == self.inner.curr_entry_id),
+                    selected: match self.inner.curr_entry_id {
+                        Some(id) => entry.id == id,
+                        _ => false,
+                    },
                 });
                 self.pos += 1;
             }

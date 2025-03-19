@@ -131,33 +131,31 @@ impl TirraEntryList {
     /**
      * find entry with the greatest id
      */
-    pub fn find_greatest_id(&self) -> u32 {
+    pub fn greatest_id_entry(&self) -> Option<&TirraEntry> {
+        let mut ptr_entry: Option<&TirraEntry> = None;
         let mut id = 0u32;
         for entry in self.entries.iter() {
-            if entry.id > id {
+            if ptr_entry.is_none() || entry.id > id {
                 id = entry.id;
+                ptr_entry = Some(entry);
             }
         }
-        id
+        ptr_entry
     }
 
     /**
      * find entry with the greatest id
      */
-    pub fn find_smallest_id(&self) -> u32 {
-        let mut started = false;
+    pub fn smallest_id_entry(&self) -> Option<&TirraEntry> {
+        let mut ptr_entry: Option<&TirraEntry> = None;
         let mut id = 0u32;
         for entry in self.entries.iter() {
-            if !started {
-                started = true;
+            if ptr_entry.is_none() || entry.id < id {
                 id = entry.id;
-            } else {
-                if entry.id < id {
-                    id = entry.id;
-                }
+                ptr_entry = Some(entry);
             }
         }
-        id
+        ptr_entry
     }
 }
 /**
