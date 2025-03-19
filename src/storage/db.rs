@@ -24,14 +24,6 @@ const TIRRA_HOME_DIR_PATH: &str = "HOME";
 const TIRRA_HOME_DIR_PATH: &str = "USERPROFILE";
 const TIRRA_DEFAULT_DB_NAME: &str = "awal.tirra";
 
-pub struct TirraEntry {
-    pub id: u32,
-    pub date_create: u64,
-    pub date_modify: u64,
-    pub type_entry: u8,
-    pub text: String,
-}
-
 /**
 * @brief    representation of the `information` table latest row.
 */
@@ -58,6 +50,47 @@ pub enum TirraDbError {
     DbRequestErrorQuery,
     DbRequestErrorIter,
     DbRequestErrorCommit,
+}
+
+/**
+ * Tirra Entry
+ */
+pub struct TirraEntry {
+    pub id: u32,
+    pub date_create: u64,
+    pub date_modify: u64,
+    pub type_entry: u8,
+    pub text: String,
+}
+
+impl TirraEntry {
+    /**
+     * calculate a title from an entry
+     */
+    pub fn title(&self, max_chars: usize) -> String {
+        let mut sub = String::new();
+        let mut trailing_whitespace = true;
+        for (i, c) in self.text.chars().enumerate() {
+            //stop extracting title at new line
+            if c == '\n' {
+                break;
+            }
+            //don't use the trailing whitespace
+            if trailing_whitespace && c != ' ' {
+                trailing_whitespace = false;
+            }
+            //collect
+            if !trailing_whitespace {
+                sub.push(c);
+            }
+
+            // limit the title size
+            if i >= max_chars {
+                break;
+            }
+        }
+        sub
+    }
 }
 
 /**

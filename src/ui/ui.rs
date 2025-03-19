@@ -342,31 +342,6 @@ impl WriterUi {
         (utils::current_timestamp() - self.last_act) > Self::TIRRA_INACTIVITY_SECONDS
     }
 
-    fn entry_title(entry: &TirraEntry, max_chars: usize) -> String {
-        let mut sub = String::new();
-        let mut trailing_whitespace = true;
-        for (i, c) in entry.text.chars().enumerate() {
-            //stop extracting title at new line
-            if c == '\n' {
-                break;
-            }
-            //don't use the trailing whitespace
-            if trailing_whitespace && c != ' ' {
-                trailing_whitespace = false;
-            }
-            //collect
-            if !trailing_whitespace {
-                sub.push(c);
-            }
-
-            // limit the title size
-            if i >= max_chars {
-                break;
-            }
-        }
-        sub
-    }
-
     /**
      * view status bar contents
      */
@@ -546,7 +521,7 @@ impl<'a> Iterator for EntryViewIterator<'a> {
         match self.inner.entries.get(self.pos) {
             Some(entry) => {
                 return_item = Some(EntryView {
-                    title: WriterUi::entry_title(entry, 30),
+                    title: entry.title(30),
                     id: entry.id,
                     selected: (entry.id == self.inner.curr_entry_id),
                 });
