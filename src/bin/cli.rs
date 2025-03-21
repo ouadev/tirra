@@ -1,20 +1,25 @@
 use std::env;
 use std::fs::File;
 use std::io::Read;
+use tirra::storage::db::{self, TirraDb};
 
-extern crate tirra;
-use tirra::storage::{db, tirracrypto::TirraCrypto};
-
+// Command Line Usage
 const USAGE_STR: &str = "
+Tirra Command Line.
 
 Usage:
-cli add     DB_FILE PWD_FILE DATE
-cli delete  DB_FILE PWD_FILE ID
-cli stat    DB_FILE PWD_FILE
-cli decrypt DB_FILE PWD_FILE
-cli encrypt DB_FILE PWD_FILE DB_FILE_PLAIN
+tirra-cli add     DB_FILE PWD_FILE DATE
+tirra-cli delete  DB_FILE PWD_FILE ID
+tirra-cli stat    DB_FILE PWD_FILE
+tirra-cli decrypt DB_FILE PWD_FILE
+tirra-cli encrypt DB_FILE PWD_FILE DB_FILE_PLAIN
 
-Entry Text Input: /tmp/tirra-transfer.txt 
+
+DB_FILE         : path to a tirra database
+PWD_FILE        : path to a file containing the access password.
+DATE            : Unix epotch timestamp
+DB_FILE_PLAIN   : path to unencryped database file.
+entry text input: tirra-source.txt 
 ";
 
 #[derive(PartialEq)]
@@ -27,9 +32,7 @@ enum CliAction {
 }
 
 pub fn main() -> () {
-    println!(" - Tirra CLI - ");
-
-    let db_to_use;
+    let db_path;
     let pwd_file: String;
     let timestamp: u64;
     let id: u32;
@@ -39,7 +42,8 @@ pub fn main() -> () {
     let args_count = args.len();
 
     if args_count == 1 {
-        panic!("{}", USAGE_STR);
+        println!("{}", USAGE_STR);
+        return;
     }
 
     match args[1].as_str() {
@@ -48,7 +52,10 @@ pub fn main() -> () {
         "stat" => cli_action = CliAction::Stat,
         "decrypt" => cli_action = CliAction::Decrypt,
         "encrypt" => cli_action = CliAction::Encrypt,
-        _ => panic!("{}", USAGE_STR),
+        _ => {
+            println!("{}", USAGE_STR);
+            return;
+        }
     }
 
     if cli_action == CliAction::Add {
@@ -56,132 +63,127 @@ pub fn main() -> () {
             panic!("{}", USAGE_STR);
         }
 
-        db_to_use = String::from(&args[2]);
+        db_path = String::from(&args[2]);
         pwd_file = String::from(&args[3]);
         timestamp = args[4].parse().unwrap();
 
-        // Get Password
-        let pwd = read_pwd_file(&pwd_file);
-
-        //Init Crypto
-        let tirra_crypto = TirraCrypto::new(&db_to_use, &pwd);
-
-        //check if the database if found.
-        if tirra_crypto.enc_db_found() == false {
-            panic!("we are not supposed to be here without an encrypted database");
-        }
+        //init db
+        let tirra_db = init_db(db_path, pwd_file);
 
         // Read the content of a file, and add an entry
-        let mut tx_file = File::open("/tmp/tirra-transfer.txt").unwrap();
+        let mut tx_file = File::open("tirra-source.txt").unwrap();
         let mut content = Vec::new();
         tx_file.read_to_end(&mut content).unwrap();
 
-        let _ = db::tirra_db_root_add_entry(
+        let entry_added = tirra_db.root_add_entry(
             db::TIRRA_ENTRY_TYPE_GENERAL,
             &String::from_utf8(content).unwrap(),
             timestamp,
-            &tirra_crypto,
         );
+
+        match entry_added {
+            Ok(_) => {
+                println!("entry successfully added");
+            }
+            Err(_) => {
+                println!("failed to add entry");
+            }
+        }
     } else if cli_action == CliAction::Delete {
         if args_count != 5 {
             panic!("{}", USAGE_STR);
         }
 
-        db_to_use = String::from(&args[2]);
+        db_path = String::from(&args[2]);
         pwd_file = String::from(&args[3]);
         id = args[4].parse().unwrap();
 
-        // Get Password
-        let pwd = read_pwd_file(&pwd_file);
+        //init db
+        let tirra_db = init_db(db_path, pwd_file);
 
-        //Init Crypto
-        let tirra_crypto = TirraCrypto::new(&db_to_use, &pwd);
+        let removed = tirra_db.remove_entry(id);
 
-        //check if the database if found.
-        if tirra_crypto.enc_db_found() == false {
-            panic!("we are not supposed to be here without an encrypted database");
-        }
-
-        let _ = db::tirra_db_remove_entry(id, &tirra_crypto);
-    } else if cli_action == CliAction::Stat {
-        if args_count != 4 {
-            panic!("{}", USAGE_STR);
-        }
-
-        db_to_use = String::from(&args[2]);
-        pwd_file = String::from(&args[3]);
-
-        // Get Password
-        let pwd = read_pwd_file(&pwd_file);
-
-        //Init Crypto
-        let tirra_crypto = TirraCrypto::new(&db_to_use, &pwd);
-
-        //check if the database if found.
-        if tirra_crypto.enc_db_found() == false {
-            panic!("we are not supposed to be here without an encrypted database");
-        }
-
-        // Get Entries
-        let def_req = db::tirra_db_default_read_req();
-        let all_entries = db::tirra_db_get_all_entries(&tirra_crypto, &def_req)
-            .expect("Error loading entries from database");
-
-        println!("number of entries: {}", all_entries.len());
-
-        // Print Info Block
-        let info_result = db::tirra_db_information(&tirra_crypto);
-        match info_result {
-            Ok(info) => {
-                db::db_information_debug(&info);
+        match removed {
+            Ok(_) => {
+                println!("entry successfully removed");
             }
             Err(_) => {
-                println!("error reading information block");
+                println!("failed to remove entry");
             }
         }
-        
-    } else if cli_action == CliAction::Decrypt {
+    } else if cli_action == CliAction::Stat {
         if args_count != 4 {
-            panic!("{}", USAGE_STR);
+            println!("{}", USAGE_STR);
+            return;
         }
 
-        db_to_use = String::from(&args[2]);
+        db_path = String::from(&args[2]);
         pwd_file = String::from(&args[3]);
 
-        // Get Password
-        let pwd = read_pwd_file(&pwd_file);
-
-        //Init Crypto
-        let tirra_crypto = TirraCrypto::new(&db_to_use, &pwd);
-
-        //check if the database if found.
-        if tirra_crypto.enc_db_found() == false {
-            panic!("we are not supposed to be here without an encrypted database");
+        //init db
+        let tirra_db = init_db(db_path, pwd_file);
+        print_stats(&tirra_db);
+    } else if cli_action == CliAction::Decrypt {
+        if args_count != 4 {
+            println!("{}", USAGE_STR);
+            return;
         }
 
-        let _ = db::tirra_db_root_reveal_to_disk(&tirra_crypto);
+        db_path = String::from(&args[2]);
+        pwd_file = String::from(&args[3]);
+
+        //init db
+        let tirra_db = init_db(db_path, pwd_file);
+
+        let decrypted = tirra_db.root_reveal_to_disk();
+
+        match decrypted {
+            Ok(_) => {
+                println!("file successfully decrypted");
+            }
+            Err(_) => {
+                println!("failed to decrypt file {}", tirra_db.get_db_location());
+            }
+        }
     } else if cli_action == CliAction::Encrypt {
         if args_count != 5 {
-            panic!("{}", USAGE_STR);
+            println!("{}", USAGE_STR);
+            return;
         }
 
-        db_to_use = String::from(&args[2]);
+        db_path = String::from(&args[2]);
         pwd_file = String::from(&args[3]);
         let db_plain = String::from(&args[4]);
 
-        // Get Password
-        let pwd = read_pwd_file(&pwd_file);
+        //init db
+        let tirra_db = init_db(db_path, pwd_file);
 
-        //Init Crypto
-        let tirra_crypto = TirraCrypto::new(&db_to_use, &pwd);
+        let encrypted = tirra_db.root_encrypt_plaintext(&db_plain);
 
-        //check if the database if found.
-        if tirra_crypto.enc_db_found() == true {
-            panic!("Encrypted db with the same name already exists !!");
+        match encrypted {
+            Ok(_) => {
+                println!("file successfully encrypted");
+            }
+            Err(_) => {
+                println!("failed to encrypt file {}", tirra_db.get_db_location());
+            }
         }
-
-        let _ = db::tirra_db_root_encrypt_plaintext(&tirra_crypto, &db_plain);
     }
+}
+
+/**
+ * Init Db Access
+ */
+fn init_db(db_path: String, pwd_path: String) -> TirraDb {
+    // Get Password
+    let pwd = read_pwd_file(&pwd_path);
+    //Init Tirra Db
+    let tirra_db = TirraDb::with_crypto(&db_path, &pwd);
+    //check if the database if found.
+    if TirraDb::db_exists(&db_path) == false {
+        panic!("database file doesn't exist");
+    }
+    return tirra_db;
 }
 
 fn read_pwd_file(pwd_file: &str) -> Vec<u8> {
@@ -190,4 +192,25 @@ fn read_pwd_file(pwd_file: &str) -> Vec<u8> {
     tx_file.read_to_end(&mut content_pwd).unwrap();
 
     content_pwd
+}
+
+fn print_stats(db: &TirraDb) {
+    // Get Entries
+    let all_entries = db
+        .get_entries_default()
+        .expect("Error loading entries from database");
+
+    println!("entries:\t\t {}", all_entries.len());
+
+    // Print Info Block
+    let info_result = db.information();
+    match info_result {
+        Ok(info) => {
+            //TirraDb::information_debug(&info);
+            println!("schema_version :\t {}", info.schema_ver);
+        }
+        Err(_) => {
+            println!("InfoBlock : error");
+        }
+    }
 }

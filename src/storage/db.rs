@@ -171,6 +171,7 @@ impl TirraEntryList {
  */
 
 impl TirraDb {
+    const DEFAULT_SQL_FILTER: &str = "WHERE id > 0 ORDER BY date_modify DESC LIMIT 20";
     /**
      * new TirraDb Object
      */
@@ -346,7 +347,11 @@ impl TirraDb {
     /**
      * Retrieve all entries to memory. NO PAGING
      */
-    pub fn get_all_entries(&self, filter: &str) -> Result<TirraEntryList, TirraDbError> {
+    pub fn get_entries_default(&self) -> Result<TirraEntryList, TirraDbError> {
+        self.get_entries_by_filter(Self::DEFAULT_SQL_FILTER)
+    }
+
+    pub fn get_entries_by_filter(&self, filter: &str) -> Result<TirraEntryList, TirraDbError> {
         let db = self.access_start()?;
         let mut vec_entries = Vec::new();
 
@@ -475,7 +480,7 @@ impl TirraDb {
     /**
      * Create a new entry in the database
      */
-    pub fn tirra_db_root_add_entry(
+    pub fn root_add_entry(
         &self,
         type_entry: u8,
         text_entry: &str,
@@ -705,8 +710,8 @@ impl TirraDb {
     /**
      * default SQL request to use for the initial loading
      */
-    pub fn default_read_req() -> String {
-        String::from("WHERE id > 0 ORDER BY date_modify DESC LIMIT 20")
+    pub fn default_filter() -> String {
+        String::from(Self::DEFAULT_SQL_FILTER)
     }
 
     pub fn default_user_db_path() -> String {

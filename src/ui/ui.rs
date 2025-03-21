@@ -211,14 +211,13 @@ impl WriterUi {
             println!("info: Info Block is not found");
         }
         // Load all entries into memory and display the first one
-        let def_req = TirraDb::default_read_req();
-        let entry_list = self.reload_all(&def_req);
+        let entry_list = self.reload_all(None);
 
         // assignments
         self.curr_entry_id = entry_list.get_entry(0).map(|ent| ent.id);
         self.entry_list = entry_list;
-        self.cli_text = def_req.clone();
-        self.load_request = def_req;
+        self.cli_text = TirraDb::default_filter();
+        self.load_request = TirraDb::default_filter();
         self.last_activity = utils::current_timestamp();
     }
 
@@ -274,7 +273,7 @@ impl WriterUi {
             self.editor_dirty = false;
         }
         // check if the request would work !
-        match self.tirra_db.get_all_entries(&self.cli_text) {
+        match self.tirra_db.get_entries_by_filter(&self.cli_text) {
             Ok(entries) => {
                 self.entry_list = entries;
                 self.curr_entry_id = self.entry_list.greatest_id_entry().map(|ent| ent.id);
@@ -306,7 +305,7 @@ impl WriterUi {
         if !self.is_readonly() {
             match self.tirra_db.add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "") {
                 Ok(()) => {
-                    self.entry_list = self.reload_all(&self.load_request);
+                    self.entry_list = self.reload_all(Some(&self.load_request));
                     self.curr_entry_id = self.entry_list.greatest_id_entry().map(|ent| ent.id);
                 }
                 _ => {
@@ -418,9 +417,14 @@ impl WriterUi {
         }
     }
 
-    fn reload_all(&self, request_string: &String) -> TirraEntryList {
+    fn reload_all(&self, request_filter: Option<&String>) -> TirraEntryList {
+        let entries_obj = if let Some(filter) = request_filter {
+            self.tirra_db.get_entries_by_filter(&filter)
+        } else {
+            self.tirra_db.get_entries_default()
+        };
         // Load all entries into memory:
-        match self.tirra_db.get_all_entries(&request_string) {
+        match entries_obj {
             Ok(entry_list) => entry_list,
             Err(_error) => {
                 exception("loading entries");
@@ -432,7 +436,7 @@ impl WriterUi {
     fn save_and_reload(&mut self) {
         if self.editor_dirty {
             self.write_current_entry();
-            self.entry_list = self.reload_all(&self.load_request);
+            self.entry_list = self.reload_all(Some(&self.load_request));
             self.editor_dirty = false;
         }
     }
