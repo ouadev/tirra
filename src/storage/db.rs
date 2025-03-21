@@ -171,17 +171,25 @@ impl TirraEntryList {
  */
 
 impl TirraDb {
+    /**
+     * new TirraDb Object
+     */
     pub fn new() -> Self {
         Self {
             crypto: Default::default(),
         }
     }
+
+    pub fn with_crypto(location: &str, password: &[u8]) -> Self {
+        Self {
+            crypto: TirraCrypto::new(location, password),
+        }
+    }
+
     /**
      * Create new database
      */
-    pub fn init(&mut self, location: &str, password: &[u8]) -> Result<(), TirraDbError> {
-        let crypto = TirraCrypto::new(location, password);
-        self.crypto = crypto;
+    pub fn create_new_db(&self) -> Result<(), TirraDbError> {
         let db = Connection::open(self.crypto.plaintext_db_location())
             .map_err(|_e| TirraDbError::DbOpenFailure)?;
 

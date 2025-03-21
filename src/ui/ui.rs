@@ -81,15 +81,14 @@ impl LoginUi {
     }
 
     pub fn on_login(&mut self) {
-        //let crypto = TirraCrypto::new(&self.db_location, self.password.as_bytes());
-        let mut tirra_db = TirraDb::new();
-        let inited = tirra_db.init(&self.db_location, self.password.as_bytes());
+        let tirra_db = TirraDb::with_crypto(&self.db_location, self.password.as_bytes());
 
         if self.db_found == false {
             // Database is not found, start initialization of a new one at the same location.
             // intialize the backend
             if TirraDb::db_exists(&self.db_location) == false {
                 // create new db
+                let inited = tirra_db.create_new_db();
                 if let Err(_x) = inited {
                     exception("database init");
                 }
@@ -200,8 +199,7 @@ impl WriterUi {
 
     pub fn connect(&mut self, db_location: &str, crypto_pwd: &[u8]) {
         //Init Crypto
-        //let tirra_crypto = TirraCrypto::new(db_location, crypto_pwd);
-        let _ = self.tirra_db.init(db_location, crypto_pwd);
+        self.tirra_db = TirraDb::with_crypto(db_location, crypto_pwd);
         // intialize the backend
         if TirraDb::db_exists(db_location) == false {
             panic!("we are not supposed to be here without an encrypted database");
