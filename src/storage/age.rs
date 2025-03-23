@@ -67,6 +67,9 @@ pub struct AgeCrypto {
 }
 
 impl AgeCrypto {
+    const AGE_VERSION_LABEL: &[u8; 21] = b"age-encryption.org/v1";
+    const AGE_SCRYPT_STANZA: &[u8; 10] = b"-> scrypt ";
+    const AGE_MAC_START: &[u8; 4] = b"--- ";
     const PAYLOAD_KEY_LABEL: &[u8] = b"payload";
     const SALT_PREPEND_LABEL: &[u8] = b"age-encryption.org/v1/scrypt";
 
@@ -90,12 +93,6 @@ impl AgeCrypto {
         let mut parsing_ok = true;
         let mut index: usize = 0;
         let mut encrypted_start_index: usize = 0;
-        let age_version: [u8; 22] = [
-            0x61, 0x67, 0x65, 0x2D, 0x65, 0x6E, 0x63, 0x72, 0x79, 0x70, 0x74, 0x69, 0x6F, 0x6E,
-            0x2E, 0x6F, 0x72, 0x67, 0x2F, 0x76, 0x31, 0x0a,
-        ]; //age-encryption.org/v1\x0a
-        let scrypt_stanza: [u8; 10] = [0x2D, 0x3E, 0x20, 0x73, 0x63, 0x72, 0x79, 0x70, 0x74, 0x20];
-        let mac_start: [u8; 4] = [0x2D, 0x2D, 0x2D, 0x20];
         let mut salt_b64 = String::new();
         let mut work_factor_str = String::new();
         let mut body_b64 = String::new();
@@ -116,21 +113,26 @@ impl AgeCrypto {
             for (i, char) in content.iter().enumerate() {
                 match state {
                     StateMachine::Version => {
-                        if *char != age_version[index] {
-                            println!("error: not a valid age file");
-                            parsing_ok = false;
-                            break;
-                        }
-                        index += 1;
-                        if index == 22 {
+                        //
+                        if *char == 0x0a {
                             state = StateMachine::Stanza;
                             index = 0;
+                        } else if index < 21 {
+                            if *char != Self::AGE_VERSION_LABEL[index] {
+                                println!("error: not a valid age file");
+                                parsing_ok = false;
+                                break;
+                            }
+                            index += 1;
+                        } else {
+                            println!("error: abnormally long work factor");
+                            break;
                         }
                     }
                     StateMachine::Stanza => {
                         //"-> scrypt "
                         //
-                        if *char != scrypt_stanza[index] {
+                        if *char != Self::AGE_SCRYPT_STANZA[index] {
                             println!("error: not a an expected stanza");
                             parsing_ok = false;
                             break;
@@ -178,7 +180,7 @@ impl AgeCrypto {
                     }
                     StateMachine::MacStart => {
                         //"--- "
-                        if *char != mac_start[index] {
+                        if *char != Self::AGE_MAC_START[index] {
                             println!("error: unrecognized mac start");
                             parsing_ok = false;
                             break;
