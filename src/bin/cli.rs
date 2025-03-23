@@ -1,7 +1,10 @@
 use std::env;
 use std::fs::File;
 use std::io::Read;
-use tirra::storage::db::{self, TirraDb};
+use tirra::storage::{
+    age::AgeCrypto,
+    db::{self, TirraDb},
+};
 
 // Command Line Usage
 const USAGE_STR: &str = "
@@ -12,6 +15,7 @@ tirra-cli add     DB_FILE PWD_FILE DATE
 tirra-cli delete  DB_FILE PWD_FILE ID
 tirra-cli stat    DB_FILE PWD_FILE
 tirra-cli decrypt DB_FILE PWD_FILE
+tirra-cli decage  DB_FILE PWD_FILE
 tirra-cli encrypt DB_FILE PWD_FILE DB_FILE_PLAIN
 
 
@@ -29,6 +33,7 @@ enum CliAction {
     Stat,
     Decrypt,
     Encrypt,
+    DecryptAge,
 }
 
 pub fn main() -> () {
@@ -51,6 +56,7 @@ pub fn main() -> () {
         "delete" => cli_action = CliAction::Delete,
         "stat" => cli_action = CliAction::Stat,
         "decrypt" => cli_action = CliAction::Decrypt,
+        "decage" => cli_action = CliAction::DecryptAge,
         "encrypt" => cli_action = CliAction::Encrypt,
         _ => {
             println!("{}", USAGE_STR);
@@ -143,6 +149,39 @@ pub fn main() -> () {
             }
             Err(_) => {
                 println!("failed to decrypt file {}", tirra_db.get_db_location());
+            }
+        }
+    } else if cli_action == CliAction::DecryptAge {
+        if args_count != 4 {
+            println!("{}", USAGE_STR);
+            return;
+        }
+
+        db_path = String::from(&args[2]);
+        pwd_file = String::from(&args[3]);
+        let pwd = read_pwd_file(&pwd_file);
+
+        let mut age_crypto = AgeCrypto::new(&db_path);
+
+        if let Ok(_) = age_crypto.parse_header() {
+            println!("salt :\t {:x?}", age_crypto.header.salt);
+            println!("wfac :\t {:?}", age_crypto.header.work_factor);
+            println!("body :\t {:x?}", age_crypto.header.body);
+            println!("mac :\t {:x?}", age_crypto.header.mac);
+            println!("payload :\t {:?}", age_crypto.header.payload_start);
+
+            match age_crypto.internal_compute_file_key(pwd.as_slice()) {
+                Ok(file_key) => {
+                    println!("file_key :\t {:x?}", file_key);
+                    if let Ok(_) = age_crypto.decrypt(&file_key) {
+                        println!("decryption success");
+                    } else {
+                        println!("failure in decryption");
+                    }
+                }
+                Err(_) => {
+                    println!("error: couldn't unwrap file_key");
+                }
             }
         }
     } else if cli_action == CliAction::Encrypt {

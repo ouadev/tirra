@@ -1,5 +1,10 @@
 use chrono::{DateTime, Utc};
 use std::time::SystemTime;
+use base64::{
+    alphabet::{self},
+    engine::{general_purpose::NO_PAD, GeneralPurpose},
+    prelude::*,
+};
 
 /**
  * convert a timestamp into a datatime structure
@@ -47,5 +52,20 @@ pub fn time_now() -> u64 {
     match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
         Ok(n) => n.as_secs(),
         Err(_) => 0,
+    }
+}
+
+/**
+ * base64 decode: standard alphabet, and no padding
+ */
+pub fn base64_decode(b64_string: String) -> Option<Vec<u8>> {
+    //base64 decoding
+    let b64_engine = GeneralPurpose::new(&alphabet::STANDARD, NO_PAD);
+    match b64_engine.decode(b64_string) {
+        Ok(bin) => Some(bin),
+        Err(decode_err) => {
+            println!("error base64 decoding {:?}", decode_err);
+            None
+        }
     }
 }
