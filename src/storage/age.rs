@@ -5,11 +5,11 @@ use chacha20poly1305::{
 use hkdf::Hkdf;
 use scrypt::{scrypt, Params};
 use sha2::Sha256;
+use std::vec;
 use std::{
     fs::{self, File},
-    io::{BufRead, BufReader, Read, SeekFrom},
+    io::{BufRead, BufReader, Read},
 };
-use std::{io::Seek, vec};
 
 use crate::common::utils;
 
@@ -68,6 +68,7 @@ pub enum AgeCryptoError {
     HeaderParse,
     ComputeFileKey,
     ComputePayloadKey,
+    Decrypt,
 }
 pub struct AgeCrypto {
     db_location: String,
@@ -164,32 +165,52 @@ impl AgeCrypto {
             };
 
         //decrypt first chunk
-        //let mut chunk: [u8; 65536] = [0u8; 65536];
-        let mut chunk_vec: Vec<u8> = vec![];
-        match reader.read_to_end(&mut chunk_vec) {
-            Ok(_size) => {
-                //println!("read : {}", size);
-            }
-            Err(err) => {
-                print!("error reading first chunk {:?}", err);
+        let mut chunk_n = 0u64;
+        let mut last = false;
+        loop {
+            if let Some(chunk_vec) = Self::internal_read_chunk(reader) {
+                if chunk_vec.len() < 65536 {
+                    last = true;
+                }
+
+                let dec = Self::internal_decrypt_chunk(
+                    &payload_key,
+                    &chunk_vec.as_slice(),
+                    chunk_n,
+                    last,
+                );
+
+                match dec {
+                    Ok(plain) => {
+                        //println!("{:x?}", plain);
+                        let _ = match fs::write(&self.db_location_pt, plain) {
+                            Ok(()) => Ok(true),
+                            Err(_) => Err(AgeCryptoError::FileWrite),
+                        };
+                    }
+                    Err(_) => return Err(AgeCryptoError::Decrypt),
+                }
+
+                chunk_n += 1;
+
+                if last {
+                    break;
+                }
+            } else {
                 return Err(AgeCryptoError::FileRead);
             }
         }
-
-        match Self::internal_decrypt_chunk(&payload_key, &chunk_vec.as_slice(), 0) {
-            Ok(plain) => {
-                //println!("{:x?}", plain);
-                let _ = match fs::write(&self.db_location_pt, plain) {
-                    Ok(()) => Ok(true),
-                    Err(_) => Err(AgeCryptoError::FileWrite),
-                };
-            }
-            Err(_) => {
-                println!("error decrypting first chunk");
-            }
-        }
-
         Ok(true)
+    }
+
+    fn internal_read_chunk(reader: &mut BufReader<File>) -> Option<Vec<u8>> {
+        let bytes_to_read = 65536;
+        let mut buf = vec![];
+        let mut chunk = reader.take(bytes_to_read);
+        match chunk.read_to_end(&mut buf) {
+            Ok(_n) => Some(buf),
+            Err(_) => None,
+        }
     }
     /**
      * parse age file header.
@@ -336,11 +357,15 @@ impl AgeCrypto {
     fn internal_decrypt_chunk(
         payload_key: &Vec<u8>,
         chunk: &[u8],
-        n: usize,
+        n: u64,
+        last: bool,
     ) -> Result<Vec<u8>, ()> {
         let mut chunk_nonce = AgeChunkNonce { 0: 0u128 };
-        chunk_nonce.set_counter(n as u64);
-        chunk_nonce.set_last(true);
+        chunk_nonce.set_counter(n);
+        if last {
+            chunk_nonce.set_last(true);
+        }
+
         //set last???
 
         let cipher = ChaCha20Poly1305::new(payload_key.as_slice().into());
