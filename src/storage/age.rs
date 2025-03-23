@@ -61,12 +61,14 @@ impl AgeChunkNonce {
 }
 
 pub enum AgeCryptoError {
+    FileOpen,
     HeaderParse,
     ComputeFileKey,
 }
 pub struct AgeCrypto {
     db_location: String,
     db_location_pt: String,
+    reader: Option<BufReader<File>>,
     file_key: Vec<u8>,
 }
 
@@ -81,14 +83,8 @@ impl AgeCrypto {
         Self {
             db_location: location.to_string(),
             db_location_pt: format!("{}.{}", &location, "agept"),
+            reader: None,
             file_key: vec![],
-            /*header: AgeScryptHeader {
-                body: vec![],
-                salt: vec![],
-                work_factor: 18,
-                mac: vec![],
-                payload_start: 0,
-            },*/
         }
     }
 
@@ -97,6 +93,16 @@ impl AgeCrypto {
      */
     pub fn extract_key(&mut self, password: &[u8]) -> Result<(), AgeCryptoError> {
         let header: AgeScryptHeader;
+        //open file
+        let file: File = match File::open(&self.db_location) {
+            Ok(file) => file,
+            Err(_) => {
+                return Err(AgeCryptoError::FileOpen);
+            }
+        };
+
+        let reader = BufReader::new(file);
+        self.reader = Some(reader);
         //parse header
         match self.internal_parse_header() {
             Ok(h) => {
