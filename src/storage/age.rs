@@ -7,7 +7,7 @@ use scrypt::{scrypt, Params};
 use sha2::Sha256;
 use std::{
     fs::{self, File},
-    io::{BufReader, Read, SeekFrom},
+    io::{BufRead, BufReader, Read, SeekFrom},
 };
 use std::{io::Seek, vec};
 
@@ -62,6 +62,7 @@ impl AgeChunkNonce {
 
 pub enum AgeCryptoError {
     FileOpen,
+    AgeFormat,
     HeaderParse,
     ComputeFileKey,
 }
@@ -73,9 +74,10 @@ pub struct AgeCrypto {
 }
 
 impl AgeCrypto {
-    const AGE_VERSION_LABEL: &[u8; 21] = b"age-encryption.org/v1";
-    const AGE_SCRYPT_STANZA: &[u8; 10] = b"-> scrypt ";
-    const AGE_MAC_START: &[u8; 4] = b"--- ";
+    const AGE_VERSION_LABEL: &str = "age-encryption.org/v1";
+    const AGE_STANZA_START: &str = "->";
+    const AGE_STANZA_SCRYPT: &str = "scrypt";
+    const AGE_MAC_START: &str = "---";
     const PAYLOAD_KEY_LABEL: &[u8] = b"payload";
     const SALT_PREPEND_LABEL: &[u8] = b"age-encryption.org/v1/scrypt";
 
@@ -108,8 +110,8 @@ impl AgeCrypto {
             Ok(h) => {
                 header = h;
             }
-            Err(_) => {
-                return Err(AgeCryptoError::HeaderParse);
+            Err(error) => {
+                return Err(error);
             }
         }
         //header parsed.
@@ -134,168 +136,143 @@ impl AgeCrypto {
     /**
      * parse age file header.
      */
-    fn internal_parse_header(&self) -> Result<AgeScryptHeader, ()> {
-        let mut parsing_ok = true;
-        let mut index: usize = 0;
-        let mut encrypted_start_index: usize = 0;
+    fn internal_parse_header(&mut self) -> Result<AgeScryptHeader, AgeCryptoError> {
         let mut salt_b64 = String::new();
         let mut work_factor_str = String::new();
         let mut body_b64 = String::new();
-        let mut mac_b64 = String::new();
+        let mac_b64: String;
 
         enum StateMachine {
             Version,
             Stanza,
-            ScryptSalt,
-            WorkFactor,
             KeyWrapped,
-            MacStart,
             Mac,
         }
         let mut state = StateMachine::Version;
 
-        if let Ok(content) = fs::read(&self.db_location) {
-            for (i, char) in content.iter().enumerate() {
-                match state {
-                    StateMachine::Version => {
-                        //
-                        if *char == 0x0a {
-                            state = StateMachine::Stanza;
-                            index = 0;
-                        } else if index < 21 {
-                            if *char != Self::AGE_VERSION_LABEL[index] {
-                                println!("error: not a valid age file");
-                                parsing_ok = false;
-                                break;
-                            }
-                            index += 1;
-                        } else {
-                            println!("error: abnormally long work factor");
-                            break;
-                        }
+        //
+        let mut line = String::new();
+
+        let reader: &mut std::io::BufReader<File>;
+        if let Some(r) = &mut self.reader {
+            reader = r;
+        } else {
+            return Err(AgeCryptoError::FileOpen);
+        }
+
+        loop {
+            line.clear();
+            //TODO: set limit.
+            if let Ok(_sz) = reader.read_line(&mut line) {
+            } else {
+                return Err(AgeCryptoError::FileOpen);
+            }
+            //remove end of line
+            line.pop();
+            //process line
+            match state {
+                StateMachine::Version => {
+                    let version = String::from(Self::AGE_VERSION_LABEL);
+                    if !line.eq(&version) {
+                        return Err(AgeCryptoError::AgeFormat);
                     }
-                    StateMachine::Stanza => {
-                        //"-> scrypt "
-                        //
-                        if *char != Self::AGE_SCRYPT_STANZA[index] {
-                            println!("error: not a an expected stanza");
-                            parsing_ok = false;
-                            break;
+                    state = StateMachine::Stanza;
+                }
+                StateMachine::Stanza => {
+                    let mut parts = line.split(" ");
+                    // ->
+                    if let Some(part) = parts.next() {
+                        if part != Self::AGE_STANZA_START {
+                            return Err(AgeCryptoError::AgeFormat);
                         }
-                        index += 1;
-                        if index == 10 {
-                            state = StateMachine::ScryptSalt;
-                            index = 0;
-                        }
+                    } else {
+                        return Err(AgeCryptoError::AgeFormat);
                     }
-                    StateMachine::ScryptSalt => {
-                        if index < 22 {
-                            salt_b64.push(*char as char);
-                            index += 1;
-                        } else {
-                            state = StateMachine::WorkFactor;
-                            index = 0;
+                    // scrypt
+                    if let Some(part) = parts.next() {
+                        if part != Self::AGE_STANZA_SCRYPT {
+                            return Err(AgeCryptoError::AgeFormat);
                         }
+                    } else {
+                        return Err(AgeCryptoError::AgeFormat);
                     }
-                    StateMachine::WorkFactor => {
-                        if *char == 0x0a {
-                            state = StateMachine::KeyWrapped;
-                            index = 0;
-                        } else if index < 4 {
-                            //maximum 4 digits?
-                            work_factor_str.push(*char as char);
-                            index += 1;
-                        } else {
-                            println!("error: abnormally long work factor");
-                            break;
-                        }
+                    // salt
+                    if let Some(part) = parts.next() {
+                        salt_b64 = String::from(part);
+                    } else {
+                        return Err(AgeCryptoError::AgeFormat);
                     }
-                    StateMachine::KeyWrapped => {
-                        if *char == 0x0a {
-                            state = StateMachine::MacStart;
-                            index = 0;
-                        } else if index > 43 {
-                            //32 bytes in base64 ?
-                            println!("error: abnormally scrypt body");
-                            break;
-                        } else {
-                            body_b64.push(*char as char);
-                            index += 1;
-                        }
+                    // work factor
+                    if let Some(part) = parts.next() {
+                        work_factor_str = String::from(part);
+                    } else {
+                        return Err(AgeCryptoError::AgeFormat);
                     }
-                    StateMachine::MacStart => {
-                        //"--- "
-                        if *char != Self::AGE_MAC_START[index] {
-                            println!("error: unrecognized mac start");
-                            parsing_ok = false;
-                            break;
+
+                    state = StateMachine::KeyWrapped;
+                }
+                StateMachine::KeyWrapped => {
+                    body_b64 = line.clone();
+                    state = StateMachine::Mac;
+                }
+                StateMachine::Mac => {
+                    let mut parts = line.split(" ");
+                    // ---
+                    if let Some(part) = parts.next() {
+                        if part != Self::AGE_MAC_START {
+                            return Err(AgeCryptoError::AgeFormat);
                         }
-                        index += 1;
-                        if index == 4 {
-                            state = StateMachine::Mac;
-                            index = 0;
-                        }
+                    } else {
+                        return Err(AgeCryptoError::AgeFormat);
                     }
-                    StateMachine::Mac => {
-                        if *char == 0x0a {
-                            encrypted_start_index = i + 1;
-                            break;
-                        } else if index > 43 {
-                            //32 bytes in base64 ?
-                            println!("error: abnormally long header mac");
-                            break;
-                        } else {
-                            mac_b64.push(*char as char);
-                            index += 1;
-                        }
+                    //mac
+                    if let Some(part) = parts.next() {
+                        mac_b64 = String::from(part);
+                    } else {
+                        return Err(AgeCryptoError::AgeFormat);
                     }
+
+                    break;
                 }
             }
-        } else {
-            parsing_ok = false;
-            println!("can't open file");
         }
 
         //return
-        if parsing_ok {
-            let mut header: AgeScryptHeader = AgeScryptHeader {
-                salt: vec![],
-                work_factor: 0,
-                body: vec![],
-                mac: vec![],
-                payload_start: 0,
-            };
-            //salt deode
-            if let Some(bin) = utils::base64_decode(salt_b64) {
-                header.salt = bin;
-            } else {
-                return Err(());
-            }
-            //body deode
-            if let Some(bin) = utils::base64_decode(body_b64) {
-                header.body = bin;
-            } else {
-                return Err(());
-            }
-            //mac deode
-            if let Some(bin) = utils::base64_decode(mac_b64) {
-                header.mac = bin;
-            } else {
-                return Err(());
-            }
-            //work factor
-            if let Ok(work_factor) = work_factor_str.parse::<u8>() {
-                header.work_factor = work_factor;
-            } else {
-                return Err(());
-            }
-            //payload start
-            header.payload_start = encrypted_start_index;
-
-            Ok(header)
+        let mut header: AgeScryptHeader = AgeScryptHeader {
+            salt: vec![],
+            work_factor: 0,
+            body: vec![],
+            mac: vec![],
+            payload_start: 0,
+        };
+        //salt deode
+        if let Some(bin) = utils::base64_decode(salt_b64) {
+            header.salt = bin;
         } else {
-            Err(())
+            return Err(AgeCryptoError::AgeFormat);
         }
+        //body deode
+        if let Some(bin) = utils::base64_decode(body_b64) {
+            header.body = bin;
+        } else {
+            return Err(AgeCryptoError::AgeFormat);
+        }
+        //mac deode
+        if let Some(bin) = utils::base64_decode(mac_b64) {
+            header.mac = bin;
+        } else {
+            return Err(AgeCryptoError::AgeFormat);
+        }
+        //work factor
+        if let Ok(work_factor) = work_factor_str.parse::<u8>() {
+            header.work_factor = work_factor;
+        } else {
+            return Err(AgeCryptoError::AgeFormat);
+        }
+        //payload start
+        header.payload_start = 0;
+
+        Ok(header)
     }
 
     pub fn decrypt(&self, file_key: &Vec<u8>, payload_start: u64) -> Result<bool, ()> {
