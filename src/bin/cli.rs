@@ -163,26 +163,10 @@ pub fn main() -> () {
 
         let mut age_crypto = AgeCrypto::new(&db_path);
 
-        if let Ok(_) = age_crypto.parse_header() {
-            println!("salt :\t {:x?}", age_crypto.header.salt);
-            println!("wfac :\t {:?}", age_crypto.header.work_factor);
-            println!("body :\t {:x?}", age_crypto.header.body);
-            println!("mac :\t {:x?}", age_crypto.header.mac);
-            println!("payload :\t {:?}", age_crypto.header.payload_start);
-
-            match age_crypto.internal_compute_file_key(pwd.as_slice()) {
-                Ok(file_key) => {
-                    println!("file_key :\t {:x?}", file_key);
-                    if let Ok(_) = age_crypto.decrypt(&file_key) {
-                        println!("decryption success");
-                    } else {
-                        println!("failure in decryption");
-                    }
-                }
-                Err(_) => {
-                    println!("error: couldn't unwrap file_key");
-                }
-            }
+        if let Ok(_) = age_crypto.extract_key(pwd.as_slice()) {
+            println!("file key extracted successfully");
+        } else {
+            println!("error extracting file key from age file");
         }
     } else if cli_action == CliAction::Encrypt {
         if args_count != 5 {

@@ -5,11 +5,11 @@ use chacha20poly1305::{
 use hkdf::Hkdf;
 use scrypt::{scrypt, Params};
 use sha2::Sha256;
-use std::io::Seek;
 use std::{
     fs::{self, File},
     io::{BufReader, Read, SeekFrom},
 };
+use std::{io::Seek, vec};
 
 use crate::common::utils;
 
@@ -60,10 +60,14 @@ impl AgeChunkNonce {
     }
 }
 
+pub enum AgeCryptoError {
+    HeaderParse,
+    ComputeFileKey,
+}
 pub struct AgeCrypto {
     db_location: String,
     db_location_pt: String,
-    pub header: AgeScryptHeader,
+    file_key: Vec<u8>,
 }
 
 impl AgeCrypto {
@@ -77,19 +81,54 @@ impl AgeCrypto {
         Self {
             db_location: location.to_string(),
             db_location_pt: format!("{}.{}", &location, "agept"),
-            header: AgeScryptHeader {
+            file_key: vec![],
+            /*header: AgeScryptHeader {
                 body: vec![],
                 salt: vec![],
                 work_factor: 18,
                 mac: vec![],
                 payload_start: 0,
-            },
+            },*/
         }
+    }
+
+    /**
+     * extract age file key from the header.
+     */
+    pub fn extract_key(&mut self, password: &[u8]) -> Result<(), AgeCryptoError> {
+        let header: AgeScryptHeader;
+        //parse header
+        match self.internal_parse_header() {
+            Ok(h) => {
+                header = h;
+            }
+            Err(_) => {
+                return Err(AgeCryptoError::HeaderParse);
+            }
+        }
+        //header parsed.
+        println!("salt :\t {:x?}", header.salt);
+        println!("wfac :\t {:?}", header.work_factor);
+        println!("body :\t {:x?}", header.body);
+        println!("mac :\t {:x?}", header.mac);
+        println!("payload :\t {:?}", header.payload_start);
+        //TODO: check MAC ?
+
+        //compute file key
+        let file_key = if let Ok(key) = Self::internal_compute_file_key(&header, password) {
+            key
+        } else {
+            return Err(AgeCryptoError::ComputeFileKey);
+        };
+        self.file_key = file_key;
+
+        //
+        Ok(())
     }
     /**
      * parse age file header.
      */
-    pub fn parse_header(&mut self) -> Result<(), ()> {
+    fn internal_parse_header(&self) -> Result<AgeScryptHeader, ()> {
         let mut parsing_ok = true;
         let mut index: usize = 0;
         let mut encrypted_start_index: usize = 0;
@@ -247,14 +286,13 @@ impl AgeCrypto {
             //payload start
             header.payload_start = encrypted_start_index;
 
-            self.header = header;
-            Ok(())
+            Ok(header)
         } else {
             Err(())
         }
     }
 
-    pub fn decrypt(&self, file_key: &Vec<u8>) -> Result<bool, ()> {
+    pub fn decrypt(&self, file_key: &Vec<u8>, payload_start: u64) -> Result<bool, ()> {
         let file: File = match File::open(&self.db_location) {
             Ok(file) => file,
             Err(_) => {
@@ -266,7 +304,7 @@ impl AgeCrypto {
 
         // extract nonce: first 16 bytes.
         let mut nonce: [u8; 16] = [0u8; 16];
-        if let Err(_) = reader.seek(SeekFrom::Start(self.header.payload_start as u64)) {
+        if let Err(_) = reader.seek(SeekFrom::Start(payload_start)) {
             return Err(());
         }
         if let Err(_) = reader.read_exact(&mut nonce) {
@@ -333,7 +371,7 @@ impl AgeCrypto {
         }
     }
 
-    pub fn internal_compute_file_key(&self, password: &[u8]) -> Result<Vec<u8>, ()> {
+    fn internal_compute_file_key(header: &AgeScryptHeader, password: &[u8]) -> Result<Vec<u8>, ()> {
         //- WRAP_KEY= scrypt(N = WORK_FACTOR, r = 8, p = 1, dkLen = 32,
         //    S = "age-encryption.org/v1/scrypt" || SALT, P = PASSWORD)
         //- File_Key = ChaCha20_Decrypt(key = WRAP_KEY, cipher = HEADER_BODY)
@@ -341,10 +379,10 @@ impl AgeCrypto {
         let mut warp_key_arr: [u8; 32] = [0u8; 32];
         let mut salt: Vec<u8> = vec![];
         salt.extend_from_slice(Self::SALT_PREPEND_LABEL);
-        salt.extend(self.header.salt.iter());
+        salt.extend(header.salt.iter());
 
         // Compute WARP_KEY from the password and the age_header
-        let scrypt_params = match Params::new(self.header.work_factor, 8, 1, 32) {
+        let scrypt_params = match Params::new(header.work_factor, 8, 1, 32) {
             Ok(params) => params,
             Err(_) => {
                 return Err(());
@@ -358,7 +396,7 @@ impl AgeCrypto {
         }
 
         // Unwrap the file_key using the warp_key
-        let unwrapped = self.internal_unwrap_file_key(warp_key_arr);
+        let unwrapped = Self::internal_unwrap_file_key(&header.body, warp_key_arr);
         match unwrapped {
             Ok(file_key) => {
                 return Ok(file_key);
@@ -369,14 +407,14 @@ impl AgeCrypto {
         }
     }
 
-    fn internal_unwrap_file_key(&self, warp_key_arr: [u8; 32]) -> Result<Vec<u8>, ()> {
+    fn internal_unwrap_file_key(body: &Vec<u8>, warp_key_arr: [u8; 32]) -> Result<Vec<u8>, ()> {
         //decrypt key
         //array warp_key
         //array nonce
         let fixed_nonce: [u8; 12] = [0u8; 12];
 
         let cipher = ChaCha20Poly1305::new(&warp_key_arr.into());
-        match cipher.decrypt(&fixed_nonce.into(), self.header.body.as_ref()) {
+        match cipher.decrypt(&fixed_nonce.into(), body.as_ref()) {
             Ok(dec_content) => {
                 //return plaintext file key
                 return Ok(dec_content);
