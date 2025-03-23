@@ -62,9 +62,12 @@ impl AgeChunkNonce {
 
 pub enum AgeCryptoError {
     FileOpen,
+    FileRead,
+    FileWrite,
     AgeFormat,
     HeaderParse,
     ComputeFileKey,
+    ComputePayloadKey,
 }
 pub struct AgeCrypto {
     db_location: String,
@@ -132,6 +135,61 @@ impl AgeCrypto {
 
         //
         Ok(())
+    }
+
+    /**
+     * Decrypt age file using the extracted key
+     */
+    pub fn decrypt(&mut self) -> Result<bool, AgeCryptoError> {
+        let reader: &mut std::io::BufReader<File>;
+        if let Some(r) = &mut self.reader {
+            reader = r;
+        } else {
+            return Err(AgeCryptoError::FileOpen);
+        }
+
+        // Note: BufReader should be point at the start of the payload.
+        let mut nonce: [u8; 16] = [0u8; 16];
+        if let Err(_) = reader.read_exact(&mut nonce) {
+            return Err(AgeCryptoError::FileRead);
+        }
+
+        // compute payload key
+        let payload_key =
+            match Self::internal_compute_payload_key(&self.file_key, &Vec::from(nonce)) {
+                Ok(key) => key,
+                Err(_) => {
+                    return Err(AgeCryptoError::ComputePayloadKey);
+                }
+            };
+
+        //decrypt first chunk
+        //let mut chunk: [u8; 65536] = [0u8; 65536];
+        let mut chunk_vec: Vec<u8> = vec![];
+        match reader.read_to_end(&mut chunk_vec) {
+            Ok(_size) => {
+                //println!("read : {}", size);
+            }
+            Err(err) => {
+                print!("error reading first chunk {:?}", err);
+                return Err(AgeCryptoError::FileRead);
+            }
+        }
+
+        match Self::internal_decrypt_chunk(&payload_key, &chunk_vec.as_slice(), 0) {
+            Ok(plain) => {
+                //println!("{:x?}", plain);
+                let _ = match fs::write(&self.db_location_pt, plain) {
+                    Ok(()) => Ok(true),
+                    Err(_) => Err(AgeCryptoError::FileWrite),
+                };
+            }
+            Err(_) => {
+                println!("error decrypting first chunk");
+            }
+        }
+
+        Ok(true)
     }
     /**
      * parse age file header.
@@ -273,62 +331,6 @@ impl AgeCrypto {
         header.payload_start = 0;
 
         Ok(header)
-    }
-
-    pub fn decrypt(&self, file_key: &Vec<u8>, payload_start: u64) -> Result<bool, ()> {
-        let file: File = match File::open(&self.db_location) {
-            Ok(file) => file,
-            Err(_) => {
-                return Err(());
-            }
-        };
-
-        let mut reader = BufReader::new(file);
-
-        // extract nonce: first 16 bytes.
-        let mut nonce: [u8; 16] = [0u8; 16];
-        if let Err(_) = reader.seek(SeekFrom::Start(payload_start)) {
-            return Err(());
-        }
-        if let Err(_) = reader.read_exact(&mut nonce) {
-            return Err(());
-        }
-
-        // compute payload key
-        let payload_key = match Self::internal_compute_payload_key(&file_key, &Vec::from(nonce)) {
-            Ok(key) => key,
-            Err(_) => {
-                return Err(());
-            }
-        };
-
-        //decrypt first chunk
-        //let mut chunk: [u8; 65536] = [0u8; 65536];
-        let mut chunk_vec: Vec<u8> = vec![];
-        match reader.read_to_end(&mut chunk_vec) {
-            Ok(_size) => {
-                //println!("read : {}", size);
-            }
-            Err(err) => {
-                print!("error reading first chunk {:?}", err);
-                return Err(());
-            }
-        }
-
-        match Self::internal_decrypt_chunk(&payload_key, &chunk_vec.as_slice(), 0) {
-            Ok(plain) => {
-                //println!("{:x?}", plain);
-                let _ = match fs::write(&self.db_location_pt, plain) {
-                    Ok(()) => Ok(true),
-                    Err(_) => Err(()),
-                };
-            }
-            Err(_) => {
-                println!("error decrypting first chunk");
-            }
-        }
-
-        Ok(true)
     }
 
     fn internal_decrypt_chunk(
