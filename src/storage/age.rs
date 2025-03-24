@@ -7,7 +7,7 @@ use scrypt::{scrypt, Params};
 use sha2::Sha256;
 use std::{
     fs::File,
-    io::{BufRead, BufReader, Read, Write},
+    io::{BufRead, BufReader, Read, Seek, SeekFrom, Write},
 };
 use std::{io::BufWriter, vec};
 
@@ -76,7 +76,8 @@ impl AgeCrypto {
     const AGE_MAC_START: &str = "---";
     const PAYLOAD_KEY_LABEL: &[u8] = b"payload";
     const SALT_PREPEND_LABEL: &[u8] = b"age-encryption.org/v1/scrypt";
-    const CHUNK_ENC_SIZE: usize = 65536 + 16;
+    const CHUNK_SIZE: usize = 65536;
+    const CHUNK_ENC_SIZE: usize = Self::CHUNK_SIZE + 16;
 
     pub fn new(location: &str) -> Self {
         Self {
@@ -166,15 +167,43 @@ impl AgeCrypto {
                 }
             };
 
+        // seek ahead
+        let curr_pos = if let Ok(pos) = reader.stream_position() {
+            pos
+        } else {
+            return Err(AgeCryptoError::FileRead);
+        };
+
+        let end_pos = if let Ok(pos) = reader.seek(SeekFrom::End(0)) {
+            pos
+        } else {
+            return Err(AgeCryptoError::FileRead);
+        };
+
+        if let Err(_) = reader.seek(SeekFrom::Start(curr_pos)) {
+            return Err(AgeCryptoError::FileRead);
+        }
+
         //decrypt first chunk
         let mut chunk_n = 0u64;
         let mut last = false;
         loop {
+            //is there a chunk to read
+            let cursor_pos = if let Ok(pos) = reader.stream_position() {
+                pos
+            } else {
+                return Err(AgeCryptoError::FileRead);
+            };
+
+            if cursor_pos == end_pos {
+                //end of file
+                break;
+            }
+
             if let Some(chunk_vec) = Self::internal_read_chunk(reader) {
-                if chunk_vec.len() < 65536 {
+                if cursor_pos + (chunk_vec.len() as u64) == end_pos {
                     last = true;
                 }
-
                 let dec = Self::internal_decrypt_chunk(
                     &payload_key,
                     &chunk_vec.as_slice(),
