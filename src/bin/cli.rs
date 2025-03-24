@@ -34,6 +34,7 @@ enum CliAction {
     Decrypt,
     Encrypt,
     DecryptAge,
+    EncryptAge,
 }
 
 pub fn main() -> () {
@@ -57,6 +58,7 @@ pub fn main() -> () {
         "stat" => cli_action = CliAction::Stat,
         "decrypt" => cli_action = CliAction::Decrypt,
         "decage" => cli_action = CliAction::DecryptAge,
+        "encage" => cli_action = CliAction::EncryptAge,
         "encrypt" => cli_action = CliAction::Encrypt,
         _ => {
             println!("{}", USAGE_STR);
@@ -172,6 +174,25 @@ pub fn main() -> () {
             }
         } else {
             println!("error extracting file key from age file");
+        }
+    } else if cli_action == CliAction::EncryptAge {
+        if args_count != 4 {
+            println!("{}", USAGE_STR);
+            return;
+        }
+
+        db_path = String::from(&args[2]);
+        pwd_file = String::from(&args[3]);
+        let pwd = read_pwd_file(&pwd_file);
+
+        let mut age_crypto = AgeCrypto::new(&db_path);
+
+        let test_salt = [12u8; 16];
+        if let Ok(header) = age_crypto.encrypt_construct_header(pwd.as_slice(), &test_salt, 18) {
+            println!("header : ");
+            println!("{}", header);
+        } else {
+            println!("error constructing header");
         }
     } else if cli_action == CliAction::Encrypt {
         if args_count != 5 {

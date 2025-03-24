@@ -1,10 +1,10 @@
-use chrono::{DateTime, Utc};
-use std::time::SystemTime;
 use base64::{
     alphabet::{self},
     engine::{general_purpose::NO_PAD, GeneralPurpose},
     prelude::*,
 };
+use chrono::{DateTime, Utc};
+use std::time::SystemTime;
 
 /**
  * convert a timestamp into a datatime structure
@@ -68,4 +68,13 @@ pub fn base64_decode(b64_string: String) -> Option<Vec<u8>> {
             None
         }
     }
+}
+
+/**
+ * base64 encode: standard alphabet, and no padding
+ */
+pub fn base64_encode(bin: &Vec<u8>) -> String {
+    //base64 decoding
+    let b64_engine = GeneralPurpose::new(&alphabet::STANDARD, NO_PAD);
+    b64_engine.encode(bin)
 }

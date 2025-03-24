@@ -60,6 +60,8 @@ pub enum AgeCryptoError {
     HeaderParse,
     ComputeFileKey,
     ComputePayloadKey,
+    ComputeWarpKey,
+    Encrypt,
     Decrypt,
 }
 pub struct AgeCrypto {
@@ -120,8 +122,16 @@ impl AgeCrypto {
         println!("payload :\t {:?}", header.payload_start);
         //TODO: check MAC ?
 
+        // compute warp key
+        let warp_key_arr = if let Ok(key) =
+            Self::internal_compute_warp_key(password, &header.salt, header.work_factor)
+        {
+            key
+        } else {
+            return Err(AgeCryptoError::ComputeWarpKey);
+        };
         //compute file key
-        let file_key = if let Ok(key) = Self::internal_compute_file_key(&header, password) {
+        let file_key = if let Ok(key) = Self::internal_compute_file_key(&header, warp_key_arr) {
             key
         } else {
             return Err(AgeCryptoError::ComputeFileKey);
@@ -231,6 +241,54 @@ impl AgeCrypto {
             }
         }
         Ok(true)
+    }
+
+    /**
+     * Encrypt a plaintext file into age v1
+     */
+    pub fn encrypt_construct_header(
+        &mut self,
+        password: &[u8],
+        scrypt_salt: &[u8],
+        work_factor: u8,
+    ) -> Result<String, AgeCryptoError> {
+        // generate file_key.
+        let file_key: [u8; 16] = [15u8; 16];
+        //calculate warp key
+        let warp_key =
+            if let Ok(key) = Self::internal_compute_warp_key(password, scrypt_salt, work_factor) {
+                key
+            } else {
+                return Err(AgeCryptoError::ComputeWarpKey);
+            };
+        //warp file_key using warp_key
+        let wrapped_file_key = match Self::internal_wrap_file_key(&file_key, warp_key) {
+            Ok(key) => key,
+            Err(_) => {
+                return Err(AgeCryptoError::Encrypt);
+            }
+        };
+
+        //fill header
+        let mut header_str = String::new();
+        header_str.push_str(
+            format!(
+                "{}\n{} {} {} {}\n{}\n{} ",
+                Self::AGE_VERSION_LABEL,
+                Self::AGE_STANZA_START,
+                Self::AGE_STANZA_SCRYPT,
+                utils::base64_encode(&Vec::<u8>::from(scrypt_salt)),
+                work_factor,
+                utils::base64_encode(&wrapped_file_key),
+                Self::AGE_MAC_START,
+            )
+            .as_str(),
+        );
+
+        // compute hmac and append it.
+
+        //return
+        Ok(header_str)
     }
 
     fn internal_read_chunk(reader: &mut BufReader<File>) -> Option<Vec<u8>> {
@@ -407,18 +465,24 @@ impl AgeCrypto {
         }
     }
 
-    fn internal_compute_file_key(header: &AgeScryptHeader, password: &[u8]) -> Result<Vec<u8>, ()> {
-        //- WRAP_KEY= scrypt(N = WORK_FACTOR, r = 8, p = 1, dkLen = 32,
-        //    S = "age-encryption.org/v1/scrypt" || SALT, P = PASSWORD)
-        //- File_Key = ChaCha20_Decrypt(key = WRAP_KEY, cipher = HEADER_BODY)
-
+    /**
+     * compute Scrypt warp key
+     * //- WRAP_KEY= scrypt(N = WORK_FACTOR, r = 8, p = 1, dkLen = 32,
+     * //    S = "age-encryption.org/v1/scrypt" || SALT, P = PASSWORD)
+     */
+    fn internal_compute_warp_key(
+        password: &[u8],
+        scrypt_salt: &[u8],
+        work_factor: u8,
+    ) -> Result<[u8; 32], ()> {
         let mut warp_key_arr: [u8; 32] = [0u8; 32];
         let mut salt: Vec<u8> = vec![];
-        salt.extend_from_slice(Self::SALT_PREPEND_LABEL);
-        salt.extend(header.salt.iter());
 
-        // Compute WARP_KEY from the password and the age_header
-        let scrypt_params = match Params::new(header.work_factor, 8, 1, 32) {
+        salt.extend_from_slice(Self::SALT_PREPEND_LABEL);
+        salt.extend(scrypt_salt.iter());
+
+        // Compute WARP_KEY
+        let scrypt_params = match Params::new(work_factor, 8, 1, 32) {
             Ok(params) => params,
             Err(_) => {
                 return Err(());
@@ -431,11 +495,36 @@ impl AgeCrypto {
             return Err(());
         }
 
+        Ok(warp_key_arr)
+    }
+
+    fn internal_compute_file_key(
+        header: &AgeScryptHeader,
+        warp_key_arr: [u8; 32],
+    ) -> Result<Vec<u8>, ()> {
+        //- File_Key = ChaCha20_Decrypt(key = WRAP_KEY, cipher = HEADER_BODY)
+
         // Unwrap the file_key using the warp_key
         let unwrapped = Self::internal_unwrap_file_key(&header.body, warp_key_arr);
         match unwrapped {
             Ok(file_key) => {
                 return Ok(file_key);
+            }
+            Err(_) => {
+                return Err(());
+            }
+        }
+    }
+
+    /**
+     * wrap file_key
+     */
+    fn internal_wrap_file_key(file_key: &[u8; 16], warp_key: [u8; 32]) -> Result<Vec<u8>, ()> {
+        let fixed_nonce: [u8; 12] = [0u8; 12];
+        let cipher = ChaCha20Poly1305::new(&warp_key.into());
+        match cipher.encrypt(&fixed_nonce.into(), file_key.as_ref()) {
+            Ok(content) => {
+                return Ok(content);
             }
             Err(_) => {
                 return Err(());
