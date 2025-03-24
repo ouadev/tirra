@@ -5,11 +5,11 @@ use chacha20poly1305::{
 use hkdf::Hkdf;
 use scrypt::{scrypt, Params};
 use sha2::Sha256;
-use std::vec;
 use std::{
-    fs::{self, File},
-    io::{BufRead, BufReader, Read},
+    fs::File,
+    io::{BufRead, BufReader, Read, Write},
 };
+use std::{io::BufWriter, vec};
 
 use crate::common::utils;
 
@@ -30,14 +30,6 @@ impl AgeChunkNonce {
     /// Unsets last-chunk flag.
     fn set_counter(&mut self, val: u64) {
         self.0 = u128::from(val) << 8;
-    }
-
-    fn increment_counter(&mut self) {
-        // Increment the 11-byte counter
-        self.0 += 1 << 8;
-        if self.0 >> (8 * 12) != 0 {
-            panic!("We overflowed the nonce!");
-        }
     }
 
     fn is_last(&self) -> bool {
@@ -84,6 +76,7 @@ impl AgeCrypto {
     const AGE_MAC_START: &str = "---";
     const PAYLOAD_KEY_LABEL: &[u8] = b"payload";
     const SALT_PREPEND_LABEL: &[u8] = b"age-encryption.org/v1/scrypt";
+    const CHUNK_ENC_SIZE: usize = 65536 + 16;
 
     pub fn new(location: &str) -> Self {
         Self {
@@ -142,12 +135,21 @@ impl AgeCrypto {
      * Decrypt age file using the extracted key
      */
     pub fn decrypt(&mut self) -> Result<bool, AgeCryptoError> {
+        // reader
         let reader: &mut std::io::BufReader<File>;
         if let Some(r) = &mut self.reader {
             reader = r;
         } else {
             return Err(AgeCryptoError::FileOpen);
         }
+
+        //writer
+        let mut writer = match File::create(&self.db_location_pt) {
+            Ok(file) => BufWriter::new(file),
+            Err(_) => {
+                return Err(AgeCryptoError::FileOpen);
+            }
+        };
 
         // Note: BufReader should be point at the start of the payload.
         let mut nonce: [u8; 16] = [0u8; 16];
@@ -182,8 +184,7 @@ impl AgeCrypto {
 
                 match dec {
                     Ok(plain) => {
-                        //println!("{:x?}", plain);
-                        let _ = match fs::write(&self.db_location_pt, plain) {
+                        let _ = match writer.write_all(plain.as_slice()) {
                             Ok(()) => Ok(true),
                             Err(_) => Err(AgeCryptoError::FileWrite),
                         };
@@ -204,9 +205,9 @@ impl AgeCrypto {
     }
 
     fn internal_read_chunk(reader: &mut BufReader<File>) -> Option<Vec<u8>> {
-        let bytes_to_read = 65536;
+        let bytes_to_read = Self::CHUNK_ENC_SIZE;
         let mut buf = vec![];
-        let mut chunk = reader.take(bytes_to_read);
+        let mut chunk = reader.take(bytes_to_read as u64);
         match chunk.read_to_end(&mut buf) {
             Ok(_n) => Some(buf),
             Err(_) => None,
@@ -363,15 +364,11 @@ impl AgeCrypto {
         let mut chunk_nonce = AgeChunkNonce { 0: 0u128 };
         chunk_nonce.set_counter(n);
         if last {
-            chunk_nonce.set_last(true);
+            let _ = chunk_nonce.set_last(true);
         }
-
-        //set last???
-
         let cipher = ChaCha20Poly1305::new(payload_key.as_slice().into());
         match cipher.decrypt(&chunk_nonce.to_bytes().into(), chunk.as_ref()) {
             Ok(dec_content) => {
-                //return plaintext file key
                 return Ok(dec_content);
             }
             Err(err) => {

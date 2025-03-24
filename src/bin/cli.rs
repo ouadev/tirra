@@ -166,7 +166,7 @@ pub fn main() -> () {
         if let Ok(_) = age_crypto.extract_key(pwd.as_slice()) {
             println!("file key extracted successfully");
             if let Ok(_) = age_crypto.decrypt() {
-                println!("file key decrypted successfully");
+                println!("file decrypted successfully");
             } else {
                 println!("failure to decrypt");
             }
