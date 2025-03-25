@@ -186,8 +186,9 @@ pub fn main() -> () {
         let pwd = read_pwd_file(&pwd_file);
 
         let mut age_crypto = AgeCrypto::new(&db_path);
+        let enc_path = format!("{}.tirrage", db_path);
 
-        if let Ok(_) = age_crypto.encrypt(&db_path, pwd.as_slice()) {
+        if let Ok(_) = age_crypto.encrypt(&enc_path, pwd.as_slice()) {
             println!("encryption successfull");
         } else {
             println!("error encryption");
