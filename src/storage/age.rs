@@ -20,7 +20,7 @@ pub struct AgeScryptHeader {
     pub work_factor: u8,
     pub body: Vec<u8>,
     pub mac: Vec<u8>,
-    pub payload_start: usize,
+    for_mac: String,
 }
 
 /// Structured as an 11 bytes of big endian counter, and 1 byte of last block flag
@@ -66,6 +66,7 @@ pub enum AgeCryptoError {
     ComputeMacKey,
     Encrypt,
     Decrypt,
+    MacIncorrect,
 }
 pub struct AgeCrypto {
     db_location: String,
@@ -123,8 +124,6 @@ impl AgeCrypto {
         println!("wfac :\t {:?}", header.work_factor);
         println!("body :\t {:x?}", header.body);
         println!("mac :\t {:x?}", header.mac);
-        println!("payload :\t {:?}", header.payload_start);
-        //TODO: check MAC ?
 
         // compute warp key
         let warp_key_arr = if let Ok(key) =
@@ -141,6 +140,25 @@ impl AgeCrypto {
             return Err(AgeCryptoError::ComputeFileKey);
         };
         self.file_key = file_key;
+
+        //Check MAC
+        let mac_key = match Self::internal_compute_mac_key(&self.file_key) {
+            Ok(key) => key,
+            Err(()) => {
+                return Err(AgeCryptoError::ComputeMacKey);
+            }
+        };
+
+        let computed_mac = match Self::internal_compute_hmac(&header.for_mac, &mac_key) {
+            Ok(mac) => mac,
+            Err(()) => {
+                return Err(AgeCryptoError::ComputeMacKey);
+            }
+        };
+
+        if !computed_mac.eq(header.mac.as_slice()) {
+            return Err(AgeCryptoError::MacIncorrect);
+        }
 
         //
         Ok(())
@@ -276,7 +294,7 @@ impl AgeCrypto {
         let mut header_str = String::new();
         header_str.push_str(
             format!(
-                "{}\n{} {} {} {}\n{}\n{} ",
+                "{}\n{} {} {} {}\n{}\n{}",
                 Self::AGE_VERSION_LABEL,
                 Self::AGE_STANZA_START,
                 Self::AGE_STANZA_SCRYPT,
@@ -304,7 +322,7 @@ impl AgeCrypto {
             }
         };
         //append the base64_hmac
-        header_str.push_str(format!("{}\n", utils::base64_encode(&Vec::<u8>::from(mac)),).as_str());
+        header_str.push_str(format!(" {}\n", utils::base64_encode(&Vec::<u8>::from(mac)),).as_str());
 
         //return
         Ok(header_str)
@@ -327,6 +345,7 @@ impl AgeCrypto {
         let mut work_factor_str = String::new();
         let mut body_b64 = String::new();
         let mac_b64: String;
+        let mut header_for_mac = String::new();
 
         enum StateMachine {
             Version,
@@ -362,6 +381,8 @@ impl AgeCrypto {
                     if !line.eq(&version) {
                         return Err(AgeCryptoError::AgeFormat);
                     }
+                    header_for_mac.push_str(&line);
+                    header_for_mac.push(0x0A as char);
                     state = StateMachine::Stanza;
                 }
                 StateMachine::Stanza => {
@@ -394,11 +415,14 @@ impl AgeCrypto {
                     } else {
                         return Err(AgeCryptoError::AgeFormat);
                     }
-
+                    header_for_mac.push_str(&line);
+                    header_for_mac.push(0x0A as char);
                     state = StateMachine::KeyWrapped;
                 }
                 StateMachine::KeyWrapped => {
                     body_b64 = line.clone();
+                    header_for_mac.push_str(&line);
+                    header_for_mac.push(0x0A as char);
                     state = StateMachine::Mac;
                 }
                 StateMachine::Mac => {
@@ -411,6 +435,7 @@ impl AgeCrypto {
                     } else {
                         return Err(AgeCryptoError::AgeFormat);
                     }
+                    header_for_mac.push_str(Self::AGE_MAC_START);
                     //mac
                     if let Some(part) = parts.next() {
                         mac_b64 = String::from(part);
@@ -429,7 +454,7 @@ impl AgeCrypto {
             work_factor: 0,
             body: vec![],
             mac: vec![],
-            payload_start: 0,
+            for_mac: String::new(),
         };
         //salt deode
         if let Some(bin) = utils::base64_decode(salt_b64) {
@@ -455,8 +480,8 @@ impl AgeCrypto {
         } else {
             return Err(AgeCryptoError::AgeFormat);
         }
-        //payload start
-        header.payload_start = 0;
+        //mac-able string
+        header.for_mac = header_for_mac;
 
         Ok(header)
     }
@@ -584,10 +609,10 @@ impl AgeCrypto {
     }
 
     fn internal_compute_mac_key(file_key: &[u8]) -> Result<[u8; 32], ()> {
-        let nonce: Vec<u8> = vec![];
+        //let nonce: Vec<u8> = vec![];
         let mut okm = [0; 32];
-        let payload_key_computed = Hkdf::<Sha256>::new(Some(nonce.as_slice()), file_key)
-            .expand(Self::MAC_KEY_LABEL, &mut okm);
+        let payload_key_computed =
+            Hkdf::<Sha256>::new(None, file_key).expand(Self::MAC_KEY_LABEL, &mut okm);
         match payload_key_computed {
             Ok(()) => {
                 return Ok(okm);
