@@ -188,7 +188,8 @@ pub fn main() -> () {
         let mut age_crypto = AgeCrypto::new(&db_path);
 
         let test_salt = [12u8; 16];
-        if let Ok(header) = age_crypto.encrypt_construct_header(pwd.as_slice(), &test_salt, 18) {
+        let file_key: [u8; 16] = [15u8; 16];
+        if let Ok(header) = age_crypto.encrypt_construct_header(pwd.as_slice(), &test_salt, 18, file_key) {
             println!("header : ");
             println!("{}", header);
         } else {

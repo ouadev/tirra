@@ -3,8 +3,10 @@ use chacha20poly1305::{
     ChaCha20Poly1305,
 };
 use hkdf::Hkdf;
+use hmac::{Hmac, Mac};
 use scrypt::{scrypt, Params};
 use sha2::Sha256;
+
 use std::{
     fs::File,
     io::{BufRead, BufReader, Read, Seek, SeekFrom, Write},
@@ -61,6 +63,7 @@ pub enum AgeCryptoError {
     ComputeFileKey,
     ComputePayloadKey,
     ComputeWarpKey,
+    ComputeMacKey,
     Encrypt,
     Decrypt,
 }
@@ -77,6 +80,7 @@ impl AgeCrypto {
     const AGE_STANZA_SCRYPT: &str = "scrypt";
     const AGE_MAC_START: &str = "---";
     const PAYLOAD_KEY_LABEL: &[u8] = b"payload";
+    const MAC_KEY_LABEL: &[u8] = b"header";
     const SALT_PREPEND_LABEL: &[u8] = b"age-encryption.org/v1/scrypt";
     const CHUNK_SIZE: usize = 65536;
     const CHUNK_ENC_SIZE: usize = Self::CHUNK_SIZE + 16;
@@ -251,9 +255,8 @@ impl AgeCrypto {
         password: &[u8],
         scrypt_salt: &[u8],
         work_factor: u8,
+        file_key: [u8; 16],
     ) -> Result<String, AgeCryptoError> {
-        // generate file_key.
-        let file_key: [u8; 16] = [15u8; 16];
         //calculate warp key
         let warp_key =
             if let Ok(key) = Self::internal_compute_warp_key(password, scrypt_salt, work_factor) {
@@ -286,6 +289,22 @@ impl AgeCrypto {
         );
 
         // compute hmac and append it.
+        let mac_key = match Self::internal_compute_mac_key(&file_key) {
+            Ok(key) => key,
+            Err(_) => {
+                return Err(AgeCryptoError::ComputeMacKey);
+            }
+        };
+
+        //compute hmac
+        let mac = match Self::internal_compute_hmac(&header_str, &mac_key) {
+            Ok(code) => code,
+            Err(()) => {
+                return Err(AgeCryptoError::ComputeMacKey);
+            }
+        };
+        //append the base64_hmac
+        header_str.push_str(format!("{}\n", utils::base64_encode(&Vec::<u8>::from(mac)),).as_str());
 
         //return
         Ok(header_str)
@@ -562,5 +581,34 @@ impl AgeCrypto {
                 return Err(());
             }
         }
+    }
+
+    fn internal_compute_mac_key(file_key: &[u8]) -> Result<[u8; 32], ()> {
+        let nonce: Vec<u8> = vec![];
+        let mut okm = [0; 32];
+        let payload_key_computed = Hkdf::<Sha256>::new(Some(nonce.as_slice()), file_key)
+            .expand(Self::MAC_KEY_LABEL, &mut okm);
+        match payload_key_computed {
+            Ok(()) => {
+                return Ok(okm);
+            }
+            Err(_) => {
+                return Err(());
+            }
+        }
+    }
+
+    fn internal_compute_hmac(header_str: &str, mac_key: &[u8; 32]) -> Result<[u8; 32], ()> {
+        // Create the HMAC instance with the key and SHA256
+        let mut mac = if let Ok(key) = <Hmac<Sha256> as Mac>::new_from_slice(mac_key) {
+            key
+        } else {
+            return Err(());
+        };
+
+        mac.update(header_str.as_bytes());
+        let result = mac.finalize();
+        let code_bytes = result.into_bytes();
+        Ok(code_bytes.into())
     }
 }
