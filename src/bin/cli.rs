@@ -187,13 +187,10 @@ pub fn main() -> () {
 
         let mut age_crypto = AgeCrypto::new(&db_path);
 
-        let test_salt = [12u8; 16];
-        let file_key: [u8; 16] = [15u8; 16];
-        if let Ok(header) = age_crypto.encrypt_construct_header(pwd.as_slice(), &test_salt, 18, file_key) {
-            println!("header : ");
-            println!("{}", header);
+        if let Ok(_) = age_crypto.encrypt(&db_path, pwd.as_slice()) {
+            println!("encryption successfull");
         } else {
-            println!("error constructing header");
+            println!("error encryption");
         }
     } else if cli_action == CliAction::Encrypt {
         if args_count != 5 {

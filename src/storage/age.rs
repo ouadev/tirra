@@ -265,10 +265,124 @@ impl AgeCrypto {
         Ok(true)
     }
 
+    pub fn encrypt(&mut self, plain_file: &str, password: &[u8]) -> Result<bool, AgeCryptoError> {
+        let test_salt = [12u8; 16];
+        let test_nonce = [12u8; 16];
+        let file_key: [u8; 16] = [15u8; 16];
+
+        //construct header
+        let header_str = match self.internal_construct_header(password, &test_salt, 18, file_key) {
+            Ok(header) => header,
+            Err(err) => return Err(err),
+        };
+
+        //compute payload_key
+        let payload_key = match Self::internal_compute_payload_key(
+            &Vec::from(file_key),
+            &Vec::from(test_nonce),
+        ) {
+            Ok(key) => key,
+            Err(_) => {
+                return Err(AgeCryptoError::ComputePayloadKey);
+            }
+        };
+
+        //open file
+        let file: File = match File::open(&plain_file) {
+            Ok(file) => file,
+            Err(_) => {
+                return Err(AgeCryptoError::FileOpen);
+            }
+        };
+        let mut reader = BufReader::new(file);
+        //self.reader = Some(reader);
+        //open cipher file
+        let enc_filename = format!("{}.tirra.age", &plain_file);
+
+        let mut writer = match File::create(&enc_filename) {
+            Ok(file) => BufWriter::new(file),
+            Err(_) => {
+                return Err(AgeCryptoError::FileOpen);
+            }
+        };
+
+        //Start encrypting
+        ////writer header
+        let _ = match writer.write(header_str.as_bytes()) {
+            Ok(_) => Ok(true),
+            Err(_) => Err(AgeCryptoError::FileWrite),
+        };
+
+        ////write nonce
+        let _ = match writer.write(&test_nonce) {
+            Ok(_) => Ok(true),
+            Err(_) => Err(AgeCryptoError::FileWrite),
+        };
+
+        // seek ahead
+        let end_pos = if let Ok(pos) = reader.seek(SeekFrom::End(0)) {
+            pos
+        } else {
+            return Err(AgeCryptoError::FileRead);
+        };
+
+        if let Err(_) = reader.seek(SeekFrom::Start(0)) {
+            return Err(AgeCryptoError::FileRead);
+        }
+
+        ////write blocks
+        let mut chunk_n = 0u64;
+        let mut last = false;
+        loop {
+            //is there a chunk to read
+            let cursor_pos = if let Ok(pos) = reader.stream_position() {
+                pos
+            } else {
+                return Err(AgeCryptoError::FileRead);
+            };
+
+            if cursor_pos == end_pos {
+                //end of file
+                break;
+            }
+
+            if let Some(chunk_vec) = Self::internal_read_plain_chunk(&mut reader) {
+                if cursor_pos + (chunk_vec.len() as u64) == end_pos {
+                    last = true;
+                }
+                let enc = Self::internal_encrypt_chunk(
+                    &payload_key,
+                    &chunk_vec.as_slice(),
+                    chunk_n,
+                    last,
+                );
+
+                match enc {
+                    Ok(encrypted) => {
+                        let _ = match writer.write_all(encrypted.as_slice()) {
+                            Ok(()) => Ok(true),
+                            Err(_) => Err(AgeCryptoError::FileWrite),
+                        };
+                    }
+                    Err(_) => return Err(AgeCryptoError::Decrypt),
+                }
+
+                chunk_n += 1;
+
+                if last {
+                    break;
+                }
+            } else {
+                return Err(AgeCryptoError::FileRead);
+            }
+        }
+
+        Ok(true)
+    }
     /**
      * Encrypt a plaintext file into age v1
      */
-    pub fn encrypt_construct_header(
+    fn internal_construct_header(
         &mut self,
         password: &[u8],
         scrypt_salt: &[u8],
@@ -322,7 +436,8 @@ impl AgeCrypto {
             }
         };
         //append the base64_hmac
-        header_str.push_str(format!(" {}\n", utils::base64_encode(&Vec::<u8>::from(mac)),).as_str());
+        header_str
+            .push_str(format!(" {}\n", utils::base64_encode(&Vec::<u8>::from(mac)),).as_str());
 
         //return
         Ok(header_str)
@@ -330,6 +445,16 @@ impl AgeCrypto {
 
     fn internal_read_chunk(reader: &mut BufReader<File>) -> Option<Vec<u8>> {
         let bytes_to_read = Self::CHUNK_ENC_SIZE;
+        let mut buf = vec![];
+        let mut chunk = reader.take(bytes_to_read as u64);
+        match chunk.read_to_end(&mut buf) {
+            Ok(_n) => Some(buf),
+            Err(_) => None,
+        }
+    }
+
+    fn internal_read_plain_chunk(reader: &mut BufReader<File>) -> Option<Vec<u8>> {
+        let bytes_to_read = Self::CHUNK_SIZE;
         let mut buf = vec![];
         let mut chunk = reader.take(bytes_to_read as u64);
         match chunk.read_to_end(&mut buf) {
@@ -499,6 +624,29 @@ impl AgeCrypto {
         }
         let cipher = ChaCha20Poly1305::new(payload_key.as_slice().into());
         match cipher.decrypt(&chunk_nonce.to_bytes().into(), chunk.as_ref()) {
+            Ok(dec_content) => {
+                return Ok(dec_content);
+            }
+            Err(err) => {
+                println!("enc error {:?}", err);
+                return Err(());
+            }
+        }
+    }
+
+    fn internal_encrypt_chunk(
+        payload_key: &Vec<u8>,
+        chunk: &[u8],
+        n: u64,
+        last: bool,
+    ) -> Result<Vec<u8>, ()> {
+        let mut chunk_nonce = AgeChunkNonce { 0: 0u128 };
+        chunk_nonce.set_counter(n);
+        if last {
+            let _ = chunk_nonce.set_last(true);
+        }
+        let cipher = ChaCha20Poly1305::new(payload_key.as_slice().into());
+        match cipher.encrypt(&chunk_nonce.to_bytes().into(), chunk.as_ref()) {
             Ok(dec_content) => {
                 return Ok(dec_content);
             }
