@@ -162,12 +162,12 @@ pub fn main() -> () {
         db_path = String::from(&args[2]);
         pwd_file = String::from(&args[3]);
         let pwd = read_pwd_file(&pwd_file);
-
+        let plain_path = format!("{}.tirraplain", db_path);
         let mut age_crypto = AgeCrypto::new(&db_path);
 
         if let Ok(_) = age_crypto.extract_key(pwd.as_slice()) {
             println!("file key extracted successfully");
-            if let Ok(_) = age_crypto.decrypt() {
+            if let Ok(_) = age_crypto.decrypt(&plain_path) {
                 println!("file decrypted successfully");
             } else {
                 println!("failure to decrypt");

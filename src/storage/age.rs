@@ -23,8 +23,6 @@ pub struct AgeScryptHeader {
     for_mac: String,
 }
 
-/// Structured as an 11 bytes of big endian counter, and 1 byte of last block flag
-/// (`0x00 / 0x01`). We store this in the lower 12 bytes of a `u128`.
 #[derive(Clone, Copy, Default)]
 struct AgeChunkNonce(u128);
 
@@ -69,8 +67,7 @@ pub enum AgeCryptoError {
     MacIncorrect,
 }
 pub struct AgeCrypto {
-    db_location: String,
-    db_location_pt: String,
+    file_location: String,
     reader: Option<BufReader<File>>,
     file_key: Vec<u8>,
 }
@@ -88,8 +85,7 @@ impl AgeCrypto {
 
     pub fn new(location: &str) -> Self {
         Self {
-            db_location: location.to_string(),
-            db_location_pt: format!("{}.{}", &location, "agept"),
+            file_location: location.to_string(),
             reader: None,
             file_key: vec![],
         }
@@ -101,7 +97,7 @@ impl AgeCrypto {
     pub fn extract_key(&mut self, password: &[u8]) -> Result<(), AgeCryptoError> {
         let header: AgeScryptHeader;
         //open file
-        let file: File = match File::open(&self.db_location) {
+        let file: File = match File::open(&self.file_location) {
             Ok(file) => file,
             Err(_) => {
                 return Err(AgeCryptoError::FileOpen);
@@ -134,7 +130,7 @@ impl AgeCrypto {
             return Err(AgeCryptoError::ComputeWarpKey);
         };
         //compute file key
-        let file_key = if let Ok(key) = Self::internal_compute_file_key(&header, warp_key_arr) {
+        let file_key = if let Ok(key) = Self::internal_unwrap_file_key(&header.body, warp_key_arr) {
             key
         } else {
             return Err(AgeCryptoError::ComputeFileKey);
@@ -167,7 +163,7 @@ impl AgeCrypto {
     /**
      * Decrypt age file using the extracted key
      */
-    pub fn decrypt(&mut self) -> Result<bool, AgeCryptoError> {
+    pub fn decrypt(&mut self, plain_file_location: &str) -> Result<bool, AgeCryptoError> {
         // reader
         let reader: &mut std::io::BufReader<File>;
         if let Some(r) = &mut self.reader {
@@ -177,7 +173,7 @@ impl AgeCrypto {
         }
 
         //writer
-        let mut writer = match File::create(&self.db_location_pt) {
+        let mut writer = match File::create(plain_file_location) {
             Ok(file) => BufWriter::new(file),
             Err(_) => {
                 return Err(AgeCryptoError::FileOpen);
@@ -232,7 +228,7 @@ impl AgeCrypto {
                 break;
             }
 
-            if let Some(chunk_vec) = Self::internal_read_chunk(reader) {
+            if let Some(chunk_vec) = Self::internal_read_chunk(reader, Self::CHUNK_ENC_SIZE) {
                 if cursor_pos + (chunk_vec.len() as u64) == end_pos {
                     last = true;
                 }
@@ -265,7 +261,11 @@ impl AgeCrypto {
         Ok(true)
     }
 
-    pub fn encrypt(&mut self, plain_file: &str, password: &[u8]) -> Result<bool, AgeCryptoError> {
+    pub fn encrypt(
+        &mut self,
+        enc_file_location: &str,
+        password: &[u8],
+    ) -> Result<bool, AgeCryptoError> {
         let test_salt = [12u8; 16];
         let test_nonce = [12u8; 16];
         let file_key: [u8; 16] = [15u8; 16];
@@ -288,7 +288,7 @@ impl AgeCrypto {
         };
 
         //open file
-        let file: File = match File::open(&plain_file) {
+        let file: File = match File::open(&self.file_location) {
             Ok(file) => file,
             Err(_) => {
                 return Err(AgeCryptoError::FileOpen);
@@ -297,9 +297,7 @@ impl AgeCrypto {
         let mut reader = BufReader::new(file);
         //self.reader = Some(reader);
         //open cipher file
-        let enc_filename = format!("{}.tirra.age", &plain_file);
-
-        let mut writer = match File::create(&enc_filename) {
+        let mut writer = match File::create(&enc_file_location) {
             Ok(file) => BufWriter::new(file),
             Err(_) => {
                 return Err(AgeCryptoError::FileOpen);
@@ -346,7 +344,7 @@ impl AgeCrypto {
                 break;
             }
 
-            if let Some(chunk_vec) = Self::internal_read_plain_chunk(&mut reader) {
+            if let Some(chunk_vec) = Self::internal_read_chunk(&mut reader, Self::CHUNK_SIZE) {
                 if cursor_pos + (chunk_vec.len() as u64) == end_pos {
                     last = true;
                 }
@@ -443,25 +441,15 @@ impl AgeCrypto {
         Ok(header_str)
     }
 
-    fn internal_read_chunk(reader: &mut BufReader<File>) -> Option<Vec<u8>> {
-        let bytes_to_read = Self::CHUNK_ENC_SIZE;
+    fn internal_read_chunk(reader: &mut BufReader<File>, size: usize) -> Option<Vec<u8>> {
         let mut buf = vec![];
-        let mut chunk = reader.take(bytes_to_read as u64);
+        let mut chunk = reader.take(size as u64);
         match chunk.read_to_end(&mut buf) {
             Ok(_n) => Some(buf),
             Err(_) => None,
         }
     }
 
-    fn internal_read_plain_chunk(reader: &mut BufReader<File>) -> Option<Vec<u8>> {
-        let bytes_to_read = Self::CHUNK_SIZE;
-        let mut buf = vec![];
-        let mut chunk = reader.take(bytes_to_read as u64);
-        match chunk.read_to_end(&mut buf) {
-            Ok(_n) => Some(buf),
-            Err(_) => None,
-        }
-    }
     /**
      * parse age file header.
      */
@@ -690,26 +678,8 @@ impl AgeCrypto {
         Ok(warp_key_arr)
     }
 
-    fn internal_compute_file_key(
-        header: &AgeScryptHeader,
-        warp_key_arr: [u8; 32],
-    ) -> Result<Vec<u8>, ()> {
-        //- File_Key = ChaCha20_Decrypt(key = WRAP_KEY, cipher = HEADER_BODY)
-
-        // Unwrap the file_key using the warp_key
-        let unwrapped = Self::internal_unwrap_file_key(&header.body, warp_key_arr);
-        match unwrapped {
-            Ok(file_key) => {
-                return Ok(file_key);
-            }
-            Err(_) => {
-                return Err(());
-            }
-        }
-    }
-
     /**
-     * wrap file_key
+     * wrap/unwrap file_key
      */
     fn internal_wrap_file_key(file_key: &[u8; 16], warp_key: [u8; 32]) -> Result<Vec<u8>, ()> {
         let fixed_nonce: [u8; 12] = [0u8; 12];
@@ -725,9 +695,6 @@ impl AgeCrypto {
     }
 
     fn internal_unwrap_file_key(body: &Vec<u8>, warp_key_arr: [u8; 32]) -> Result<Vec<u8>, ()> {
-        //decrypt key
-        //array warp_key
-        //array nonce
         let fixed_nonce: [u8; 12] = [0u8; 12];
 
         let cipher = ChaCha20Poly1305::new(&warp_key_arr.into());
