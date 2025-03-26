@@ -440,7 +440,6 @@ pub enum AgeCryptoError {
 pub struct AgeCrypto {
     reader: Option<BufReader<File>>,
     header: Option<AgeScryptHeader>,
-    //file_key: [u8; 16],
     payload_nonce: [u8; 16],
     payload_key: [u8; 32],
 }
@@ -457,7 +456,6 @@ impl AgeCrypto {
         Self {
             reader: None,
             header: None,
-            //file_key: [0u8; 16],
             payload_nonce: [0u8; 16],
             payload_key: [0u8; 32],
         }
@@ -604,7 +602,7 @@ impl AgeCrypto {
         )
     }
 
-    pub fn encrypt_test(
+    pub fn encrypt_file(
         &self,
         plain_file_location: &str,
         enc_file_location: &str,

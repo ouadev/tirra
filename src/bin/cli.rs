@@ -2,7 +2,6 @@ use std::env;
 use std::fs::File;
 use std::io::Read;
 use tirra::storage::{
-    age::AgeCrypto,
     db::{self, TirraDb},
     tirracrypto::TirraCrypto,
 };
@@ -16,7 +15,6 @@ tirra-cli add     DB_FILE PWD_FILE DATE
 tirra-cli delete  DB_FILE PWD_FILE ID
 tirra-cli stat    DB_FILE PWD_FILE
 tirra-cli decrypt DB_FILE PWD_FILE
-tirra-cli decage  DB_FILE PWD_FILE
 tirra-cli encrypt DB_FILE PWD_FILE DB_FILE_PLAIN
 
 
@@ -34,8 +32,6 @@ enum CliAction {
     Stat,
     Decrypt,
     Encrypt,
-    DecryptAge,
-    EncryptAge,
 }
 
 pub fn main() -> () {
@@ -59,9 +55,6 @@ pub fn main() -> () {
         "stat" => cli_action = CliAction::Stat,
         "decrypt" => cli_action = CliAction::Decrypt,
         "encrypt" => cli_action = CliAction::Encrypt,
-        "decage" => cli_action = CliAction::DecryptAge,
-        "encage" => cli_action = CliAction::EncryptAge,
-
         _ => {
             println!("{}", USAGE_STR);
             return;
@@ -174,46 +167,6 @@ pub fn main() -> () {
             Err(_) => {
                 println!("failed to encrypt file {}", db_plain);
             }
-        }
-    } else if cli_action == CliAction::DecryptAge {
-        if args_count != 4 {
-            println!("{}", USAGE_STR);
-            return;
-        }
-
-        db_path = String::from(&args[2]);
-        pwd_file = String::from(&args[3]);
-        let pwd = read_pwd_file(&pwd_file);
-        let plain_path = format!("{}.tirraplain", db_path);
-        let mut age_crypto = AgeCrypto::new();
-
-        if let Ok(_) = age_crypto.extract_secrets(&db_path, pwd.as_slice()) {
-            println!("file key extracted successfully");
-            if let Ok(_) = age_crypto.decrypt(&plain_path) {
-                println!("file decrypted successfully");
-            } else {
-                println!("failure to decrypt");
-            }
-        } else {
-            println!("error extracting file key from age file");
-        }
-    } else if cli_action == CliAction::EncryptAge {
-        if args_count != 4 {
-            println!("{}", USAGE_STR);
-            return;
-        }
-
-        db_path = String::from(&args[2]);
-        pwd_file = String::from(&args[3]);
-        let pwd = read_pwd_file(&pwd_file);
-
-        let age_crypto = AgeCrypto::new();
-        let enc_path = format!("{}.tirrage", db_path);
-
-        if let Ok(_) = age_crypto.encrypt_test(&db_path, &enc_path, pwd.as_slice()) {
-            println!("encryption successfull");
-        } else {
-            println!("error encryption");
         }
     }
 }

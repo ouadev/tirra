@@ -109,7 +109,7 @@ impl TirraCrypto {
     pub fn encrypt_file(&self, password: &[u8]) -> Result<bool, ()> {
         let age_crypto = AgeCrypto::new();
 
-        if let Ok(_) = age_crypto.encrypt_test(&self.db_location_pt, &self.db_location, password) {
+        if let Ok(_) = age_crypto.encrypt_file(&self.db_location_pt, &self.db_location, password) {
             return Ok(true);
         } else {
             return Err(());
