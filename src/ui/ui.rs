@@ -96,7 +96,7 @@ impl LoginUi {
                 let empty_added =
                     tirra_db.add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, db::TIRRA_FIRST_ENTRY_TEXT);
                 if let Err(_x) = empty_added {
-                    exception("database init");
+                    exception("database init, couldn't add first entry");
                 }
                 self.logged_in = true;
             } else {

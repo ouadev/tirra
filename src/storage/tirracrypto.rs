@@ -23,7 +23,6 @@ impl TirraCrypto {
     pub fn new(location_encrypted: &str, location_plain: &str, password: &[u8]) -> Self {
         Self {
             db_location: location_encrypted.to_string(),
-            //db_location_pt: format!("{}.{}", &location, "plaintext"),
             db_location_pt: location_plain.to_string(),
             password: Vec::<u8>::from(password),
             age: None,
@@ -70,7 +69,14 @@ impl TirraCrypto {
 
             None => {
                 println!("crypto information is absent");
-                return Err(());
+                let age_crypto = AgeCrypto::new();
+                if let Ok(_) =
+                    age_crypto.encrypt_file(&self.db_location_pt, &self.db_location, &self.password)
+                {
+                    return Ok(true);
+                } else {
+                    return Err(());
+                }
             }
         }
     }
@@ -82,7 +88,6 @@ impl TirraCrypto {
     pub fn tirra_decrypt_db(&mut self) -> Result<bool, ()> {
         // extract secrets, only once
         if self.age.is_none() {
-            println!("tirra_decrypt_db: age is none");
             let mut age_crypto = AgeCrypto::new();
             age_crypto
                 .extract_secrets(&self.db_location, &self.password)
