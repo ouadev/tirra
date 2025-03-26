@@ -209,10 +209,10 @@ pub fn main() -> () {
         pwd_file = String::from(&args[3]);
         let pwd = read_pwd_file(&pwd_file);
 
-        let mut age_crypto = AgeCrypto::new();
+        let age_crypto = AgeCrypto::new();
         let enc_path = format!("{}.tirrage", db_path);
 
-        if let Ok(_) = age_crypto.encrypt(&db_path, &enc_path, pwd.as_slice()) {
+        if let Ok(_) = age_crypto.encrypt_test(&db_path, &enc_path, pwd.as_slice()) {
             println!("encryption successfull");
         } else {
             println!("error encryption");

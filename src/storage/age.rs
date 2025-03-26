@@ -574,8 +574,8 @@ impl AgeCrypto {
         Ok(true)
     }
 
-    pub fn encrypt(
-        &mut self,
+    pub fn encrypt_test(
+        &self,
         plain_file_location: &str,
         enc_file_location: &str,
         password: &[u8],
@@ -592,6 +592,24 @@ impl AgeCrypto {
         let payload_key = Self::compute_payload_key(&file_key, &Vec::from(test_nonce))
             .map_err(|_| AgeCryptoError::ComputePayloadKey)?;
 
+        //encrypt with
+        self.encrypt_with(
+            plain_file_location,
+            enc_file_location,
+            &header,
+            &test_nonce,
+            &payload_key,
+        )
+    }
+
+    pub fn encrypt_with(
+        &self,
+        plain_file_location: &str,
+        enc_file_location: &str,
+        header: &AgeScryptHeader,
+        nonce: &[u8; 16],
+        payload_key: &[u8; 32],
+    ) -> Result<bool, AgeCryptoError> {
         //open file
         let file: File = match File::open(plain_file_location) {
             Ok(file) => file,
@@ -616,9 +634,7 @@ impl AgeCrypto {
             .map_err(|_| AgeCryptoError::FileWrite)?;
 
         ////write nonce
-        writer
-            .write(&test_nonce)
-            .map_err(|_| AgeCryptoError::FileWrite)?;
+        writer.write(nonce).map_err(|_| AgeCryptoError::FileWrite)?;
 
         ////write blocks
         let end_pos = Self::stream_size(&mut reader).map_err(|_| AgeCryptoError::FileRead)?;
