@@ -62,10 +62,8 @@ impl TirraCrypto {
         match &self.age {
             Some(age) => {
                 if let Ok(_) = age.encrypt_with_same(&self.db_location_pt, &self.db_location) {
-                    println!("encryption successfull");
                     return Ok(true);
                 } else {
-                    println!("error encryption");
                     return Err(());
                 }
             }
@@ -84,6 +82,7 @@ impl TirraCrypto {
     pub fn tirra_decrypt_db(&mut self) -> Result<bool, ()> {
         // extract secrets, only once
         if self.age.is_none() {
+            println!("tirra_decrypt_db: age is none");
             let mut age_crypto = AgeCrypto::new();
             age_crypto
                 .extract_secrets(&self.db_location, &self.password)
@@ -101,7 +100,6 @@ impl TirraCrypto {
                 return Err(());
             }
         }
-
         Ok(true)
     }
 

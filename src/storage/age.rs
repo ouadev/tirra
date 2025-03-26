@@ -449,6 +449,9 @@ impl AgeCrypto {
     const PAYLOAD_KEY_LABEL: &[u8] = b"payload";
     const CHUNK_SIZE: usize = 65536;
     const CHUNK_ENC_SIZE: usize = Self::CHUNK_SIZE + 16;
+    const HEADER_SIZE: usize = 150;
+    const NONCE_SIZE: usize = 16;
+    const PAYLOAD_POSITION: usize = Self::HEADER_SIZE + Self::NONCE_SIZE;
 
     pub fn new() -> Self {
         Self {
@@ -527,6 +530,7 @@ impl AgeCrypto {
         };
 
         // Note: BufReader should point at the start of the payload.
+        Self::stream_seek_payload(reader).map_err(|_| AgeCryptoError::FileRead)?;
         //decrypt first chunk
         let end_pos = Self::stream_size(reader).map_err(|_| AgeCryptoError::FileRead)?;
         let mut chunk_n = 0u64;
@@ -801,5 +805,13 @@ impl AgeCrypto {
         }
 
         Ok(end_pos)
+    }
+    /**
+     * set the reader to the position where payload is expected to start.
+     */
+    fn stream_seek_payload(reader: &mut BufReader<File>) -> Result<u64, ()> {
+        reader
+            .seek(SeekFrom::Start(Self::PAYLOAD_POSITION as u64))
+            .map_err(|_| ())
     }
 }
