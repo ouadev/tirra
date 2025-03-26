@@ -57,9 +57,10 @@ pub fn main() -> () {
         "delete" => cli_action = CliAction::Delete,
         "stat" => cli_action = CliAction::Stat,
         "decrypt" => cli_action = CliAction::Decrypt,
+        "encrypt" => cli_action = CliAction::Encrypt,
         "decage" => cli_action = CliAction::DecryptAge,
         "encage" => cli_action = CliAction::EncryptAge,
-        "encrypt" => cli_action = CliAction::Encrypt,
+
         _ => {
             println!("{}", USAGE_STR);
             return;
@@ -153,6 +154,29 @@ pub fn main() -> () {
                 println!("failed to decrypt file {}", tirra_db.get_db_location());
             }
         }
+    } else if cli_action == CliAction::Encrypt {
+        if args_count != 5 {
+            println!("{}", USAGE_STR);
+            return;
+        }
+
+        db_path = String::from(&args[2]);
+        pwd_file = String::from(&args[3]);
+        let db_plain = String::from(&args[4]);
+
+        //init db
+        let tirra_db = init_db(db_path, pwd_file);
+
+        let encrypted = tirra_db.root_encrypt_plaintext(&db_plain);
+
+        match encrypted {
+            Ok(_) => {
+                println!("file successfully encrypted");
+            }
+            Err(_) => {
+                println!("failed to encrypt file {}", tirra_db.get_db_location());
+            }
+        }
     } else if cli_action == CliAction::DecryptAge {
         if args_count != 4 {
             println!("{}", USAGE_STR);
@@ -193,29 +217,6 @@ pub fn main() -> () {
         } else {
             println!("error encryption");
         }
-    } else if cli_action == CliAction::Encrypt {
-        if args_count != 5 {
-            println!("{}", USAGE_STR);
-            return;
-        }
-
-        db_path = String::from(&args[2]);
-        pwd_file = String::from(&args[3]);
-        let db_plain = String::from(&args[4]);
-
-        //init db
-        let tirra_db = init_db(db_path, pwd_file);
-
-        let encrypted = tirra_db.root_encrypt_plaintext(&db_plain);
-
-        match encrypted {
-            Ok(_) => {
-                println!("file successfully encrypted");
-            }
-            Err(_) => {
-                println!("failed to encrypt file {}", tirra_db.get_db_location());
-            }
-        }
     }
 }
 
@@ -228,9 +229,9 @@ fn init_db(db_path: String, pwd_path: String) -> TirraDb {
     //Init Tirra Db
     let tirra_db = TirraDb::with_crypto(&db_path, &pwd);
     //check if the database if found.
-    if TirraDb::db_exists(&db_path) == false {
-        panic!("database file doesn't exist");
-    }
+    //if TirraDb::db_exists(&db_path) == false {
+    //    panic!("database file doesn't exist");
+    //}
     return tirra_db;
 }
 

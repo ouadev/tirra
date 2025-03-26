@@ -536,7 +536,7 @@ impl TirraDb {
             process::id(),
             std::env::consts::OS
         );
-        TirraCrypto::tirra_hash_sha256(unique_id_feed.as_str())
+        utils::hash_sha256(unique_id_feed.as_str())
     }
 
     /**

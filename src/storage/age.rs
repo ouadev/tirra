@@ -30,7 +30,6 @@ impl AgeScryptHeader {
     const AGE_STANZA_START: &str = "->";
     const AGE_STANZA_SCRYPT: &str = "scrypt";
     const AGE_MAC_START: &str = "---";
-
     const MAC_KEY_LABEL: &[u8] = b"header";
     const SALT_PREPEND_LABEL: &[u8] = b"age-encryption.org/v1/scrypt";
 
@@ -56,34 +55,18 @@ impl AgeScryptHeader {
         header.work_factor = work_factor;
 
         //calculate warp key
-        let warp_key = if let Ok(key) = Self::warp_key(password, &header.salt, header.work_factor) {
-            key
-        } else {
-            return Err(AgeCryptoError::ComputeWarpKey);
-        };
-        //warp file_key using warp_key
-        let wraped_vec = match Self::wrap_file_key(&file_key, warp_key) {
-            Ok(key) => key,
-            Err(_) => {
-                return Err(AgeCryptoError::Encrypt);
-            }
-        };
+        let warp_key = Self::warp_key(password, &header.salt, header.work_factor)
+            .map_err(|_| AgeCryptoError::ComputeWarpKey)?;
 
-        let wrapped_file_key = if let Ok(val) = wraped_vec.as_slice().try_into() {
-            val
-        } else {
-            return Err(AgeCryptoError::Encrypt);
-        };
+        //warp file_key using warp_key
+        let wrapped_file_key =
+            Self::wrap_file_key(&file_key, warp_key).map_err(|_| AgeCryptoError::Encrypt)?;
 
         // set body
         header.body = wrapped_file_key;
+
         //mac key
-        let mac_key = match Self::mac_key(&file_key) {
-            Ok(key) => key,
-            Err(_) => {
-                return Err(AgeCryptoError::Encrypt);
-            }
-        };
+        let mac_key = Self::mac_key(&file_key).map_err(|_| AgeCryptoError::Encrypt)?;
         //set mac
         header.set_mac(&mac_key);
 
@@ -348,17 +331,17 @@ impl AgeScryptHeader {
     /**
      * wrap file_key
      */
-    fn wrap_file_key(file_key: &[u8; 16], warp_key: [u8; 32]) -> Result<Vec<u8>, ()> {
+    fn wrap_file_key(file_key: &[u8; 16], warp_key: [u8; 32]) -> Result<[u8; 32], ()> {
         let fixed_nonce: [u8; 12] = [0u8; 12];
         let cipher = ChaCha20Poly1305::new(&warp_key.into());
-        match cipher.encrypt(&fixed_nonce.into(), file_key.as_ref()) {
-            Ok(content) => {
-                return Ok(content);
-            }
+        let key_vec = match cipher.encrypt(&fixed_nonce.into(), file_key.as_ref()) {
+            Ok(content) => content,
             Err(_) => {
                 return Err(());
             }
-        }
+        };
+
+        Ok(key_vec.as_slice().try_into().map_err(|_| ())?)
     }
     /**
      * unwrap file_key
@@ -458,6 +441,8 @@ pub struct AgeCrypto {
     file_location: String,
     reader: Option<BufReader<File>>,
     file_key: [u8; 16],
+    payload_nonce: [u8; 16],
+    payload_key: [u8; 32],
 }
 
 impl AgeCrypto {
@@ -470,6 +455,8 @@ impl AgeCrypto {
             file_location: location.to_string(),
             reader: None,
             file_key: [0u8; 16],
+            payload_nonce: [0u8; 16],
+            payload_key: [0u8; 32],
         }
     }
 
@@ -478,19 +465,12 @@ impl AgeCrypto {
      */
     pub fn extract_key(&mut self, password: &[u8]) -> Result<(), AgeCryptoError> {
         //open file
-        let file: File = match File::open(&self.file_location) {
-            Ok(file) => file,
-            Err(_) => {
-                return Err(AgeCryptoError::FileOpen);
-            }
-        };
+        let file = File::open(&self.file_location).map_err(|_| AgeCryptoError::FileOpen)?;
+
         let mut reader = BufReader::new(file);
 
         //parse header
         let header = AgeScryptHeader::from_reader(&mut reader)?;
-
-        //header parsed.
-        println!("header:\n{}", header.build_string());
 
         //extract file key
         let file_key = header
@@ -505,8 +485,19 @@ impl AgeCrypto {
             return Err(AgeCryptoError::AgeFormat);
         }
 
+        // retrieve payload nonce
+        let mut nonce: [u8; 16] = [0u8; 16];
+        if let Err(_) = reader.read_exact(&mut nonce) {
+            return Err(AgeCryptoError::FileRead);
+        }
+
+        // compute payload key
+        self.payload_key = Self::compute_payload_key(&file_key, &Vec::from(nonce))
+            .map_err(|_| AgeCryptoError::ComputePayloadKey)?;
+
         self.reader = Some(reader);
         self.file_key = file_key;
+        self.payload_nonce = nonce;
         Ok(())
     }
 
@@ -531,20 +522,6 @@ impl AgeCrypto {
         };
 
         // Note: BufReader should point at the start of the payload.
-        // get nonce
-        let mut nonce: [u8; 16] = [0u8; 16];
-        if let Err(_) = reader.read_exact(&mut nonce) {
-            return Err(AgeCryptoError::FileRead);
-        }
-
-        // compute payload key
-        let payload_key = match Self::compute_payload_key(&self.file_key, &Vec::from(nonce)) {
-            Ok(key) => key,
-            Err(_) => {
-                return Err(AgeCryptoError::ComputePayloadKey);
-            }
-        };
-
         //decrypt first chunk
         let end_pos = Self::stream_size(reader).map_err(|_| AgeCryptoError::FileRead)?;
         let mut chunk_n = 0u64;
@@ -567,7 +544,7 @@ impl AgeCrypto {
                     last = true;
                 }
                 let dec = Self::internal_decrypt_chunk(
-                    &payload_key,
+                    &self.payload_key,
                     &chunk_vec.as_slice(),
                     chunk_n,
                     last,
@@ -701,7 +678,7 @@ impl AgeCrypto {
     }
 
     fn internal_decrypt_chunk(
-        payload_key: &Vec<u8>,
+        payload_key: &[u8; 32],
         chunk: &[u8],
         n: u64,
         last: bool,
@@ -724,7 +701,7 @@ impl AgeCrypto {
     }
 
     fn internal_encrypt_chunk(
-        payload_key: &Vec<u8>,
+        payload_key: &[u8; 32],
         chunk: &[u8],
         n: u64,
         last: bool,
@@ -746,13 +723,13 @@ impl AgeCrypto {
         }
     }
 
-    fn compute_payload_key(file_key: &[u8; 16], nonce: &Vec<u8>) -> Result<Vec<u8>, ()> {
+    fn compute_payload_key(file_key: &[u8; 16], nonce: &Vec<u8>) -> Result<[u8; 32], ()> {
         let mut okm = [0; 32];
         let payload_key_computed = Hkdf::<Sha256>::new(Some(nonce.as_slice()), file_key.as_slice())
             .expand(Self::PAYLOAD_KEY_LABEL, &mut okm);
         match payload_key_computed {
             Ok(()) => {
-                return Ok(Vec::from(okm));
+                return Ok(okm);
             }
             Err(_) => {
                 return Err(());

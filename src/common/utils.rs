@@ -5,6 +5,7 @@ use base64::{
 };
 use chrono::{DateTime, Utc};
 use std::time::SystemTime;
+use sha2::{Digest, Sha256};
 
 /**
  * convert a timestamp into a datatime structure
@@ -77,4 +78,12 @@ pub fn base64_encode(bin: &Vec<u8>) -> String {
     //base64 decoding
     let b64_engine = GeneralPurpose::new(&alphabet::STANDARD, NO_PAD);
     b64_engine.encode(bin)
+}
+
+
+pub fn hash_sha256(entropy: &str) -> Vec<u8> {
+    let mut hasher = Sha256::new();
+    hasher.update(entropy);
+    let result = hasher.finalize();
+    result.as_slice().to_vec()
 }
