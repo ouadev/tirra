@@ -15,7 +15,7 @@ tirra-cli add     DB_FILE PWD_FILE DATE
 tirra-cli delete  DB_FILE PWD_FILE ID
 tirra-cli stat    DB_FILE PWD_FILE
 tirra-cli decrypt DB_FILE PWD_FILE
-tirra-cli encrypt DB_FILE PWD_FILE DB_FILE_PLAIN
+tirra-cli encrypt PL_FILE PWD_FILE 
 
 
 DB_FILE         : path to a tirra database
@@ -35,10 +35,6 @@ enum CliAction {
 }
 
 pub fn main() -> () {
-    let db_path;
-    let pwd_file: String;
-    let timestamp: u64;
-    let id: u32;
     // check arguments
     let cli_action: CliAction;
     let args: Vec<String> = env::args().collect();
@@ -66,9 +62,9 @@ pub fn main() -> () {
             panic!("{}", USAGE_STR);
         }
 
-        db_path = String::from(&args[2]);
-        pwd_file = String::from(&args[3]);
-        timestamp = args[4].parse().unwrap();
+        let db_path = String::from(&args[2]);
+        let pwd_file = String::from(&args[3]);
+        let timestamp = args[4].parse().unwrap();
 
         //init db
         let mut tirra_db = init_db(db_path, pwd_file);
@@ -97,9 +93,9 @@ pub fn main() -> () {
             panic!("{}", USAGE_STR);
         }
 
-        db_path = String::from(&args[2]);
-        pwd_file = String::from(&args[3]);
-        id = args[4].parse().unwrap();
+        let db_path = String::from(&args[2]);
+        let pwd_file = String::from(&args[3]);
+        let id = args[4].parse().unwrap();
 
         //init db
         let mut tirra_db = init_db(db_path, pwd_file);
@@ -120,8 +116,8 @@ pub fn main() -> () {
             return;
         }
 
-        db_path = String::from(&args[2]);
-        pwd_file = String::from(&args[3]);
+        let db_path = String::from(&args[2]);
+        let pwd_file = String::from(&args[3]);
 
         //init db
         let mut tirra_db = init_db(db_path, pwd_file);
@@ -132,11 +128,11 @@ pub fn main() -> () {
             return;
         }
 
-        db_path = String::from(&args[2]);
-        pwd_file = String::from(&args[3]);
+        let db_path = String::from(&args[2]);
+        let pwd_file = String::from(&args[3]);
 
         let pwd = read_pwd_file(&pwd_file);
-        let plain_path = format!("{}.cli", db_path);
+        let plain_path = format!("{}.tirra", db_path);
         let mut crypto = TirraCrypto::new(&db_path, &plain_path, &pwd);
 
         match crypto.tirra_decrypt_db() {
@@ -148,24 +144,24 @@ pub fn main() -> () {
             }
         }
     } else if cli_action == CliAction::Encrypt {
-        if args_count != 5 {
+        if args_count != 4 {
             println!("{}", USAGE_STR);
             return;
         }
 
-        db_path = String::from(&args[2]);
-        pwd_file = String::from(&args[3]);
-        let db_plain = String::from(&args[4]);
+        let clear_path = String::from(&args[2]);
+        let enc_path = format!("{}.tirrage", clear_path);
+        let pwd_file = String::from(&args[3]);
 
         let pwd = read_pwd_file(&pwd_file);
-        let crypto = TirraCrypto::new(&db_path, &db_plain, &pwd);
+        let crypto = TirraCrypto::new(&enc_path, &clear_path, &pwd);
 
         match crypto.encrypt_file(&pwd) {
             Ok(_) => {
                 println!("file successfully encrypted");
             }
             Err(_) => {
-                println!("failed to encrypt file {}", db_plain);
+                println!("failed to encrypt file {}", clear_path);
             }
         }
     }
