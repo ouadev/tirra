@@ -182,8 +182,9 @@ impl TirraDb {
     }
 
     pub fn with_crypto(location: &str, password: &[u8]) -> Self {
+        let plain = format!("{}.{}", &location, "plaintext");
         Self {
-            crypto: TirraCrypto::new(location, password),
+            crypto: TirraCrypto::new(location, plain.as_str(), password),
         }
     }
 
@@ -255,7 +256,7 @@ impl TirraDb {
     /**
      * Create a new entry in the database
      */
-    pub fn add_entry(&self, type_entry: u8, text_entry: &str) -> Result<(), TirraDbError> {
+    pub fn add_entry(&mut self, type_entry: u8, text_entry: &str) -> Result<(), TirraDbError> {
         let now = utils::time_now();
 
         self.internal_add_entry(type_entry, text_entry, now, now)
@@ -264,7 +265,7 @@ impl TirraDb {
     /**
      * Save content to db
      */
-    pub fn update_entry(&self, text_entry: &str, entry_id: u32) -> Result<(), TirraDbError> {
+    pub fn update_entry(&mut self, text_entry: &str, entry_id: u32) -> Result<(), TirraDbError> {
         let mut db = self.access_start()?;
         let now = utils::time_now();
 
@@ -300,7 +301,7 @@ impl TirraDb {
     /**
      * Create a new entry in the database
      */
-    pub fn remove_entry(&self, id_entry: u32) -> Result<(), TirraDbError> {
+    pub fn remove_entry(&mut self, id_entry: u32) -> Result<(), TirraDbError> {
         let mut db = self.access_start()?;
         let now = utils::time_now();
 
@@ -330,28 +331,19 @@ impl TirraDb {
     /**
      * check the provided crypto can access the database
      */
-    pub fn try_access(&self) -> bool {
+    pub fn try_access(&mut self) -> bool {
         // decrypt the db
-        let result = self.crypto.tirra_decrypt_db();
-
-        match result {
-            Ok(_b) => {
-                return true;
-            }
-            Err(_) => {
-                return false;
-            }
-        }
+        self.crypto.tirra_probe_db().is_ok()
     }
 
     /**
      * Retrieve all entries to memory. NO PAGING
      */
-    pub fn get_entries_default(&self) -> Result<TirraEntryList, TirraDbError> {
+    pub fn get_entries_default(&mut self) -> Result<TirraEntryList, TirraDbError> {
         self.get_entries_by_filter(Self::DEFAULT_SQL_FILTER)
     }
 
-    pub fn get_entries_by_filter(&self, filter: &str) -> Result<TirraEntryList, TirraDbError> {
+    pub fn get_entries_by_filter(&mut self, filter: &str) -> Result<TirraEntryList, TirraDbError> {
         let db = self.access_start()?;
         let mut vec_entries = Vec::new();
 
@@ -412,7 +404,7 @@ impl TirraDb {
     /**
      * retrieve information block from database.
      */
-    pub fn information(&self) -> Result<TirraDbInformation, TirraDbError> {
+    pub fn information(&mut self) -> Result<TirraDbInformation, TirraDbError> {
         let db = self.access_start()?;
         let result: Result<TirraDbInformation, TirraDbError>;
 
@@ -481,32 +473,12 @@ impl TirraDb {
      * Create a new entry in the database
      */
     pub fn root_add_entry(
-        &self,
+        &mut self,
         type_entry: u8,
         text_entry: &str,
         create_date: u64,
     ) -> Result<(), TirraDbError> {
         self.internal_add_entry(type_entry, text_entry, create_date, create_date)
-    }
-
-    /**
-     * decrypt db file and write it to disk for possible manual analysis
-     */
-    pub fn root_reveal_to_disk(&self) -> Result<bool, TirraDbError> {
-        // decrypt the db
-        self.crypto
-            .tirra_decrypt_db()
-            .map_err(|_e| TirraDbError::CryptoAccessFailure)
-    }
-
-    /**
-     * re-encrypt a plaintext db file
-     */
-    pub fn root_encrypt_plaintext(&self, db_plain: &str) -> Result<bool, TirraDbError> {
-        // encrypt the db
-        self.crypto
-            .tirra_encrypt_db_file(db_plain)
-            .map_err(|_e| TirraDbError::CryptoAccessFailure)
     }
 
     /**
@@ -543,7 +515,7 @@ impl TirraDb {
      * Start access to db.
      */
 
-    fn access_start(&self) -> Result<Connection, TirraDbError> {
+    fn access_start(&mut self) -> Result<Connection, TirraDbError> {
         // decrypt the db
         self.crypto
             .tirra_decrypt_db()
@@ -582,7 +554,7 @@ impl TirraDb {
      * Helper Function: Add Entry.
      */
     fn internal_add_entry(
-        &self,
+        &mut self,
         type_entry: u8,
         text_entry: &str,
         create_date: u64,
@@ -642,7 +614,7 @@ impl TirraDb {
     /**
      * Set Origin Commit
      */
-    pub fn information_set_origin_commit(&self) -> Result<(), TirraDbError> {
+    pub fn information_set_origin_commit(&mut self) -> Result<(), TirraDbError> {
         let mut db = self.access_start()?;
 
         // start transaction

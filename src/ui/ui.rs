@@ -81,7 +81,7 @@ impl LoginUi {
     }
 
     pub fn on_login(&mut self) {
-        let tirra_db = TirraDb::with_crypto(&self.db_location, self.password.as_bytes());
+        let mut tirra_db = TirraDb::with_crypto(&self.db_location, self.password.as_bytes());
 
         if self.db_found == false {
             // Database is not found, start initialization of a new one at the same location.
@@ -305,7 +305,7 @@ impl WriterUi {
         if !self.is_readonly() {
             match self.tirra_db.add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "") {
                 Ok(()) => {
-                    self.entry_list = self.reload_all(Some(&self.load_request));
+                    self.entry_list = self.reload_all(Some(&self.load_request.clone()));
                     self.curr_entry_id = self.entry_list.greatest_id_entry().map(|ent| ent.id);
                 }
                 _ => {
@@ -417,7 +417,7 @@ impl WriterUi {
         }
     }
 
-    fn reload_all(&self, request_filter: Option<&String>) -> TirraEntryList {
+    fn reload_all(&mut self, request_filter: Option<&String>) -> TirraEntryList {
         let entries_obj = if let Some(filter) = request_filter {
             self.tirra_db.get_entries_by_filter(&filter)
         } else {
@@ -436,7 +436,7 @@ impl WriterUi {
     fn save_and_reload(&mut self) {
         if self.editor_dirty {
             self.write_current_entry();
-            self.entry_list = self.reload_all(Some(&self.load_request));
+            self.entry_list = self.reload_all(Some(&self.load_request.clone()));
             self.editor_dirty = false;
         }
     }

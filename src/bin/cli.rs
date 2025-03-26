@@ -4,6 +4,7 @@ use std::io::Read;
 use tirra::storage::{
     age::AgeCrypto,
     db::{self, TirraDb},
+    tirracrypto::TirraCrypto,
 };
 
 // Command Line Usage
@@ -77,7 +78,7 @@ pub fn main() -> () {
         timestamp = args[4].parse().unwrap();
 
         //init db
-        let tirra_db = init_db(db_path, pwd_file);
+        let mut tirra_db = init_db(db_path, pwd_file);
 
         // Read the content of a file, and add an entry
         let mut tx_file = File::open("tirra-source.txt").unwrap();
@@ -108,7 +109,7 @@ pub fn main() -> () {
         id = args[4].parse().unwrap();
 
         //init db
-        let tirra_db = init_db(db_path, pwd_file);
+        let mut tirra_db = init_db(db_path, pwd_file);
 
         let removed = tirra_db.remove_entry(id);
 
@@ -130,8 +131,8 @@ pub fn main() -> () {
         pwd_file = String::from(&args[3]);
 
         //init db
-        let tirra_db = init_db(db_path, pwd_file);
-        print_stats(&tirra_db);
+        let mut tirra_db = init_db(db_path, pwd_file);
+        print_stats(&mut tirra_db);
     } else if cli_action == CliAction::Decrypt {
         if args_count != 4 {
             println!("{}", USAGE_STR);
@@ -141,17 +142,16 @@ pub fn main() -> () {
         db_path = String::from(&args[2]);
         pwd_file = String::from(&args[3]);
 
-        //init db
-        let tirra_db = init_db(db_path, pwd_file);
+        let pwd = read_pwd_file(&pwd_file);
+        let plain_path = format!("{}.cli", db_path);
+        let mut crypto = TirraCrypto::new(&db_path, &plain_path, &pwd);
 
-        let decrypted = tirra_db.root_reveal_to_disk();
-
-        match decrypted {
+        match crypto.tirra_decrypt_db() {
             Ok(_) => {
                 println!("file successfully decrypted");
             }
             Err(_) => {
-                println!("failed to decrypt file {}", tirra_db.get_db_location());
+                println!("failed to decrypt file {}", &db_path);
             }
         }
     } else if cli_action == CliAction::Encrypt {
@@ -164,17 +164,15 @@ pub fn main() -> () {
         pwd_file = String::from(&args[3]);
         let db_plain = String::from(&args[4]);
 
-        //init db
-        let tirra_db = init_db(db_path, pwd_file);
+        let pwd = read_pwd_file(&pwd_file);
+        let crypto = TirraCrypto::new(&db_path, &db_plain, &pwd);
 
-        let encrypted = tirra_db.root_encrypt_plaintext(&db_plain);
-
-        match encrypted {
+        match crypto.encrypt_file(&pwd) {
             Ok(_) => {
                 println!("file successfully encrypted");
             }
             Err(_) => {
-                println!("failed to encrypt file {}", tirra_db.get_db_location());
+                println!("failed to encrypt file {}", db_plain);
             }
         }
     } else if cli_action == CliAction::DecryptAge {
@@ -243,7 +241,7 @@ fn read_pwd_file(pwd_file: &str) -> Vec<u8> {
     content_pwd
 }
 
-fn print_stats(db: &TirraDb) {
+fn print_stats(db: &mut TirraDb) {
     // Get Entries
     let all_entries = db
         .get_entries_default()

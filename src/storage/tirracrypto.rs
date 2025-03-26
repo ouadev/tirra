@@ -1,27 +1,10 @@
-use chacha20poly1305::{
-    aead::{Aead, AeadCore, KeyInit, OsRng},
-    ChaCha20Poly1305,
-};
-use sha2::{Digest, Sha256};
-use std::fs;
-use std::path::Path;
-
-const NONCE: [u8; 12] = [
-    0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc,
-];
-const PBKDF2_SALT: [u8; 8] = [0x21, 0xbc, 0x21, 0xbc, 0x21, 0xbc, 0x21, 0x65];
-const PBKDF2_ITERATIONS: u32 = 600u32;
-
-#[derive(Debug, Clone)]
-pub struct TirraSecrets {
-    pub key: [u8; 32],
-    pub nonce: [u8; 12],
-}
+use super::age::AgeCrypto;
 
 pub struct TirraCrypto {
     db_location: String,
     db_location_pt: String,
-    secrets: TirraSecrets,
+    password: Vec<u8>,
+    age: Option<AgeCrypto>,
 }
 
 impl Default for TirraCrypto {
@@ -29,109 +12,68 @@ impl Default for TirraCrypto {
         Self {
             db_location: String::new(),
             db_location_pt: String::new(),
-            secrets: TirraCrypto::key_and_nonce_from_pwd("".as_bytes()),
+            password: vec![],
+            age: None,
         }
     }
 }
 
+//TODO: pwd removed after used to unwrap other secrets.
 impl TirraCrypto {
-    pub fn new(location: &str, password: &[u8]) -> Self {
+    pub fn new(location_encrypted: &str, location_plain: &str, password: &[u8]) -> Self {
         Self {
-            db_location: location.to_string(),
-            db_location_pt: format!("{}.{}", &location, "plaintext"),
-            secrets: TirraCrypto::key_and_nonce_from_pwd(password),
+            db_location: location_encrypted.to_string(),
+            //db_location_pt: format!("{}.{}", &location, "plaintext"),
+            db_location_pt: location_plain.to_string(),
+            password: Vec::<u8>::from(password),
+            age: None,
         }
-    }
-
-    /**
-     * PBKDF2(user_password + salt) => 32 Bytes key
-     */
-    fn key_and_nonce_from_pwd(password: &[u8]) -> TirraSecrets {
-        let mut key: [u8; 32] = [0u8; 32];
-        pbkdf2::pbkdf2_hmac::<sha2::Sha256>(password, &PBKDF2_SALT, PBKDF2_ITERATIONS, &mut key);
-        TirraSecrets {
-            key: key,
-            nonce: NONCE,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn tirra_init_crypto() -> TirraSecrets {
-        //create a random key & nonce for encryption testing
-
-        let mut key_nonce_struct = TirraSecrets {
-            key: [0u8; 32],
-            nonce: [0u8; 12],
-        };
-
-        key_nonce_struct.key = ChaCha20Poly1305::generate_key(&mut OsRng).into();
-        key_nonce_struct.nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng).into();
-        key_nonce_struct
-    }
-
-    /**
-     * clone for a new path
-     */
-    pub fn clone_new_db_location(&self, new_location: &str) -> Self {
-        Self {
-            db_location: new_location.to_string(),
-            db_location_pt: format!("{}.{}", &new_location, "plaintext"),
-            secrets: self.secrets.clone(),
-        }
-    }
-
-    pub fn enc_db_found(&self) -> bool {
-        Path::new(&self.db_location).exists()
     }
 
     pub fn get_db_location(&self) -> String {
         self.db_location.clone()
     }
+
+    /**
+     * only analyze header, to check access
+     */
+    pub fn tirra_probe_db(&mut self) -> Result<(), ()> {
+        match &mut self.age {
+            Some(_age) => {
+                //this function shouldn't be called if we are already have an age instance
+                return Err(());
+            }
+            _ => {
+                let mut age_crypto = AgeCrypto::new();
+                age_crypto
+                    .extract_secrets(&self.db_location, &self.password)
+                    .map_err(|_| ())?;
+
+                self.age = Some(age_crypto);
+                return Ok(());
+            }
+        }
+    }
+
     /**
      * Encrypt Db
      */
     pub fn tirra_encrypt_db(&self) -> Result<bool, ()> {
-        // PASSPHRASE
-        let secret_struct = &self.secrets;
-
-        //encrypt small file
-        let cipher = ChaCha20Poly1305::new(&secret_struct.key.into());
-
-        match fs::read(&self.db_location_pt) {
-            Ok(file_data) => {
-                match cipher.encrypt(&secret_struct.nonce.into(), file_data.as_ref()) {
-                    Ok(enc_file) => match fs::write(&self.db_location, enc_file) {
-                        Ok(()) => Ok(true),
-                        Err(_) => Err(()),
-                    },
-                    Err(_) => Err(()),
+        match &self.age {
+            Some(age) => {
+                if let Ok(_) = age.encrypt_with_same(&self.db_location_pt, &self.db_location) {
+                    println!("encryption successfull");
+                    return Ok(true);
+                } else {
+                    println!("error encryption");
+                    return Err(());
                 }
             }
-            Err(_) => Err(()),
-        }
-    }
 
-    /**
-     * Encrypt Db
-     */
-    pub fn tirra_encrypt_db_file(&self, plain_db: &str) -> Result<bool, ()> {
-        // PASSPHRASE
-        let secret_struct = &self.secrets;
-
-        //encrypt small file
-        let cipher = ChaCha20Poly1305::new(&secret_struct.key.into());
-
-        match fs::read(plain_db) {
-            Ok(file_data) => {
-                match cipher.encrypt(&secret_struct.nonce.into(), file_data.as_ref()) {
-                    Ok(enc_file) => match fs::write(&self.db_location, enc_file) {
-                        Ok(()) => Ok(true),
-                        Err(_) => Err(()),
-                    },
-                    Err(_) => Err(()),
-                }
+            None => {
+                println!("crypto information is absent");
+                return Err(());
             }
-            Err(_) => Err(()),
         }
     }
 
@@ -139,35 +81,44 @@ impl TirraCrypto {
      *
      *
      */
-    pub fn tirra_decrypt_db(&self) -> Result<bool, ()> {
-        // PASSPHRASE
-        let secret_struct = &self.secrets;
+    pub fn tirra_decrypt_db(&mut self) -> Result<bool, ()> {
+        // extract secrets, only once
+        if self.age.is_none() {
+            let mut age_crypto = AgeCrypto::new();
+            age_crypto
+                .extract_secrets(&self.db_location, &self.password)
+                .map_err(|_| ())?;
 
-        //decrypt small file
-        let cipher = ChaCha20Poly1305::new(&secret_struct.key.into());
+            self.age = Some(age_crypto);
+        }
 
-        match fs::read(&self.db_location) {
-            Ok(file_data) => {
-                match cipher.decrypt(&secret_struct.nonce.into(), file_data.as_ref()) {
-                    Ok(dec_file) => match fs::write(&self.db_location_pt, dec_file) {
-                        Ok(()) => Ok(true),
-                        Err(_) => Err(()),
-                    },
-                    Err(_) => Err(()),
-                }
+        // decrypt
+        match &mut self.age {
+            Some(age) => {
+                age.decrypt(&self.db_location_pt).map_err(|_| ())?;
             }
-            Err(_) => Err(()),
+            None => {
+                return Err(());
+            }
+        }
+
+        Ok(true)
+    }
+
+    /**
+     * Encrypt file
+     */
+    pub fn encrypt_file(&self, password: &[u8]) -> Result<bool, ()> {
+        let age_crypto = AgeCrypto::new();
+
+        if let Ok(_) = age_crypto.encrypt_test(&self.db_location_pt, &self.db_location, password) {
+            return Ok(true);
+        } else {
+            return Err(());
         }
     }
 
     pub fn plaintext_db_location(&self) -> &str {
         &self.db_location_pt
-    }
-
-    pub fn tirra_hash_sha256(entropy: &str) -> Vec<u8> {
-        let mut hasher = Sha256::new();
-        hasher.update(entropy);
-        let result = hasher.finalize();
-        result.as_slice().to_vec()
     }
 }
