@@ -439,7 +439,8 @@ pub enum AgeCryptoError {
 }
 pub struct AgeCrypto {
     reader: Option<BufReader<File>>,
-    file_key: [u8; 16],
+    header: Option<AgeScryptHeader>,
+    //file_key: [u8; 16],
     payload_nonce: [u8; 16],
     payload_key: [u8; 32],
 }
@@ -452,7 +453,8 @@ impl AgeCrypto {
     pub fn new() -> Self {
         Self {
             reader: None,
-            file_key: [0u8; 16],
+            header: None,
+            //file_key: [0u8; 16],
             payload_nonce: [0u8; 16],
             payload_key: [0u8; 32],
         }
@@ -461,7 +463,7 @@ impl AgeCrypto {
     /**
      * extract age file key from the header.
      */
-    pub fn extract_key(
+    pub fn extract_secrets(
         &mut self,
         file_location: &str,
         password: &[u8],
@@ -498,7 +500,8 @@ impl AgeCrypto {
             .map_err(|_| AgeCryptoError::ComputePayloadKey)?;
 
         self.reader = Some(reader);
-        self.file_key = file_key;
+        self.header = Some(header);
+        //self.file_key = file_key;
         self.payload_nonce = nonce;
         Ok(())
     }
@@ -574,6 +577,29 @@ impl AgeCrypto {
         Ok(true)
     }
 
+    pub fn encrypt_with_same(
+        &self,
+        plain_file_location: &str,
+        enc_file_location: &str,
+    ) -> Result<bool, AgeCryptoError> {
+        // header
+        let header = match &self.header {
+            Some(h) => h,
+            None => {
+                return Err(AgeCryptoError::Other);
+            }
+        };
+
+        //encrypt with
+        self.encrypt_with(
+            plain_file_location,
+            enc_file_location,
+            &header,
+            &self.payload_nonce,
+            &self.payload_key,
+        )
+    }
+
     pub fn encrypt_test(
         &self,
         plain_file_location: &str,
@@ -602,7 +628,7 @@ impl AgeCrypto {
         )
     }
 
-    pub fn encrypt_with(
+    fn encrypt_with(
         &self,
         plain_file_location: &str,
         enc_file_location: &str,
