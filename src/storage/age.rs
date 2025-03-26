@@ -609,7 +609,7 @@ impl AgeCrypto {
         password: &[u8],
     ) -> Result<bool, AgeCryptoError> {
         let test_salt = [12u8; 16];
-        let test_wf = 13u8;
+        let test_wf = 13u8; //14 could also work.
         let test_nonce = [12u8; 16];
         let file_key: [u8; 16] = [15u8; 16];
 
