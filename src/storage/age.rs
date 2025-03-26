@@ -438,7 +438,6 @@ pub enum AgeCryptoError {
     Other,
 }
 pub struct AgeCrypto {
-    file_location: String,
     reader: Option<BufReader<File>>,
     file_key: [u8; 16],
     payload_nonce: [u8; 16],
@@ -450,9 +449,8 @@ impl AgeCrypto {
     const CHUNK_SIZE: usize = 65536;
     const CHUNK_ENC_SIZE: usize = Self::CHUNK_SIZE + 16;
 
-    pub fn new(location: &str) -> Self {
+    pub fn new() -> Self {
         Self {
-            file_location: location.to_string(),
             reader: None,
             file_key: [0u8; 16],
             payload_nonce: [0u8; 16],
@@ -463,9 +461,13 @@ impl AgeCrypto {
     /**
      * extract age file key from the header.
      */
-    pub fn extract_key(&mut self, password: &[u8]) -> Result<(), AgeCryptoError> {
+    pub fn extract_key(
+        &mut self,
+        file_location: &str,
+        password: &[u8],
+    ) -> Result<(), AgeCryptoError> {
         //open file
-        let file = File::open(&self.file_location).map_err(|_| AgeCryptoError::FileOpen)?;
+        let file = File::open(file_location).map_err(|_| AgeCryptoError::FileOpen)?;
 
         let mut reader = BufReader::new(file);
 
@@ -574,6 +576,7 @@ impl AgeCrypto {
 
     pub fn encrypt(
         &mut self,
+        plain_file_location: &str,
         enc_file_location: &str,
         password: &[u8],
     ) -> Result<bool, AgeCryptoError> {
@@ -590,7 +593,7 @@ impl AgeCrypto {
             .map_err(|_| AgeCryptoError::ComputePayloadKey)?;
 
         //open file
-        let file: File = match File::open(&self.file_location) {
+        let file: File = match File::open(plain_file_location) {
             Ok(file) => file,
             Err(_) => {
                 return Err(AgeCryptoError::FileOpen);
