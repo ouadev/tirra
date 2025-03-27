@@ -121,6 +121,17 @@ impl TirraCrypto {
         }
     }
 
+    pub fn print_age(&self) {
+        match &self.age {
+            Some(age) => {
+                age.print();
+            }
+            None => {
+                println!("age instance is not found");
+            }
+        }
+    }
+
     pub fn plaintext_db_location(&self) -> &str {
         &self.db_location_pt
     }

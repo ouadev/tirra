@@ -698,6 +698,27 @@ impl AgeCrypto {
         Ok(true)
     }
 
+    /**
+     * for testing: print current security elements
+     */
+    pub fn print(&self) {
+        match &self.header {
+            Some(header) => {
+                println!("header:\n");
+                println!("salt:\t {:x?}", header.salt);
+                println!("work:\t {:x?}", header.work_factor);
+                println!("body:\t {:x?}", header.body);
+                println!("mac:\t {:x?}", header.mac);
+                println!("keys:\n");
+                println!("nonce:\t {:x?}", self.payload_nonce);
+                println!("payload key:\t {:x?}", self.payload_key);
+            }
+            _ => {
+                println!("absent header information");
+            }
+        }
+    }
+
     fn internal_read_chunk(reader: &mut BufReader<File>, size: usize) -> Option<Vec<u8>> {
         let mut buf = vec![];
         let mut chunk = reader.take(size as u64);
