@@ -135,7 +135,7 @@ pub fn main() -> () {
         let plain_path = format!("{}.tirra", db_path);
         let mut crypto = TirraCrypto::new(&db_path, &plain_path, &pwd);
 
-        match crypto.tirra_decrypt_db() {
+        match crypto.decrypt_db() {
             Ok(_) => {
                 println!("file successfully decrypted");
             }

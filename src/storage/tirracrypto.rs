@@ -36,7 +36,7 @@ impl TirraCrypto {
     /**
      * only analyze header, to check access
      */
-    pub fn tirra_probe_db(&mut self) -> Result<(), ()> {
+    pub fn probe_db(&mut self) -> Result<(), ()> {
         match &mut self.age {
             Some(_age) => {
                 //this function shouldn't be called if we are already have an age instance
@@ -57,7 +57,7 @@ impl TirraCrypto {
     /**
      * Encrypt Db
      */
-    pub fn tirra_encrypt_db(&self) -> Result<bool, ()> {
+    pub fn encrypt_db(&self) -> Result<bool, ()> {
         match &self.age {
             Some(age) => {
                 if let Ok(_) = age.encrypt_with_same(&self.db_location_pt, &self.db_location) {
@@ -85,7 +85,7 @@ impl TirraCrypto {
      *
      *
      */
-    pub fn tirra_decrypt_db(&mut self) -> Result<bool, ()> {
+    pub fn decrypt_db(&mut self) -> Result<bool, ()> {
         // extract secrets, only once
         if self.age.is_none() {
             let mut age_crypto = AgeCrypto::new();

@@ -237,7 +237,7 @@ impl TirraDb {
 
         //encrypt db
         self.crypto
-            .tirra_encrypt_db()
+            .encrypt_db()
             .map_err(|_e| TirraDbError::DbInitError)?;
 
         fs::remove_file(self.crypto.plaintext_db_location())
@@ -333,7 +333,7 @@ impl TirraDb {
      */
     pub fn try_access(&mut self) -> bool {
         // decrypt the db
-        self.crypto.tirra_probe_db().is_ok()
+        self.crypto.probe_db().is_ok()
     }
 
     /**
@@ -518,7 +518,7 @@ impl TirraDb {
     fn access_start(&mut self) -> Result<Connection, TirraDbError> {
         // decrypt the db
         self.crypto
-            .tirra_decrypt_db()
+            .decrypt_db()
             .map_err(|_e| TirraDbError::CryptoAccessFailure)?;
 
         // Open connection
@@ -541,7 +541,7 @@ impl TirraDb {
         //db.close().map_err(|_e| TirraDbError::DbCloseFailure)?;
         //re-encrypt db
         self.crypto
-            .tirra_encrypt_db()
+            .encrypt_db()
             .map_err(|_e| TirraDbError::CryptoAccessFailure)?;
 
         fs::remove_file(self.crypto.plaintext_db_location())
