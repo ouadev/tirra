@@ -9,9 +9,9 @@ use sha2::Sha256;
 
 use std::{
     fs::File,
-    io::{BufRead, BufReader, Read, Seek, SeekFrom, Write},
+    io::{BufRead, BufReader, BufWriter, Read, Seek, SeekFrom, Write},
+    vec,
 };
-use std::{io::BufWriter, vec};
 
 use crate::common::utils;
 
@@ -390,35 +390,6 @@ impl AgeScryptHeader {
         let result = mac.finalize();
         let code_bytes = result.into_bytes();
         code_bytes.into()
-    }
-}
-
-#[derive(Clone, Copy, Default)]
-struct AgeChunkNonce(u128);
-
-impl AgeChunkNonce {
-    /// Unsets last-chunk flag.
-    fn set_counter(&mut self, val: u64) {
-        self.0 = u128::from(val) << 8;
-    }
-
-    fn is_last(&self) -> bool {
-        self.0 & 1 != 0
-    }
-
-    fn set_last(&mut self, last: bool) -> Result<(), ()> {
-        if !self.is_last() {
-            self.0 |= u128::from(last);
-            Ok(())
-        } else {
-            Err(())
-        }
-    }
-
-    fn to_bytes(self) -> [u8; 12] {
-        self.0.to_be_bytes()[4..]
-            .try_into()
-            .expect("slice is correct length")
     }
 }
 
@@ -811,5 +782,36 @@ impl AgeCrypto {
         reader
             .seek(SeekFrom::Start(Self::PAYLOAD_POSITION as u64))
             .map_err(|_| ())
+    }
+}
+
+
+
+#[derive(Clone, Copy, Default)]
+struct AgeChunkNonce(u128);
+
+impl AgeChunkNonce {
+    /// Unsets last-chunk flag.
+    fn set_counter(&mut self, val: u64) {
+        self.0 = u128::from(val) << 8;
+    }
+
+    fn is_last(&self) -> bool {
+        self.0 & 1 != 0
+    }
+
+    fn set_last(&mut self, last: bool) -> Result<(), ()> {
+        if !self.is_last() {
+            self.0 |= u128::from(last);
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
+    fn to_bytes(self) -> [u8; 12] {
+        self.0.to_be_bytes()[4..]
+            .try_into()
+            .expect("slice is correct length")
     }
 }
