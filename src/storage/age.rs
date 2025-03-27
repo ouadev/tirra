@@ -1,5 +1,5 @@
 use chacha20poly1305::{
-    aead::{Aead, KeyInit},
+    aead::{rand_core::RngCore, Aead, KeyInit, OsRng},
     ChaCha20Poly1305,
 };
 use hkdf::Hkdf;
@@ -422,6 +422,7 @@ impl AgeCrypto {
     const HEADER_SIZE: usize = 150;
     const NONCE_SIZE: usize = 16;
     const PAYLOAD_POSITION: usize = Self::HEADER_SIZE + Self::NONCE_SIZE;
+    const DEFAULT_SCRYPT_WORK_FACTOR: u8 = 13u8; //14 could also work.
 
     pub fn new() -> Self {
         Self {
@@ -579,16 +580,27 @@ impl AgeCrypto {
         enc_file_location: &str,
         password: &[u8],
     ) -> Result<bool, AgeCryptoError> {
-        let test_salt = [12u8; 16];
-        let test_wf = 13u8; //14 could also work.
-        let test_nonce = [12u8; 16];
-        let file_key: [u8; 16] = [15u8; 16];
+        let mut salt = [12u8; 16];
+        let mut nonce = [12u8; 16];
+        let mut file_key: [u8; 16] = [15u8; 16];
+
+        // generate salt
+        OsRng.fill_bytes(&mut salt);
+        // generate file key
+        OsRng.fill_bytes(&mut file_key);
+        // generate nonce
+        OsRng.fill_bytes(&mut nonce);
 
         // header
-        let header = AgeScryptHeader::from_params(password, test_salt, test_wf, file_key)?;
+        let header = AgeScryptHeader::from_params(
+            password,
+            salt,
+            Self::DEFAULT_SCRYPT_WORK_FACTOR,
+            file_key,
+        )?;
 
         //compute payload_key
-        let payload_key = Self::compute_payload_key(&file_key, &Vec::from(test_nonce))
+        let payload_key = Self::compute_payload_key(&file_key, &Vec::from(nonce))
             .map_err(|_| AgeCryptoError::ComputePayloadKey)?;
 
         //encrypt with
@@ -596,7 +608,7 @@ impl AgeCrypto {
             plain_file_location,
             enc_file_location,
             &header,
-            &test_nonce,
+            &nonce,
             &payload_key,
         )
     }
@@ -784,8 +796,6 @@ impl AgeCrypto {
             .map_err(|_| ())
     }
 }
-
-
 
 #[derive(Clone, Copy, Default)]
 struct AgeChunkNonce(u128);
