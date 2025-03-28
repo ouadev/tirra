@@ -93,11 +93,19 @@ impl LoginUi {
                     exception("database init");
                 }
                 // insert first empty entry
-                let empty_added =
-                    tirra_db.add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, db::TIRRA_FIRST_ENTRY_TEXT);
+                let now = utils::time_now();
+                tirra_db.access_start().unwrap();
+                let empty_added = tirra_db.api_add_entry(
+                    db::TIRRA_ENTRY_TYPE_GENERAL,
+                    db::TIRRA_FIRST_ENTRY_TEXT,
+                    now,
+                    now,
+                    true,
+                );
                 if let Err(_x) = empty_added {
                     exception("database init, couldn't add first entry");
                 }
+
                 self.logged_in = true;
             } else {
                 panic!("something is up. database is not supposed to be found");
@@ -204,14 +212,26 @@ impl WriterUi {
         if TirraDb::db_exists(db_location) == false {
             panic!("we are not supposed to be here without an encrypted database");
         }
-        // database information block.
-        if let Ok(local_info) = self.tirra_db.information() {
+
+        ////// start db access
+        self.tirra_db.access_start().unwrap();
+        if let Ok(local_info) = self.tirra_db.api_load_info(false) {
             TirraDb::information_debug(&local_info);
         } else {
             println!("info: Info Block is not found");
         }
         // Load all entries into memory and display the first one
-        let entry_list = self.reload_all(None);
+        let entry_list = match self
+            .tirra_db
+            .api_load_entries(&TirraDb::default_filter(), true)
+        {
+            Ok(list) => list,
+            Err(_err) => {
+                exception("loading entries");
+                TirraEntryList::new()
+            }
+        };
+        ////// stop db access
 
         // assignments
         self.curr_entry_id = entry_list.get_entry(0).map(|ent| ent.id);
@@ -268,22 +288,28 @@ impl WriterUi {
      * response to action: cli_submit
      */
     pub fn on_cli_submit(&mut self) {
+        ////// start db access
+        self.tirra_db.access_start().unwrap();
         if self.editor_dirty {
-            self.write_current_entry();
+            if let Some(entry) = self.current_entry() {
+                self.tirra_db
+                    .api_update_entry(&entry.text.clone(), entry.id, false).unwrap();
+            }
             self.editor_dirty = false;
         }
-        // check if the request would work !
-        match self.tirra_db.get_entries_by_filter(&self.cli_text) {
+
+        match self.tirra_db.api_load_entries(&self.cli_text, true) {
             Ok(entries) => {
                 self.entry_list = entries;
                 self.curr_entry_id = self.entry_list.greatest_id_entry().map(|ent| ent.id);
                 self.load_request = self.cli_text.clone();
             }
-            _ => {
+            Err(_err) => {
                 println!("New Loader request failed !!!");
                 self.cli_text = self.load_request.clone();
             }
-        }
+        };
+        ////// stop db access
     }
     /**
      * response to action: entry_selected
@@ -296,16 +322,34 @@ impl WriterUi {
      * response to action: new_entry
      */
     pub fn on_new_entry(&mut self) {
+        ////// start db access
+        self.tirra_db.access_start().unwrap();
         // Save before creating a new entry
         if self.editor_dirty {
-            self.write_current_entry();
+            if let Some(entry) = self.current_entry() {
+                self.tirra_db
+                    .api_update_entry(&entry.text.clone(), entry.id, false).unwrap();
+            }
             self.editor_dirty = false;
         }
 
         if !self.is_readonly() {
-            match self.tirra_db.add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "") {
+            let now = utils::time_now();
+            match self
+                .tirra_db
+                .api_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", now, now, false)
+            {
                 Ok(()) => {
-                    self.entry_list = self.reload_all(Some(&self.load_request.clone()));
+                    self.entry_list = match self
+                        .tirra_db
+                        .api_load_entries(&TirraDb::default_filter(), true)
+                    {
+                        Ok(list) => list,
+                        Err(_err) => {
+                            exception("loading entries");
+                            TirraEntryList::new()
+                        }
+                    };
                     self.curr_entry_id = self.entry_list.greatest_id_entry().map(|ent| ent.id);
                 }
                 _ => {
@@ -313,6 +357,7 @@ impl WriterUi {
                 }
             }
         }
+        ////// stop db access
     }
 
     /**
@@ -417,42 +462,30 @@ impl WriterUi {
         }
     }
 
-    fn reload_all(&mut self, request_filter: Option<&String>) -> TirraEntryList {
-        let entries_obj = if let Some(filter) = request_filter {
-            self.tirra_db.get_entries_by_filter(&filter)
-        } else {
-            self.tirra_db.get_entries_default()
-        };
-        // Load all entries into memory:
-        match entries_obj {
-            Ok(entry_list) => entry_list,
-            Err(_error) => {
+    fn save_and_reload(&mut self) {
+        if !self.editor_dirty {
+            return;
+        }
+        ////// start db access
+        self.tirra_db.access_start().unwrap();
+
+        if let Some(entry) = self.current_entry() {
+            self.tirra_db
+                .api_update_entry(&entry.text.clone(), entry.id, false).unwrap();
+        }
+
+        self.entry_list = match self
+            .tirra_db
+            .api_load_entries(&self.load_request.clone(), true)
+        {
+            Ok(list) => list,
+            Err(_err) => {
                 exception("loading entries");
                 TirraEntryList::new()
             }
-        }
-    }
-
-    fn save_and_reload(&mut self) {
-        if self.editor_dirty {
-            self.write_current_entry();
-            self.entry_list = self.reload_all(Some(&self.load_request.clone()));
-            self.editor_dirty = false;
-        }
-    }
-
-    fn write_current_entry(&mut self) -> () {
-        if let Some(id) = self.curr_entry_id {
-            match self.entry_list.find_by_id(id) {
-                Some(entry) => match self.tirra_db.update_entry(&entry.text, id) {
-                    Err(err) => {
-                        exception(&format!("update entry {:?}", err));
-                    }
-                    _ => {}
-                },
-                _ => {}
-            }
-        }
+        };
+        self.editor_dirty = false;
+        ////// stop db access
     }
 }
 

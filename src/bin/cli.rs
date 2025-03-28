@@ -2,7 +2,7 @@ use std::env;
 use std::fs::File;
 use std::io::Read;
 use tirra::storage::{
-    db::{self, DbOpResult, TirraDb},
+    db::{self, TirraDb},
     tirracrypto::TirraCrypto,
 };
 
@@ -76,13 +76,16 @@ pub fn main() -> () {
         let mut content = Vec::new();
         tx_file.read_to_end(&mut content).unwrap();
 
-        let entry_added = tirra_db.root_add_entry(
+        tirra_db.access_start().unwrap();
+        let added = tirra_db.api_add_entry(
             db::TIRRA_ENTRY_TYPE_GENERAL,
             &String::from_utf8(content).unwrap(),
             timestamp,
+            timestamp,
+            true,
         );
 
-        match entry_added {
+        match added {
             Ok(_) => {
                 println!("entry successfully added");
             }
@@ -102,7 +105,8 @@ pub fn main() -> () {
         //init db
         let mut tirra_db = init_db(db_path, pwd_file);
 
-        let removed = tirra_db.remove_entry(id);
+        tirra_db.access_start().unwrap();
+        let removed = tirra_db.api_remove_entry(id, true);
 
         match removed {
             Ok(_) => {
@@ -180,21 +184,6 @@ pub fn main() -> () {
         // test db ops
         let access = tirra_db.try_access();
         println!("access : {}", access);
-
-        tirra_db.new_op_add_entry();
-        tirra_db.new_op_load_entries("WHERE id > 0 ORDER BY date_modify DESC LIMIT 20");
-
-        let result = tirra_db.run_op();
-        match result {
-            Ok(r) => {
-                if let DbOpResult::Entries(entries) = r {
-                    println!("entries : {}", entries.len());
-                }
-            }
-            _ => {
-                println!("error op");
-            }
-        }
     }
 }
 
@@ -222,18 +211,22 @@ fn read_pwd_file(pwd_file: &str) -> Vec<u8> {
 }
 
 fn print_stats(db: &mut TirraDb) {
-    // Get Entries
-    let all_entries = db
-        .get_entries_default()
-        .expect("Error loading entries from database");
+    db.access_start().unwrap();
+    let loaded = db.api_load_entries(&TirraDb::default_filter(), false);
 
-    println!("entries:\t\t {}", all_entries.len());
-
+    match loaded {
+        Ok(list) => {
+            println!("entries:\t\t {}", list.len());
+        }
+        Err(_) => {
+            println!("Error loading entries from database");
+            return;
+        }
+    }
     // Print Info Block
-    let info_result = db.information();
+    let info_result = db.api_load_info(true);
     match info_result {
         Ok(info) => {
-            //TirraDb::information_debug(&info);
             println!("schema_version :\t {}", info.schema_ver);
         }
         Err(_) => {
