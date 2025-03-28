@@ -60,7 +60,7 @@ impl LoginUi {
         // Check database file existence
         let mut info_text = String::new();
         let db_found: bool;
-        if TirraDb::db_exists(db_location) == true {
+        if utils::file_exists(db_location) == true {
             db_found = true;
         } else {
             info_text.push_str(&format!(" Database file was not found.\n"));
@@ -86,7 +86,7 @@ impl LoginUi {
         if self.db_found == false {
             // Database is not found, start initialization of a new one at the same location.
             // intialize the backend
-            if TirraDb::db_exists(&self.db_location) == false {
+            if utils::file_exists(&self.db_location) == false {
                 // create new db
                 let db_created = tirra_db.api_create_db(false);
                 if let Err(_x) = db_created {
@@ -185,7 +185,7 @@ pub struct WriterUi {
 }
 
 impl WriterUi {
-    pub const UI_WRITER_NEWENTRY_TEXT: &str = " + New paper ";
+    pub const UI_WRITER_NEWENTRY_TEXT: &str = " New entry ";
     pub const UI_WRITER_CLI_PLACEHOLDER: &str = "> SELECT * FROM entries WHERE ...";
     const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
 
@@ -209,7 +209,7 @@ impl WriterUi {
         //Init Crypto
         self.tirra_db = TirraDb::with_crypto(db_location, crypto_pwd);
         // intialize the backend
-        if TirraDb::db_exists(db_location) == false {
+        if utils::file_exists(db_location) == false {
             panic!("we are not supposed to be here without an encrypted database");
         }
 
@@ -266,10 +266,6 @@ impl WriterUi {
             Some(id) => self.entry_list.find_by_id(id),
             _ => None,
         }
-    }
-
-    pub fn get_db_location(&self) -> String {
-        self.tirra_db.get_db_location()
     }
 
     /**
@@ -517,7 +513,6 @@ impl TirraInterface for WriterUi {
     }
 
     fn on_close(&mut self) {
-        println!("Tirra - Closed -> Save");
         self.save_and_reload();
     }
 
@@ -570,7 +565,7 @@ impl<'a> Iterator for EntryViewIterator<'a> {
  * parse_args: for now, it only returns the db_to_use
  */
 pub fn parse_args() -> String {
-    let mut db_to_use = TirraDb::default_user_db_path();
+    let mut db_to_use = db::default_user_db_path();
     // check arguments
     let args: Vec<String> = env::args().collect();
     if args.len() == 2 {

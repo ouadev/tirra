@@ -4,8 +4,9 @@ use base64::{
     prelude::*,
 };
 use chrono::{DateTime, Utc};
-use std::time::SystemTime;
 use sha2::{Digest, Sha256};
+use std::path::Path;
+use std::time::SystemTime;
 
 /**
  * convert a timestamp into a datatime structure
@@ -80,10 +81,13 @@ pub fn base64_encode(bin: &Vec<u8>) -> String {
     b64_engine.encode(bin)
 }
 
-
 pub fn hash_sha256(entropy: &str) -> Vec<u8> {
     let mut hasher = Sha256::new();
     hasher.update(entropy);
     let result = hasher.finalize();
     result.as_slice().to_vec()
+}
+
+pub fn file_exists(db_enc_loc: &str) -> bool {
+    Path::new(db_enc_loc).exists()
 }

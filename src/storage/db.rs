@@ -159,6 +159,7 @@ pub struct TirraDb {
 
 impl TirraDb {
     const DEFAULT_SQL_FILTER: &str = "WHERE id > 0 ORDER BY date_modify DESC LIMIT 20";
+    const DEFAULT_COMMIT_AUTHOR: &str = "tirra-author";
     /**
      * new TirraDb Object
      */
@@ -175,6 +176,28 @@ impl TirraDb {
             crypto: TirraCrypto::new(location, plain.as_str(), password),
             conn: None,
         }
+    }
+
+    /**
+     * get the current encrypted db
+     */
+    pub fn get_db_location(&self) -> String {
+        self.crypto.get_db_location()
+    }
+
+    /**
+     * check the provided crypto can access the database
+     */
+    pub fn try_access(&mut self) -> bool {
+        // decrypt the db
+        self.crypto.probe_db().is_ok()
+    }
+
+    /**
+     * default SQL request to use for the initial loading
+     */
+    pub fn default_filter() -> String {
+        String::from(Self::DEFAULT_SQL_FILTER)
     }
 
     /**
@@ -365,7 +388,7 @@ impl TirraDb {
             .map_err(|_e| TirraDbError::DbRequestError)?;
 
         // record commit
-        let _ = TirraDb::information_commit(&transaction, now, "macos-ouadv", text_entry);
+        let _ = TirraDb::op_commit(&transaction, now, Self::DEFAULT_COMMIT_AUTHOR, text_entry);
 
         // end transaction
         transaction
@@ -400,7 +423,7 @@ impl TirraDb {
             .map_err(|_e| TirraDbError::DbRequestError)?;
 
         // record commit
-        let _ = TirraDb::information_commit(&transaction, now, "macos-ouadv", text_entry);
+        let _ = TirraDb::op_commit(&transaction, now, Self::DEFAULT_COMMIT_AUTHOR, text_entry);
 
         // end transaction
         transaction
@@ -525,7 +548,7 @@ impl TirraDb {
             .map_err(|_e| TirraDbError::DbRequestError)?;
 
         // record commit
-        let _ = TirraDb::information_commit(&transaction, now, "macos-ouadv", "");
+        let _ = TirraDb::op_commit(&transaction, now, Self::DEFAULT_COMMIT_AUTHOR, "");
 
         // end transaction
         transaction
@@ -583,66 +606,10 @@ impl TirraDb {
         }
     }
 
-    ///
-    ///
-    ///
-    ///
-    ///
-    ///
-    ///
-
     /**
-     * get encrypted db location
+     * Operation: InformationCommit
      */
-    pub fn get_db_location(&self) -> String {
-        self.crypto.get_db_location()
-    }
-
-    /**
-     * check the provided crypto can access the database
-     */
-    pub fn try_access(&mut self) -> bool {
-        // decrypt the db
-        self.crypto.probe_db().is_ok()
-    }
-
-    /**
-     * Check if database file exists
-     */
-    pub fn db_exists(db_enc_loc: &str) -> bool {
-        Path::new(db_enc_loc).exists()
-    }
-
-    /**
-     *
-     * Root Access DB functions: priviliged access to the database. Used by CLI.
-     *
-     */
-    /**
-     *
-     * Private Internal Functions
-     *
-     */
-
-    /**
-     * generate unique commit id
-     */
-    pub fn gen_commit_id(entropy: &str) -> Vec<u8> {
-        let now = utils::time_now();
-        let unique_id_feed = format!(
-            "{}{}{}{}",
-            now,
-            entropy,
-            process::id(),
-            std::env::consts::OS
-        );
-        utils::hash_sha256(unique_id_feed.as_str())
-    }
-
-    /**
-     * Record commit information after an update to the database.
-     */
-    fn information_commit(
+    fn op_commit(
         conn_transaction: &Transaction,
         now: u64,
         author: &str,
@@ -659,61 +626,23 @@ impl TirraDb {
         Ok(())
     }
 
-    /**
-     * Set Origin Commit
-     */
-    /*
-    pub fn information_set_origin_commit(&mut self) -> Result<(), TirraDbError> {
-        let mut db = self.access_start()?;
-
-        // start transaction
-        let Ok(transaction) = db.transaction() else {
-            self.access_stop()?;
-            return Err(TirraDbError::DbRequestErrorPrepare);
-        };
-
-        //save
-        if let Err(_) = transaction.execute(
-            "UPDATE information SET
-            origin_commit = local_commit,
-            local_source  = origin_source,
-            local_ts      = origin_ts
-            WHERE id      = 1",
-            (),
-        ) {
-            self.access_stop()?;
-            return Err(TirraDbError::DbRequestErrorQuery);
-        };
-
-        // end transaction
-        if let Err(_) = transaction.commit() {
-            self.access_stop()?;
-            return Err(TirraDbError::DbRequestErrorCommit);
-        };
-
-        self.access_stop()?;
-        Ok(())
-    }
-    */
+    //
+    // Private Functions
+    //
 
     /**
-     * default SQL request to use for the initial loading
+     * generate unique commit id
      */
-    pub fn default_filter() -> String {
-        String::from(Self::DEFAULT_SQL_FILTER)
-    }
-
-    pub fn default_user_db_path() -> String {
-        // pick up HOME environment variable.
-        let home_path = match env::var(TIRRA_HOME_DIR_PATH) {
-            Ok(var) => var,
-            _ => String::from(TIRRA_DEFAULT_DB_NAME),
-        };
-        let db_path = Path::new(home_path.as_str()).join(TIRRA_DEFAULT_DB_NAME);
-        match db_path.to_str() {
-            None => String::from(TIRRA_DEFAULT_DB_NAME), // create default db in the same directory as the binary file.
-            Some(path) => String::from(path),
-        }
+    fn gen_commit_id(entropy: &str) -> Vec<u8> {
+        let now = utils::time_now();
+        let unique_id_feed = format!(
+            "{}{}{}{}",
+            now,
+            entropy,
+            process::id(),
+            std::env::consts::OS
+        );
+        utils::hash_sha256(unique_id_feed.as_str())
     }
 }
 
@@ -756,5 +685,18 @@ impl TirraDbInformation {
             commit_str.push_str(format!("{:02x?}", byte).as_str());
         }
         commit_str
+    }
+}
+
+pub fn default_user_db_path() -> String {
+    // pick up HOME environment variable.
+    let home_path = match env::var(TIRRA_HOME_DIR_PATH) {
+        Ok(var) => var,
+        _ => String::from(TIRRA_DEFAULT_DB_NAME),
+    };
+    let db_path = Path::new(home_path.as_str()).join(TIRRA_DEFAULT_DB_NAME);
+    match db_path.to_str() {
+        None => String::from(TIRRA_DEFAULT_DB_NAME), // create default db in the same directory as the binary file.
+        Some(path) => String::from(path),
     }
 }
