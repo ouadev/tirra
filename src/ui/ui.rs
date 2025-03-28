@@ -293,7 +293,8 @@ impl WriterUi {
         if self.editor_dirty {
             if let Some(entry) = self.current_entry() {
                 self.tirra_db
-                    .api_update_entry(&entry.text.clone(), entry.id, false).unwrap();
+                    .api_update_entry(&entry.text.clone(), entry.id, false)
+                    .unwrap();
             }
             self.editor_dirty = false;
         }
@@ -328,7 +329,8 @@ impl WriterUi {
         if self.editor_dirty {
             if let Some(entry) = self.current_entry() {
                 self.tirra_db
-                    .api_update_entry(&entry.text.clone(), entry.id, false).unwrap();
+                    .api_update_entry(&entry.text.clone(), entry.id, false)
+                    .unwrap();
             }
             self.editor_dirty = false;
         }
@@ -471,7 +473,8 @@ impl WriterUi {
 
         if let Some(entry) = self.current_entry() {
             self.tirra_db
-                .api_update_entry(&entry.text.clone(), entry.id, false).unwrap();
+                .api_update_entry(&entry.text.clone(), entry.id, false)
+                .unwrap();
         }
 
         self.entry_list = match self
