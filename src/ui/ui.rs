@@ -88,13 +88,13 @@ impl LoginUi {
             // intialize the backend
             if TirraDb::db_exists(&self.db_location) == false {
                 // create new db
-                let inited = tirra_db.create_new_db();
-                if let Err(_x) = inited {
-                    exception("database init");
+                let db_created = tirra_db.api_create_db(false);
+                if let Err(_x) = db_created {
+                    exception("couldn't initialize new database");
                 }
+
                 // insert first empty entry
                 let now = utils::time_now();
-                tirra_db.access_start().unwrap();
                 let empty_added = tirra_db.api_add_entry(
                     db::TIRRA_ENTRY_TYPE_GENERAL,
                     db::TIRRA_FIRST_ENTRY_TEXT,

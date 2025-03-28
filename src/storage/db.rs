@@ -311,6 +311,34 @@ impl TirraDb {
         return result;
     }
 
+    pub fn api_create_db(&mut self, last: bool) -> Result<(), TirraDbError> {
+        //first time: open the plaintext file directly.
+        match Connection::open(self.crypto.plaintext_db_location()) {
+            Ok(conn) => {
+                self.conn = Some(conn);
+            }
+            _ => {
+                return Err(TirraDbError::DbOpenFailure);
+            }
+        }
+
+        //check access
+        let db = if let Some(conn) = &mut self.conn {
+            conn
+        } else {
+            return Err(TirraDbError::CryptoAccessFailure);
+        };
+
+        //initialize the db tables
+        let result = Self::op_create_db(db);
+
+        //stop access as usual
+        if result.is_err() || last {
+            self.access_stop()?;
+        }
+        return result;
+    }
+
     /**
      * Operation: UpdateEntry
      */
@@ -507,21 +535,10 @@ impl TirraDb {
         Ok(())
     }
 
-    ///
-    ///
-    ///
-    ///
-    ///
-    ///
-    ///
-
     /**
-     * Create new database
+     * Operation: CreateDb
      */
-    pub fn create_new_db(&self) -> Result<(), TirraDbError> {
-        let db = Connection::open(self.crypto.plaintext_db_location())
-            .map_err(|_e| TirraDbError::DbOpenFailure)?;
-
+    fn op_create_db(db: &mut Connection) -> Result<(), TirraDbError> {
         db.execute(
             "CREATE TABLE entries (
                 id          INTEGER PRIMARY KEY,
@@ -552,26 +569,27 @@ impl TirraDb {
         // Init information Row
         let init_commit_id = TirraDb::gen_commit_id("");
         let now = utils::time_now();
-        db.execute(
+        let inserted_rows = db.execute(
             "INSERT INTO information
             (schema_ver, local_commit, origin_commit, local_source, origin_source, local_ts, origin_ts) VALUES
             ( ?1, ?2, ?3, 'localsource-init', 'originsource-init', ?4, ?5)",
             params![TIRRA_DB_SCHEMA_VER, init_commit_id, init_commit_id, now, now],
         )
-        .map_err(|_e| TirraDbError::DbRequestError)?;
-
-        db.close().map_err(|_e| TirraDbError::DbInitError)?;
-
-        //encrypt db
-        self.crypto
-            .encrypt_db()
-            .map_err(|_e| TirraDbError::DbInitError)?;
-
-        fs::remove_file(self.crypto.plaintext_db_location())
-            .map_err(|_e| TirraDbError::DbRemoveFileError)?;
-
-        Ok(())
+        .map_err(|_e| TirraDbError::DbRequestError);
+        if let Err(err) = inserted_rows {
+            return Err(err);
+        } else {
+            return Ok(());
+        }
     }
+
+    ///
+    ///
+    ///
+    ///
+    ///
+    ///
+    ///
 
     /**
      * get encrypted db location
