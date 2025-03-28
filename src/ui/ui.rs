@@ -219,6 +219,9 @@ impl WriterUi {
             local_info.print_debug();
         } else {
             println!("info: Info Block is not found");
+            //special case for older dbs, after that:
+            //TODO: exception here.
+            self.tirra_db.access_start().unwrap();
         }
         // Load all entries into memory and display the first one
         let entry_list = match self
