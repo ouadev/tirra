@@ -319,6 +319,9 @@ impl WriterUi {
      * response to action: new_entry
      */
     pub fn on_new_entry(&mut self) {
+        if self.readonly_mode {
+            return;
+        }
         ////// start db access
         self.tirra_db.access_start().unwrap();
         // Save before creating a new entry
@@ -331,30 +334,26 @@ impl WriterUi {
             self.editor_dirty = false;
         }
 
-        if !self.is_readonly() {
-            let now = utils::time_now();
-            match self
-                .tirra_db
-                .api_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", now, now, false)
-            {
-                Ok(()) => {
-                    self.entry_list = match self
-                        .tirra_db
-                        .api_load_entries(&TirraDb::default_filter(), true)
-                    {
-                        Ok(list) => list,
-                        Err(_err) => {
-                            exception("loading entries");
-                            TirraEntryList::new()
-                        }
-                    };
-                    self.curr_entry_id = self.entry_list.greatest_id_entry().map(|ent| ent.id);
-                }
-                _ => {
-                    println!("error: failure adding new entry, continuing ...");
-                }
+        let now = utils::time_now();
+        match self
+            .tirra_db
+            .api_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", now, now, false)
+        {
+            Ok(()) => {
+                self.entry_list = match self.tirra_db.api_load_entries(&self.load_request, true) {
+                    Ok(list) => list,
+                    Err(_err) => {
+                        exception("loading entries");
+                        TirraEntryList::new()
+                    }
+                };
+                self.curr_entry_id = self.entry_list.greatest_id_entry().map(|ent| ent.id);
+            }
+            _ => {
+                println!("error: failure adding new entry, continuing ...");
             }
         }
+
         ////// stop db access
     }
 
@@ -439,7 +438,7 @@ impl WriterUi {
      * view button new_entry_enabled attribute.
      */
     pub fn view_button_newentry_enabled(&self) -> bool {
-        if self.curr_entry_id.is_some() && !self.is_readonly() {
+        if self.curr_entry_id.is_some() && !self.readonly_mode {
             true
         } else {
             false
