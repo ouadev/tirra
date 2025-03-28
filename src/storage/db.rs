@@ -24,20 +24,6 @@ const TIRRA_HOME_DIR_PATH: &str = "HOME";
 const TIRRA_HOME_DIR_PATH: &str = "USERPROFILE";
 const TIRRA_DEFAULT_DB_NAME: &str = "awal.tirra";
 
-/**
-* @brief    representation of the `information` table latest row.
-*/
-pub struct TirraDbInformation {
-    pub id: u32,
-    pub schema_ver: u32,
-    pub local_commit: Option<Vec<u8>>,
-    pub origin_commit: Option<Vec<u8>>,
-    pub local_source: String,
-    pub origin_source: String,
-    pub local_ts: u64,
-    pub origin_ts: u64,
-}
-
 #[derive(Debug)]
 pub enum TirraDbError {
     CryptoAccessFailure, // Failure to decrypt the database
@@ -527,9 +513,7 @@ impl TirraDb {
     ///
     ///
     ///
-    /// 
-
-
+    ///
 
     /**
      * Create new database
@@ -609,14 +593,6 @@ impl TirraDb {
      */
     pub fn db_exists(db_enc_loc: &str) -> bool {
         Path::new(db_enc_loc).exists()
-    }
-
-    /**
-     * get the database ID. it should be unique if different people use the same database.
-     * Note: for now one user is supported.
-     */
-    pub fn tirra_db_id() -> u64 {
-        1u64
     }
 
     /**
@@ -702,39 +678,6 @@ impl TirraDb {
     }
     */
 
-    fn commit_id_string(commit_id: &Vec<u8>) -> String {
-        let mut commit_str = String::new();
-        for byte in commit_id.iter() {
-            commit_str.push_str(format!("{:02x?}", byte).as_str());
-        }
-        commit_str
-    }
-
-    pub fn information_debug(info: &TirraDbInformation) {
-        let commit_str_local = match &info.local_commit {
-            Some(c) => TirraDb::commit_id_string(&c),
-            _ => String::from("empty"),
-        };
-        let commit_str_origin = match &info.origin_commit {
-            Some(c) => TirraDb::commit_id_string(&c),
-            _ => String::from("empty"),
-        };
-
-        println!("database information:");
-        println!("---------------------");
-        println!("schema version\t: {}", info.schema_ver);
-        println!(
-            "local commit:\n\tid:\t{}\n\tAuthor: {}\n\tDate:\t{}",
-            commit_str_local, info.local_source, info.local_ts
-        );
-        print!("");
-        println!(
-            "origin commit:\n\tid:\t{}\n\tAuthor: {}\n\tDate:\t{}",
-            commit_str_origin, info.origin_source, info.origin_ts
-        );
-        println!("");
-    }
-
     /**
      * default SQL request to use for the initial loading
      */
@@ -753,5 +696,47 @@ impl TirraDb {
             None => String::from(TIRRA_DEFAULT_DB_NAME), // create default db in the same directory as the binary file.
             Some(path) => String::from(path),
         }
+    }
+}
+
+/**
+* @brief    representation of the `information` table latest row.
+*/
+pub struct TirraDbInformation {
+    pub id: u32,
+    pub schema_ver: u32,
+    pub local_commit: Option<Vec<u8>>,
+    pub origin_commit: Option<Vec<u8>>,
+    pub local_source: String,
+    pub origin_source: String,
+    pub local_ts: u64,
+    pub origin_ts: u64,
+}
+
+impl TirraDbInformation {
+    pub fn print_debug(&self) {
+        //
+        // db v{} - lcommit[0..6] - timestamp
+        //
+
+        let commit_str_local = match &self.local_commit {
+            Some(c) => Self::commit_id_string(&c),
+            _ => String::from("----"),
+        };
+
+        println!(
+            "info: db v{} - {} - {}",
+            self.schema_ver,
+            &commit_str_local[0..6],
+            self.local_ts
+        );
+    }
+
+    fn commit_id_string(commit_id: &Vec<u8>) -> String {
+        let mut commit_str = String::new();
+        for byte in commit_id.iter() {
+            commit_str.push_str(format!("{:02x?}", byte).as_str());
+        }
+        commit_str
     }
 }

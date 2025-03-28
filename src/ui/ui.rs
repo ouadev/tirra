@@ -216,7 +216,7 @@ impl WriterUi {
         ////// start db access
         self.tirra_db.access_start().unwrap();
         if let Ok(local_info) = self.tirra_db.api_load_info(false) {
-            TirraDb::information_debug(&local_info);
+            local_info.print_debug();
         } else {
             println!("info: Info Block is not found");
         }
