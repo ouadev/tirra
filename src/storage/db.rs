@@ -171,7 +171,7 @@ impl TirraDb {
     }
 
     pub fn with_crypto(location: &str, password: &[u8]) -> Self {
-        let plain = format!("{}.{}", &location, "plaintext");
+        let plain = format!("{}.{}", &location, "plain");
         Self {
             crypto: TirraCrypto::new(location, plain.as_str(), password),
             conn: None,
@@ -231,12 +231,39 @@ impl TirraDb {
         //db.close().map_err(|_e| TirraDbError::DbCloseFailure)?;
         //re-encrypt db
         //TODO: panic.exception here, handle case where we can't encrypt database, risk of losing data.
+
+        /*
+         * first issue:
+         * The operation should be atomic: dec-write-enc-rm
+         * - issue at dec:   consistency OK.  privacy NOK
+         * - issue at write: consistency OK.  privacy NOK
+         * - issue at enc:   consistency NOK. privacy NOK
+         * - issue at rm;    consistency OK.  privacy NOK
+         * => should miminize the likelihood of this happening.
+         *
+         * Consistency: back up encrypted db before starting the operation.
+         * Privacy    :  cleanup in 1) exceptions and 2) exit signal
+         *
+         * alert at start up if clear db is found from previous sessions.
+         */
+
+        // 1- back up encrypted db
+        let enc_backup = format!("{}.{}", &self.crypto.get_db_location(), "backup");
+        if let Err(_) = fs::copy(self.crypto.get_db_location(), &enc_backup) {
+            return Err(TirraDbError::CryptoAccessFailure);
+        }
+
+        // 2- encrypt
         self.crypto
             .encrypt_db()
             .map_err(|_e| TirraDbError::CryptoAccessFailure)?;
 
+        //3- remove plain db
         fs::remove_file(self.crypto.plaintext_db_location())
             .map_err(|_| TirraDbError::DbCloseFailure)?;
+
+        //4- remove backup enc db
+        fs::remove_file(&enc_backup).map_err(|_| TirraDbError::DbCloseFailure)?;
 
         self.conn = None;
 
