@@ -94,7 +94,7 @@ impl AgeScryptHeader {
 
         loop {
             line.clear();
-            //TODO: set limit.
+            //IMPROV: set limit.
             if let Ok(_sz) = reader.read_line(&mut line) {
             } else {
                 return Err(AgeCryptoError::FileOpen);

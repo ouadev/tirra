@@ -70,7 +70,6 @@ impl LoginUi {
             if backup_file {
                 info_text.push_str(&format!("Beware, backup database is found\n"));
             }
-
         } else {
             info_text.push_str(&format!(" Database file was not found.\n"));
             db_found = false;
@@ -227,10 +226,10 @@ impl WriterUi {
         if let Ok(local_info) = self.tirra_db.api_load_info(false) {
             local_info.print_debug();
         } else {
-            println!("info: Info Block is not found");
-            //special case for older dbs, after that:
-            //TODO: exception here.
-            self.tirra_db.access_start().unwrap();
+            exception(
+                "information block is not found in the database",
+                Some(&self.tirra_db),
+            );
         }
         // Load all entries into memory and display the first one
         let entry_list = match self

@@ -228,6 +228,8 @@ fn print_stats(db: &mut TirraDb) {
     match info_result {
         Ok(info) => {
             println!("schema_version :\t {}", info.schema_ver);
+            //println!("local :\t {:x?}", &info.local_commit.unwrap());
+            //println!("origin :\t {:x?}", info.origin_commit.unwrap());
         }
         Err(_) => {
             println!("InfoBlock : error");
