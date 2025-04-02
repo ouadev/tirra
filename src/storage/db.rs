@@ -24,11 +24,12 @@ const TIRRA_HOME_DIR_PATH: &str = "HOME";
 const TIRRA_HOME_DIR_PATH: &str = "USERPROFILE";
 const TIRRA_DEFAULT_DB_NAME: &str = "awal.tirra";
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TirraDbError {
     CryptoAccessFailure, // Failure to decrypt the database
     DbOpenFailure,
     DbCloseFailure,
+    DbRemovePlain,
     DbInitError,
     DbRemoveFileError,
     DbRequestError,
@@ -208,9 +209,22 @@ impl TirraDb {
             return Err(TirraDbError::CryptoAccessFailure);
         }
         // decrypt the db
-        self.crypto
+        let decrypted = self
+            .crypto
             .decrypt_db()
-            .map_err(|_e| TirraDbError::CryptoAccessFailure)?;
+            .map_err(|_e| TirraDbError::CryptoAccessFailure);
+
+        match decrypted {
+            Ok(_) => {}
+            Err(dec_err) => {
+                //priority error to raise is inability to remove plain file
+                if let Err(rm_err) = self.cleanup_plain() {
+                    return Err(rm_err);
+                } else {
+                    return Err(dec_err);
+                }
+            }
+        }
 
         match Connection::open(self.crypto.plaintext_db_location()) {
             Ok(conn) => {
@@ -218,7 +232,12 @@ impl TirraDb {
                 return Ok(());
             }
             _ => {
-                return Err(TirraDbError::DbOpenFailure);
+                //priority error to raise is inability to remove plain file
+                if let Err(rm_err) = self.cleanup_plain() {
+                    return Err(rm_err);
+                } else {
+                    return Err(TirraDbError::DbOpenFailure);
+                }
             }
         }
     }
@@ -227,13 +246,9 @@ impl TirraDb {
      * Stop access to db.
      * close connection and remove plaintext file.
      */
-    pub fn access_stop(&mut self) -> Result<(), TirraDbError> {
-        //db.close().map_err(|_e| TirraDbError::DbCloseFailure)?;
-        //re-encrypt db
-        //TODO: panic.exception here, handle case where we can't encrypt database, risk of losing data.
-
+    pub fn access_stop(&mut self, re_encrypt: bool) -> Result<(), TirraDbError> {
         /*
-         * first issue:
+         * documentation about access to encrypted.
          * The operation should be atomic: dec-write-enc-rm
          * - issue at dec:   consistency OK.  privacy NOK
          * - issue at write: consistency OK.  privacy NOK
@@ -242,28 +257,51 @@ impl TirraDb {
          * => should miminize the likelihood of this happening.
          *
          * Consistency: back up encrypted db before starting the operation.
-         * Privacy    :  cleanup in 1) exceptions and 2) exit signal
-         *
-         * alert at start up if clear db is found from previous sessions.
+         * Privacy    :
+         *  - cleanup after a failure in one of the steps above.
+         *  - one-last-check cleanup in exceptions and exit signal
+         *  - alert at start up if clear db is found from previous sessions.
          */
-
-        // 1- back up encrypted db
         let enc_backup = format!("{}.{}", &self.crypto.get_db_location(), "backup");
-        if let Err(_) = fs::copy(self.crypto.get_db_location(), &enc_backup) {
-            return Err(TirraDbError::CryptoAccessFailure);
+
+        if re_encrypt {
+            // 1- back up encrypted db
+
+            if let Err(_) = fs::copy(self.crypto.get_db_location(), &enc_backup) {
+                return Err(TirraDbError::CryptoAccessFailure);
+            }
+
+            // 2- encrypt
+            let encrypted = self
+                .crypto
+                .encrypt_db()
+                .map_err(|_e| TirraDbError::CryptoAccessFailure);
+
+            match encrypted {
+                Err(enc_err) => {
+                    //failure to encrypt db. the main enc db file might be inconsistent now.
+                    // - remove plain
+                    self.cleanup_plain()?;
+                    // - copy from backup.
+                    if let Err(_) = fs::copy(&enc_backup, self.crypto.get_db_location()) {
+                        return Err(enc_err);
+                    }
+                    //- remove backup then
+                    fs::remove_file(&enc_backup).map_err(|_| enc_err.clone())?;
+
+                    return Err(enc_err);
+                }
+                _ => {}
+            }
         }
 
-        // 2- encrypt
-        self.crypto
-            .encrypt_db()
-            .map_err(|_e| TirraDbError::CryptoAccessFailure)?;
-
         //3- remove plain db
-        fs::remove_file(self.crypto.plaintext_db_location())
-            .map_err(|_| TirraDbError::DbCloseFailure)?;
+        self.cleanup_plain()?;
 
-        //4- remove backup enc db
-        fs::remove_file(&enc_backup).map_err(|_| TirraDbError::DbCloseFailure)?;
+        if re_encrypt {
+            //4- remove backup enc db
+            fs::remove_file(&enc_backup).map_err(|_| TirraDbError::DbRemoveFileError)?;
+        }
 
         self.conn = None;
 
@@ -285,7 +323,7 @@ impl TirraDb {
 
         let result = Self::op_update_entry(db, text_entry, entry_id);
         if result.is_err() || last {
-            self.access_stop()?;
+            self.access_stop(last)?;
         }
         return result;
     }
@@ -307,7 +345,7 @@ impl TirraDb {
 
         let result = Self::op_add_entry(db, type_entry, text_entry, create_date, modify_date);
         if result.is_err() || last {
-            self.access_stop()?;
+            self.access_stop(last)?;
         }
         return result;
     }
@@ -326,7 +364,7 @@ impl TirraDb {
 
         let result = Self::op_load_entries(db, filter);
         if result.is_err() || last {
-            self.access_stop()?;
+            self.access_stop(last)?;
         }
         return result;
     }
@@ -341,7 +379,7 @@ impl TirraDb {
 
         let result = Self::op_load_info(db);
         if result.is_err() || last {
-            self.access_stop()?;
+            self.access_stop(last)?;
         }
         return result;
     }
@@ -356,7 +394,7 @@ impl TirraDb {
 
         let result = Self::op_remove_entry(db, id_entry);
         if result.is_err() || last {
-            self.access_stop()?;
+            self.access_stop(last)?;
         }
         return result;
     }
@@ -384,7 +422,7 @@ impl TirraDb {
 
         //stop access as usual
         if result.is_err() || last {
-            self.access_stop()?;
+            self.access_stop(last)?;
         }
         return result;
     }
@@ -670,6 +708,11 @@ impl TirraDb {
             std::env::consts::OS
         );
         utils::hash_sha256(unique_id_feed.as_str())
+    }
+
+    fn cleanup_plain(&self) -> Result<(), TirraDbError> {
+        fs::remove_file(self.crypto.plaintext_db_location())
+            .map_err(|_| TirraDbError::DbRemovePlain)
     }
 }
 
