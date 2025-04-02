@@ -307,9 +307,15 @@ impl WriterUi {
 
         if self.editor_dirty {
             if let Some(entry) = self.current_entry() {
-                self.tirra_db
-                    .api_update_entry(&entry.text.clone(), entry.id, false)
-                    .unwrap();
+                if let Err(error) =
+                    self.tirra_db
+                        .api_update_entry(&entry.text.clone(), entry.id, false)
+                {
+                    self.error_screen = Some(format!(
+                        "error: I couldn't write the current entry content to database ({:?})",
+                        error
+                    ));
+                }
             }
             self.editor_dirty = false;
         }
@@ -348,9 +354,15 @@ impl WriterUi {
         // Save before creating a new entry
         if self.editor_dirty {
             if let Some(entry) = self.current_entry() {
-                self.tirra_db
-                    .api_update_entry(&entry.text.clone(), entry.id, false)
-                    .unwrap();
+                if let Err(error) =
+                    self.tirra_db
+                        .api_update_entry(&entry.text.clone(), entry.id, false)
+                {
+                    self.error_screen = Some(format!(
+                        "error: I couldn't write the current entry content to database ({:?})",
+                        error
+                    ));
+                }
             }
             self.editor_dirty = false;
         }
@@ -493,9 +505,15 @@ impl WriterUi {
         }
 
         if let Some(entry) = self.current_entry() {
-            self.tirra_db
+            if let Err(error) = self
+                .tirra_db
                 .api_update_entry(&entry.text.clone(), entry.id, false)
-                .unwrap();
+            {
+                self.error_screen = Some(format!(
+                    "error: I couldn't write the current entry content to database ({:?})",
+                    error
+                ));
+            }
         }
 
         self.entry_list = match self
