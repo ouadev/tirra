@@ -102,8 +102,13 @@ impl EditorPage {
             });
         // DIV : Left Pan
         let div_leftpan = self.view_left_pan();
+
         // All
-        row![div_leftpan, div_sep, div_editor].into()
+        if let Some(message) = &self.writer_ui.error_screen {
+            row![self.view_error_screen(message.clone())].into()
+        } else {
+            row![div_leftpan, div_sep, div_editor].into()
+        }
     }
 
     /**
@@ -295,6 +300,26 @@ impl EditorPage {
         column![div_command_cont, div_editor_text, div_editor_status].into()
     }
 
+    fn view_error_screen(&self, message: String) -> Element<Message> {
+        //Error optional div
+        let msg_text = text(message)
+            .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
+            .shaping(text::Shaping::Advanced);
+        let msg_button = Button::new(msg_text)
+            .width(400)
+            .style(styles::button::button_entry_selected)
+            .clip(true);
+            //.on_press(Message::EntryClicked(0));
+
+        container(msg_button)
+            .center_y(Length::Fill)
+            .center_x(Length::Fill)
+            .style(|_theme: &Theme| {
+                let palette = style_conf::palette();
+                container::Style::default().background(Background::Color(palette.background_main))
+            })
+            .into()
+    }
     fn refresh_editor(&mut self) {
         match self.writer_ui.current_entry() {
             Some(entry) => {

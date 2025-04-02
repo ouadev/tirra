@@ -183,6 +183,7 @@ pub struct WriterUi {
     curr_entry_id: Option<u32>,
     //configuration
     readonly_mode: bool,
+    pub error_screen: Option<String>,
     //view parameters
     editor_dirty: bool,
     cli_visible: bool,
@@ -205,6 +206,7 @@ impl WriterUi {
             last_activity: 0,
             entry_list: TirraEntryList::new(),
             readonly_mode: false,
+            error_screen: None,
             cli_visible: false,
             cli_text: String::new(),
             load_request: String::new(),
