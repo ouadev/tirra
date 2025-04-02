@@ -427,6 +427,9 @@ impl TirraDb {
         return result;
     }
 
+    pub fn api_cleanup(&self) {
+        self.cleanup_plain().unwrap_or(())
+    }
     /**
      * Operation: UpdateEntry
      */

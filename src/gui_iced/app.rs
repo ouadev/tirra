@@ -159,7 +159,7 @@ impl TirraIced {
                         Task::none()
                     }
                 } else {
-                    exception("running page should be login");
+                    exception("running page should be login", None);
                     Task::none()
                 }
             }
@@ -252,7 +252,7 @@ impl TirraIced {
         if let RunningPage::Editor(editor_page) = &mut self.page {
             editor_page.update(message).map(Message::Editor)
         } else {
-            exception("running page should editor");
+            exception("running page should editor", None);
             Task::none()
         }
     }
@@ -261,7 +261,7 @@ impl TirraIced {
         if let RunningPage::Login(login_page) = &mut self.page {
             login_page.update(message).map(Message::Login)
         } else {
-            exception("running page should login ");
+            exception("running page should login ", None);
             Task::none()
         }
     }

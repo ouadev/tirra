@@ -15,7 +15,6 @@ pub fn datetime_from_unix(unix_ts: i64) -> DateTime<Utc> {
     match DateTime::from_timestamp(unix_ts, 0) {
         Some(date) => date,
         _ => {
-            //exception("invalid timestamp");
             DateTime::<Utc>::MIN_UTC
         }
     }

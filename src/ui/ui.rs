@@ -90,7 +90,7 @@ impl LoginUi {
                 // create new db
                 let db_created = tirra_db.api_create_db(false);
                 if let Err(_x) = db_created {
-                    exception("couldn't initialize new database");
+                    exception("couldn't initialize new database", Some(&tirra_db));
                 }
 
                 // insert first empty entry
@@ -103,7 +103,7 @@ impl LoginUi {
                     true,
                 );
                 if let Err(_x) = empty_added {
-                    exception("database init, couldn't add first entry");
+                    exception("database init, couldn't add first entry", Some(&tirra_db));
                 }
 
                 self.logged_in = true;
@@ -230,7 +230,7 @@ impl WriterUi {
         {
             Ok(list) => list,
             Err(_err) => {
-                exception("loading entries");
+                exception("loading entries", Some(&self.tirra_db));
                 TirraEntryList::new()
             }
         };
@@ -255,11 +255,11 @@ impl WriterUi {
                     self.editor_dirty = true;
                 }
                 _ => {
-                    exception("ui: current entry id mismatch");
+                    exception("ui: current entry id mismatch", Some(&self.tirra_db));
                 }
             },
             _ => {
-                exception("ui: current id should be set");
+                exception("ui: current id should be set", Some(&self.tirra_db));
             }
         }
     }
@@ -346,7 +346,7 @@ impl WriterUi {
                 self.entry_list = match self.tirra_db.api_load_entries(&self.load_request, true) {
                     Ok(list) => list,
                     Err(_err) => {
-                        exception("loading entries");
+                        exception("loading entries", Some(&self.tirra_db));
                         TirraEntryList::new()
                     }
                 };
@@ -428,7 +428,7 @@ impl WriterUi {
                         ))
                     }
                     _ => {
-                        exception("misalignment between gui and model (curr_entry_id)");
+                        exception("misalignment between gui and model (curr_entry_id)", Some(&self.tirra_db));
                         None
                     }
                 }
@@ -481,7 +481,7 @@ impl WriterUi {
         {
             Ok(list) => list,
             Err(_err) => {
-                exception("loading entries");
+                exception("loading entries", Some(&self.tirra_db));
                 TirraEntryList::new()
             }
         };
