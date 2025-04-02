@@ -161,6 +161,8 @@ pub struct TirraDb {
 impl TirraDb {
     const DEFAULT_SQL_FILTER: &str = "WHERE id > 0 ORDER BY date_modify DESC LIMIT 20";
     const DEFAULT_COMMIT_AUTHOR: &str = "tirra-author";
+    const DB_PLAIN_SUFFIX: &str = ".plain";
+    const DB_BACKUP_SUFFIX: &str = ".backup";
     /**
      * new TirraDb Object
      */
@@ -172,7 +174,7 @@ impl TirraDb {
     }
 
     pub fn with_crypto(location: &str, password: &[u8]) -> Self {
-        let plain = format!("{}.{}", &location, "plain");
+        let plain = format!("{}{}", &location, Self::DB_PLAIN_SUFFIX);
         Self {
             crypto: TirraCrypto::new(location, plain.as_str(), password),
             conn: None,
@@ -262,7 +264,11 @@ impl TirraDb {
          *  - one-last-check cleanup in exceptions and exit signal
          *  - alert at start up if clear db is found from previous sessions.
          */
-        let enc_backup = format!("{}.{}", &self.crypto.get_db_location(), "backup");
+        let enc_backup = format!(
+            "{}{}",
+            &self.crypto.get_db_location(),
+            Self::DB_BACKUP_SUFFIX
+        );
 
         if re_encrypt {
             // 1- back up encrypted db
@@ -430,6 +436,14 @@ impl TirraDb {
     pub fn api_cleanup(&self) {
         self.cleanup_plain().unwrap_or(())
     }
+
+    pub fn api_scan_dir(db_path: &str) -> (bool, bool) {
+        let plain = format!("{}{}", &db_path, Self::DB_PLAIN_SUFFIX);
+        let backup = format!("{}{}", &db_path, Self::DB_BACKUP_SUFFIX);
+
+        (utils::file_exists(&plain), utils::file_exists(&backup))
+    }
+
     /**
      * Operation: UpdateEntry
      */

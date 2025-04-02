@@ -62,6 +62,15 @@ impl LoginUi {
         let db_found: bool;
         if utils::file_exists(db_location) == true {
             db_found = true;
+            //scan dir
+            let (plain_file, backup_file) = TirraDb::api_scan_dir(db_location);
+            if plain_file {
+                info_text.push_str(&format!("Beware, database in clear is found\n"));
+            }
+            if backup_file {
+                info_text.push_str(&format!("Beware, backup database is found\n"));
+            }
+
         } else {
             info_text.push_str(&format!(" Database file was not found.\n"));
             db_found = false;
@@ -428,7 +437,10 @@ impl WriterUi {
                         ))
                     }
                     _ => {
-                        exception("misalignment between gui and model (curr_entry_id)", Some(&self.tirra_db));
+                        exception(
+                            "misalignment between gui and model (curr_entry_id)",
+                            Some(&self.tirra_db),
+                        );
                         None
                     }
                 }
