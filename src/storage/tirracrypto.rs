@@ -18,7 +18,7 @@ impl Default for TirraCrypto {
     }
 }
 
-//TODO: pwd removed after used to unwrap other secrets.
+
 impl TirraCrypto {
     pub fn new(location_encrypted: &str, location_plain: &str, password: &[u8]) -> Self {
         Self {
