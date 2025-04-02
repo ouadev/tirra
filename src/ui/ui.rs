@@ -222,7 +222,10 @@ impl WriterUi {
         }
 
         ////// start db access
-        self.tirra_db.access_start().unwrap();
+        if let Err(_) = self.tirra_db.access_start() {
+            exception("Db access start", Some(&self.tirra_db));
+        }
+
         if let Ok(local_info) = self.tirra_db.api_load_info(false) {
             local_info.print_debug();
         } else {
@@ -296,7 +299,10 @@ impl WriterUi {
      */
     pub fn on_cli_submit(&mut self) {
         ////// start db access
-        self.tirra_db.access_start().unwrap();
+        if let Err(_) = self.tirra_db.access_start() {
+            exception("Db access start", Some(&self.tirra_db));
+        }
+
         if self.editor_dirty {
             if let Some(entry) = self.current_entry() {
                 self.tirra_db
@@ -334,7 +340,9 @@ impl WriterUi {
             return;
         }
         ////// start db access
-        self.tirra_db.access_start().unwrap();
+        if let Err(_) = self.tirra_db.access_start() {
+            exception("Db access start", Some(&self.tirra_db));
+        }
         // Save before creating a new entry
         if self.editor_dirty {
             if let Some(entry) = self.current_entry() {
@@ -478,7 +486,9 @@ impl WriterUi {
             return;
         }
         ////// start db access
-        self.tirra_db.access_start().unwrap();
+        if let Err(_) = self.tirra_db.access_start() {
+            exception("Db access start", Some(&self.tirra_db));
+        }
 
         if let Some(entry) = self.current_entry() {
             self.tirra_db
