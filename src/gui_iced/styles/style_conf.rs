@@ -47,9 +47,9 @@ pub fn toggle_theme() {
 */
 pub fn palette() -> Palette {
     if DARK_MODE_ENABLED.load(Ordering::Relaxed) {
-        Palette::DARK
+        Palette::DARK_TIRRA
     } else {
-        Palette::LIGHT_CATPPUCCIN
+        Palette::LIGHT_TIRRA
     }
 }
 // Font families for different use cases.

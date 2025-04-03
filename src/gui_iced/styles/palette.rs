@@ -12,6 +12,28 @@ pub struct Palette {
 }
 
 impl Palette {
+    pub const LIGHT_TIRRA: Self = Self {
+        background_main: color!(0xffffff),
+        text: color!(0x000000),
+
+        background_secondary: color!(0xc1dfc2),
+        control_main: color!(0x72b775),
+        control_disabled: color!(0x0e6174),
+
+        control_secondary: color!(0x63c25e),
+    };
+
+    pub const DARK_TIRRA: Self = Self {
+        background_main: color!(0x18230F),
+        text: color!(0xffffff ),
+
+        background_secondary: color!(0x27391C),
+        control_main: color!(0x1F7D53),
+        control_disabled: color!(0x0e6174),
+
+        control_secondary: color!(0x63c25e),
+    };
+
     pub const LIGHT: Self = Self {
         background_main: color!(0xffffff),
         background_secondary: color!(0xd9d9d9),
