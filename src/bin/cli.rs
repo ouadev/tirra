@@ -1,16 +1,17 @@
 use std::env;
 use std::fs::File;
 use std::io::Read;
-use tirra::storage::{
+use tirra::{common::version, storage::{
     db::{self, TirraDb},
     tirracrypto::TirraCrypto,
-};
+}};
 
 // Command Line Usage
 const USAGE_STR: &str = "
 Tirra Command Line.
 
 Usage:
+tirra-cli ver
 tirra-cli add     DB_FILE PWD_FILE DATE
 tirra-cli delete  DB_FILE PWD_FILE ID
 tirra-cli stat    DB_FILE PWD_FILE
@@ -33,6 +34,7 @@ enum CliAction {
     Decrypt,
     Encrypt,
     Test,
+    Version,
 }
 
 pub fn main() -> () {
@@ -53,13 +55,16 @@ pub fn main() -> () {
         "decrypt" => cli_action = CliAction::Decrypt,
         "encrypt" => cli_action = CliAction::Encrypt,
         "test" => cli_action = CliAction::Test,
+        "ver" => cli_action = CliAction::Version,
         _ => {
             println!("{}", USAGE_STR);
             return;
         }
     }
 
-    if cli_action == CliAction::Add {
+    if cli_action == CliAction::Version {
+        println!("tirra {}", version::VERSION);
+    } else if cli_action == CliAction::Add {
         if args_count != 5 {
             panic!("{}", USAGE_STR);
         }

@@ -1,5 +1,5 @@
 use crate::{
-    common::{exception::exception, utils},
+    common::{exception::exception, utils, version},
     gui_iced::styles::style_conf,
     storage::db::{self, TirraDb, TirraEntry, TirraEntryList},
 };
@@ -154,7 +154,7 @@ impl TirraInterface for LoginUi {
     fn on_activity(&mut self) {}
 
     fn title(&self) -> String {
-        format!("Tirra - Open")
+        format!("Tirra - open \t{}", version::VERSION)
     }
 
     fn background_work(&self) -> BgRun {
