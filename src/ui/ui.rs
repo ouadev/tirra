@@ -4,7 +4,6 @@ use crate::{
     storage::db::{self, TirraDb, TirraEntry, TirraEntryList},
 };
 use chrono::{DateTime, Datelike, Timelike, Utc};
-use std::env;
 
 /**
  * Keyboard control keys
@@ -600,19 +599,4 @@ impl<'a> Iterator for EntryViewIterator<'a> {
         return_item
     }
 }
-/**
- * Misc Functions
- */
 
-/**
- * parse_args: for now, it only returns the db_to_use
- */
-pub fn parse_args() -> String {
-    let mut db_to_use = db::default_user_db_path();
-    // check arguments
-    let args: Vec<String> = env::args().collect();
-    if args.len() == 2 {
-        db_to_use = String::from(&args[1]);
-    }
-    db_to_use
-}

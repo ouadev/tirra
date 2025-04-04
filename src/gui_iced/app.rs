@@ -13,9 +13,9 @@ use crate::common::exception::exception;
 use crate::gui_iced::pages::editor::{self, EditorPage};
 use crate::gui_iced::pages::login::{self, LoginPage};
 use crate::gui_iced::styles::style_conf;
-use crate::ui::ui::{self, KbCtrl, TirraInterface};
+use crate::ui::ui::{KbCtrl, TirraInterface};
 
-pub fn app_iced() -> iced::Result {
+pub fn app_iced(db_path: String) -> iced::Result {
     #[cfg(target_os = "linux")]
     let platform_specific = PlatformSpecific {
         application_id: String::from("win-tirra-lnx"),
@@ -40,7 +40,6 @@ pub fn app_iced() -> iced::Result {
         .theme(TirraIced::theme)
         .settings(Settings {
             id: Some(String::from("win-tirra")),
-            //fonts: vec![Cow::Borrowed(style_conf::FONT_EXTERNAL_BYTES)],
             default_font: style_conf::FONT_DEFAULT,
             default_text_size: style_conf::STYLE_TEXT_SIZE_EDITOR,
             ..Settings::default()
@@ -51,7 +50,7 @@ pub fn app_iced() -> iced::Result {
             platform_specific: platform_specific,
             ..Default::default()
         })
-        .run_with(TirraIced::new)
+        .run_with(|| TirraIced::new(db_path))
 }
 
 enum RunningPage {
@@ -74,9 +73,7 @@ enum Message {
 }
 
 impl TirraIced {
-    fn new() -> (Self, Task<Message>) {
-        let db_to_use = ui::parse_args();
-
+    fn new(db_to_use: String) -> (Self, Task<Message>) {
         let (login_page, _) = LoginPage::new(&db_to_use);
 
         // decide if dark_mode should be used by default.
