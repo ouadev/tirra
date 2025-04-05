@@ -24,11 +24,11 @@ impl Palette {
     };
 
     pub const DARK_TIRRA: Self = Self {
-        background_main: color!(0x38442f),
+        background_main: color!(0x2C3930),
         text: color!(0xcccccc),
 
-        background_secondary: color!(0x18230f),
-        control_main: color!(0x1F7D53),
+        background_secondary: color!(0x3F4F44),
+        control_main: color!(0xA27B5C),
         control_disabled: color!(0x0e6174),
 
         control_secondary: color!(0x63c25e),
