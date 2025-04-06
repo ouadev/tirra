@@ -265,12 +265,13 @@ impl EditorPage {
         .width(Length::Fill)
         .size(style_conf::STYLE_TEXT_SIZE_COMMAND)
         .font(style_conf::FONT_COMMAND_LINE)
+        .style(styles::text_input::main_style)
         .on_submit(Message::CliSubmited)
         .on_input(Message::CliChanged);
 
         let mut div_command_cont;
         if self.writer_ui.is_cli_visible() {
-            div_command_cont = container(div_cmd_input).height(40);
+            div_command_cont = container(div_cmd_input).height(30);
         } else {
             div_command_cont = container("").height(10);
         }
@@ -309,7 +310,7 @@ impl EditorPage {
             .width(400)
             .style(styles::button::button_entry_selected)
             .clip(true);
-            //.on_press(Message::EntryClicked(0));
+        //.on_press(Message::EntryClicked(0));
 
         container(msg_button)
             .center_y(Length::Fill)
