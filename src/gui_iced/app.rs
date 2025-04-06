@@ -1,7 +1,5 @@
 //#![windows_subsystem = "windows"]
 //use crate::widget::text_input;
-use iced::highlighter::{self};
-use iced::theme::Theme;
 use iced::time::{self, every};
 use iced::widget::text_input;
 use iced::window::settings::PlatformSpecific;
@@ -37,7 +35,7 @@ pub fn app_iced(db_path: String) -> iced::Result {
     // Run ICED
     iced::application(TirraIced::title, TirraIced::update, TirraIced::view)
         .subscription(TirraIced::subscription)
-        .theme(TirraIced::theme)
+        //.theme(TirraIced::theme)
         .settings(Settings {
             id: Some(String::from("win-tirra")),
             default_font: style_conf::FONT_DEFAULT,
@@ -62,7 +60,6 @@ enum RunningPage {
     Editor(EditorPage),
 }
 struct TirraIced {
-    theme: highlighter::Theme,
     page: RunningPage,
     db_location: String,
 }
@@ -86,7 +83,6 @@ impl TirraIced {
         //return
         (
             Self {
-                theme: highlighter::Theme::InspiredGitHub,
                 page: RunningPage::Login(login_page),
                 db_location: db_to_use,
             },
@@ -241,13 +237,6 @@ impl TirraIced {
         }
     }
 
-    fn theme(&self) -> Theme {
-        if self.theme.is_dark() {
-            Theme::Dark
-        } else {
-            Theme::Light
-        }
-    }
 
     fn update_editor_page(&mut self, message: editor::Message) -> Task<Message> {
         if let RunningPage::Editor(editor_page) = &mut self.page {
