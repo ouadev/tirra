@@ -2,8 +2,8 @@ use chacha20poly1305::{
     aead::{rand_core::RngCore, Aead, KeyInit, OsRng},
     ChaCha20Poly1305,
 };
+use hkdf::hmac::{Hmac, Mac};
 use hkdf::Hkdf;
-use hmac::{Hmac, Mac};
 use scrypt::{scrypt, Params};
 use sha2::Sha256;
 

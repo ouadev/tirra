@@ -3412,7 +3412,6 @@ dependencies = [
  "chacha20poly1305",
  "chrono",
  "hkdf",
- "hmac",
  "iced",
  "rusqlite",
  "scrypt",
