@@ -5,7 +5,7 @@ use iced::theme::Theme;
 use iced::time::{self, every};
 use iced::widget::text_input;
 use iced::window::settings::PlatformSpecific;
-use iced::{event, Event, Task};
+use iced::{event, Event, Size, Task};
 use iced::{keyboard, window};
 use iced::{Element, Settings, Subscription};
 
@@ -46,6 +46,10 @@ pub fn app_iced(db_path: String) -> iced::Result {
         })
         .window(window::Settings {
             icon: None,
+            min_size: Some(Size {
+                width: 800.,
+                height: 600.,
+            }),
             exit_on_close_request: false,
             platform_specific: platform_specific,
             ..Default::default()
