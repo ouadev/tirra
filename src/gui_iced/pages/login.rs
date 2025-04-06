@@ -73,6 +73,7 @@ impl LoginPage {
         .secure(true)
         .on_submit(Message::LoginButtonPressed)
         .on_input(Message::PwdInputChanged)
+        .style(styles::text_input::main_style)
         .id(text_input::Id::new(LOGIN_INPUT_ICED_ID));
 
         let div_pwd_cont = container(div_pwd).center_x(Length::Fill);
