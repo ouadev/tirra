@@ -58,13 +58,16 @@ impl TirraEntry {
         let mut sub = String::new();
         let mut trailing_whitespace = true;
         for (i, c) in self.text.chars().enumerate() {
+            //don't use the trailing whitespace
+            if trailing_whitespace {
+                if c != ' ' && c != '\n' {
+                    trailing_whitespace = false;
+                }
+                continue;
+            }
             //stop extracting title at new line
             if c == '\n' {
                 break;
-            }
-            //don't use the trailing whitespace
-            if trailing_whitespace && c != ' ' {
-                trailing_whitespace = false;
             }
             //collect
             if !trailing_whitespace {
