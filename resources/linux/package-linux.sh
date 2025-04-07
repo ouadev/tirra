@@ -1,7 +1,7 @@
 #!/bin/bash
 
 TARGET="tirra"
-VERSION="0.0.1"
+VERSION="$1"
 PACKAGE_NAME="${TARGET}_${VERSION}"
 ASSETS_DIR="resources/linux"
 BINARY="target/release/gui"
