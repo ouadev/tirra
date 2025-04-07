@@ -19,10 +19,11 @@ for size in 16 32 64 128 256 512; do
   convert "$src" -resize x$size $macos_out_dir/icon_${size}x${size}.png
 done
 
-#mv $output_path ~/Desktop/icon.iconset
-iconutil -c icns $macos_out_dir
-#rm -r ~/Desktop/icon.iconset
-
+# create iconset file format
+#iconutil -c icns $macos_out_dir # this runs on macos
+# png2icns runs on linux. note: it doesn't accept 64x64 png files !!
+png2icns macos/icon.icns macos/icon.iconset/icon_16x16.png macos/icon.iconset/icon_32x32.png macos/icon.iconset/icon_128x128.png macos/icon.iconset/icon_256x256.png macos/icon.iconset/icon_512x512.png
 
 # Generate Windows icon
-convert $src -define icon:auto-resize=512,256,128,64,48,32,16 windows/tirra.exe.ico
+convert $src -define icon:auto-resize=256,128,64,48,32,16 windows/tirra.exe.ico
+
