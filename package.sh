@@ -6,12 +6,12 @@ package_macos() {
     ./resources/macos/package-macos.sh
 }
 
-CURRENT_PLATFORM=$(uname)
+package_windows() {
+    ./resources/windows/package-win.sh
+}
 
-case "$CURRENT_PLATFORM" in
-  "Linux") package_linux;;
-  "Darwin") package_macos;;
-  *)
-    echo "unknown current platform: $CURRENT_PLATFORM"
-    ;;
-esac
+
+
+package_linux
+package_windows
+#package_macos  # hdiutil is absent and other issues.

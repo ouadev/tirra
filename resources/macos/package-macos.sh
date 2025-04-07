@@ -77,7 +77,7 @@ function MakeAppPackage {
    echo "Making $DESTINATION/Tirra.app now."
    rm -Rf "$DESTINATION"
 
-   mkdir "$DESTINATION"
+   mkdir -p "$DESTINATION"
    mkdir "$DESTINATION"/Tirra.app
    mkdir "$DESTINATION"/Tirra.app/Contents
    mkdir "$DESTINATION"/Tirra.app/Contents/Resources
