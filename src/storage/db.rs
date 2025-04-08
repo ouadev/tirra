@@ -62,17 +62,16 @@ impl TirraEntry {
             if trailing_whitespace {
                 if c != ' ' && c != '\n' {
                     trailing_whitespace = false;
+                } else {
+                    continue;
                 }
-                continue;
             }
             //stop extracting title at new line
             if c == '\n' {
                 break;
             }
             //collect
-            if !trailing_whitespace {
-                sub.push(c);
-            }
+            sub.push(c);
 
             // limit the title size
             if i >= max_chars {
