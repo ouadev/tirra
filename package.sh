@@ -1,4 +1,4 @@
-VERSION="0.9.99"
+VERSION="0.9.3"
 
 package_linux() {
     ./resources/linux/package-linux.sh $VERSION
