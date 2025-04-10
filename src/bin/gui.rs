@@ -1,3 +1,4 @@
+#![windows_subsystem = "windows"]
 use std::env;
 use tirra::{gui_iced::app, storage::db, ui::command_line};
 
