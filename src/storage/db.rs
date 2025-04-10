@@ -272,6 +272,9 @@ impl TirraDb {
             Self::DB_BACKUP_SUFFIX
         );
 
+        //close connection if it is open
+        self.conn = None;
+
         if re_encrypt {
             // 1- back up encrypted db
 
