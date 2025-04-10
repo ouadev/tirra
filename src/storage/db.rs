@@ -408,6 +408,10 @@ impl TirraDb {
     }
 
     pub fn api_create_db(&mut self, last: bool) -> Result<(), TirraDbError> {
+        //first time: create empty encrypted file.
+        if let Err(_) = std::fs::File::create(self.crypto.get_db_location()) {
+            return Err(TirraDbError::DbOpenFailure);
+        }
         //first time: open the plaintext file directly.
         match Connection::open(self.crypto.plaintext_db_location()) {
             Ok(conn) => {

@@ -68,7 +68,6 @@ impl TirraCrypto {
             }
 
             None => {
-                println!("crypto information is absent");
                 let age_crypto = AgeCrypto::new();
                 if let Ok(_) =
                     age_crypto.encrypt_file(&self.db_location_pt, &self.db_location, &self.password)
