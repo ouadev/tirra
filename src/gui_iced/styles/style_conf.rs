@@ -98,9 +98,17 @@ pub const FONT_STATUS_DATE_BOLD: Font = Font {
     style: Style::Normal,
 };
 
+pub const FONT_LOGIN_LOGO: Font = Font {
+    family: FONT_FAMILY_DEFAULT,
+    weight: Weight::Bold,
+    stretch: Stretch::Normal,
+    style: Style::Normal,
+};
+
 // Text Sizes
 pub const STYLE_TEXT_SIZE_EDITOR: iced::Pixels = iced::Pixels(21.0);
 pub const STYLE_TEXT_SIZE_NORMAL: iced::Pixels = iced::Pixels(15.);
 pub const STYLE_TEXT_SIZE_COMMAND: iced::Pixels = iced::Pixels(20.);
 pub const STYLE_TEXT_SIZE_EDITOR_STATUS_HIGHLIGHT: iced::Pixels = iced::Pixels(15.);
 pub const STYLE_TEXT_SIZE_EDITOR_STATUS: iced::Pixels = iced::Pixels(15.);
+pub const STYLE_TEXT_SIZE_LOGO: iced::Pixels = iced::Pixels(80.);

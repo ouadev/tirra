@@ -41,14 +41,21 @@ impl LoginPage {
 
     pub fn view(&self) -> Element<Message> {
         //DIV : margin-top
-        let div_sep = container("")
+        // Header logo thing // ⵜⵉⵔⵔⴰ
+        let div_logo = Text::new("ⵜⵔ")
+            .size(style_conf::STYLE_TEXT_SIZE_LOGO)
+            .font(style_conf::FONT_LOGIN_LOGO)
             .width(Length::Fill)
-            .height(50)
+            .align_x(iced::alignment::Horizontal::Center)
+            .shaping(text::Shaping::Advanced)
             .style(|_theme: &Theme| {
                 //let palette = theme.extended_palette();
                 let palette = style_conf::palette();
-                container::Style::default().background(palette.background_secondary)
+                text::Style {
+                    color: Some(palette.background_main),
+                }
             });
+        let div_logo_cont = container(div_logo).center_x(Length::Fill).padding(20);
 
         // DIV : target Db
         let div_db = Text::new(&self.login_ui.db_location)
@@ -107,7 +114,8 @@ impl LoginPage {
         // DIV : LoginContainer
         let div_login = container(
             column![
-                div_sep,
+                
+                div_logo_cont,
                 div_db_cont,
                 div_pwd_cont,
                 div_dec_cont,
