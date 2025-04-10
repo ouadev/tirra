@@ -44,6 +44,10 @@ pub fn app_iced(db_path: String) -> iced::Result {
         })
         .window(window::Settings {
             icon: None,
+            size: Size {
+                width: 1000.,
+                height: 800.,
+            },
             min_size: Some(Size {
                 width: 800.,
                 height: 600.,

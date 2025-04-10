@@ -209,7 +209,7 @@ impl EditorPage {
             Some((id, dt_create, tm_create, dt_modify, tm_modify)) => {
                 entry_id = id;
                 div_date_create = dt_view(dt_create, tm_create);
-                div_date_modify = dt_view(tm_modify, dt_modify);
+                div_date_modify = dt_view(dt_modify, tm_modify);
             }
             None => {
                 entry_id = 0;
