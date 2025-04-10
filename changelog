@@ -1,0 +1,33 @@
+Tirra v1.0.0:
+-------------
++ Tirra is a simple file format for storing text entries, notes and articles, in a Sqlite file.
++ the current Tirra file format version is v1
++ the database file is encrypted using a phassphrase. Protocol: Age v1.
++ Tirra editor can open the database for reading and writing, by continuously decrypting and encrypting it.
++ Tirra editor closes down after 3 minutes of inactivity.
++ Tirra editor's sql request that is used to load entries can be changed via Ctrl+P
++ Toggle night\light mode using Ctrl+N
++ limitations: 
+    + newly created entry via the New button would be invisible on the interface if it's not selected by the current load request.
+    + limitation: absence of a scroll for editor.
+    + no build for MacOS. It is supposed to work.
+
++ Database Schema;
+
+TABLE entries (
+    id          INTEGER PRIMARY KEY,
+    date_create INTEGER NOT NULL,
+    date_modify INTEGER NOT NULL,
+    type        INTEGER,
+    text        BLOB
+            )
+TABLE information (
+    id              INTEGER PRIMARY KEY,
+    schema_ver      INTEGER,
+    local_commit    BLOB,
+    origin_commit   BLOB,
+    local_source    BLOB,
+    origin_source   BLOB,
+    local_ts        INTEGER NOT NULL,
+    origin_ts       INTEGER NOT NULL
+)
