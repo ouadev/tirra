@@ -121,16 +121,15 @@ pub fn process(args: &Vec<String>, args_count: usize) {
             }
         }
     } else if cli_action == CliAction::Stat {
-        if args_count != 4 {
+        if args_count != 3 {
             println!("{}", USAGE_STR);
             return;
         }
 
         let db_path = String::from(&args[2]);
-        let pwd_file = String::from(&args[3]);
 
         //init db
-        let mut tirra_db = init_db(db_path, pwd_file);
+        let mut tirra_db = init_db_with_pwd(db_path);
         print_stats(&mut tirra_db);
     } else if cli_action == CliAction::Decrypt {
         if args_count != 4 {
@@ -206,6 +205,16 @@ fn init_db(db_path: String, pwd_path: String) -> TirraDb {
     return tirra_db;
 }
 
+fn init_db_with_pwd(db_path: String) -> TirraDb {
+    // Get Password
+    let password: String = ask_for_pwd();
+    let pwd = password.as_bytes();
+    //Init Tirra Db
+    let tirra_db = TirraDb::with_crypto(&db_path, &pwd);
+    //
+    return tirra_db;
+}
+
 fn read_pwd_file(pwd_file: &str) -> Vec<u8> {
     let mut tx_file = File::open(pwd_file).unwrap();
     let mut content_pwd = Vec::new();
@@ -239,4 +248,11 @@ fn print_stats(db: &mut TirraDb) {
             println!("InfoBlock : error");
         }
     }
+}
+
+
+fn ask_for_pwd() -> String {
+    // ask for password
+    let password = rpassword::prompt_password("password: ").unwrap();
+    password
 }
