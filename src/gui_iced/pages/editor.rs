@@ -88,7 +88,7 @@ impl EditorPage {
         }
     }
 
-    pub fn view(&self) -> Element<Message> {
+    pub fn view(&self) -> Element<'_,Message> {
         // DIV : Editor Text Zone + Command bar
         let div_editor = self.view_editor();
         // DIV : Separator
@@ -113,7 +113,7 @@ impl EditorPage {
     /**
      * VIEW : Left Pan
      */
-    fn view_left_pan(&self) -> Element<Message> {
+    fn view_left_pan(&self) -> Element<'_,Message> {
         // DIV : ADD Button
         let mut div_add = Button::new(
             text(WriterUi::UI_WRITER_NEWENTRY_TEXT).size(style_conf::STYLE_TEXT_SIZE_NORMAL),
@@ -164,7 +164,7 @@ impl EditorPage {
     /**
      * VIEW : editor status zone
      */
-    fn view_editor_status(&self) -> Element<Message> {
+    fn view_editor_status(&self) -> Element<'_,Message> {
         // Closure : generate datetime formatting
         let dt_view = |date_str: String, time_str: String| {
             let text_ymd = text(date_str)
@@ -255,7 +255,7 @@ impl EditorPage {
     /**
      * VIEW : editor
      */
-    fn view_editor(&self) -> Element<Message> {
+    fn view_editor(&self) -> Element<'_,Message> {
         // DIV : Command line experimentation
         let div_cmd_input = TextInput::new(
             WriterUi::UI_WRITER_CLI_PLACEHOLDER,
@@ -300,7 +300,7 @@ impl EditorPage {
         column![div_command_cont, div_editor_text, div_editor_status].into()
     }
 
-    fn view_error_screen(&self, message: String) -> Element<Message> {
+    fn view_error_screen(&self, message: String) -> Element<'_,Message> {
         //Error optional div
         let msg_text = text(message)
             .size(style_conf::STYLE_TEXT_SIZE_NORMAL)

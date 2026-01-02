@@ -83,7 +83,7 @@ enum Message {
 }
 
 impl TirraIced {
-    fn new(db_to_use: String) -> (Self, Task<Message>) {
+    fn _new(db_to_use: String) -> (Self, Task<Message>) {
         let (login_page, _) = LoginPage::new(&db_to_use);
 
         // decide if dark_mode should be used by default.
@@ -263,7 +263,7 @@ impl TirraIced {
         Subscription::batch(vec![tick_event, kb_event, other_events])
     }
 
-    fn view(&self) -> Element<Message> {
+    fn view(&self) -> Element<'_,Message> {
         match &self.page {
             RunningPage::Login(login_page) => login_page.view().map(Message::Login),
 

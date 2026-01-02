@@ -39,7 +39,7 @@ impl LoginPage {
         }
     }
 
-    pub fn view(&self) -> Element<Message> {
+    pub fn view(&self) -> Element<'_,Message> {
         //DIV : margin-top
         // Header logo thing // ⵜⵉⵔⵔⴰ
         let div_logo = Text::new("ⵜⵔ")
