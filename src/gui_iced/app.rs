@@ -1,7 +1,8 @@
 
 //use crate::widget::text_input;
 use iced::time::{self, every};
-use iced::widget::text_input;
+use iced::widget::Id;
+use iced::widget::operation;
 use iced::window::settings::PlatformSpecific;
 use iced::{event, Event, Size, Task};
 use iced::{keyboard, window};
@@ -168,7 +169,7 @@ impl TirraIced {
                 Event::Window(win_ev) => match win_ev {
                     window::Event::Focused => {
                         if let RunningPage::Login(_login_page) = &self.page {
-                            text_input::focus(text_input::Id::new(
+                            operation::focus(Id::new(
                                 login::LoginPage::text_input_id_to_focus(),
                             ))
                         } else {

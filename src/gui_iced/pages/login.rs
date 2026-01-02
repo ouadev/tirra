@@ -1,5 +1,5 @@
 use iced::theme::Theme;
-use iced::widget::{column, container, text, text_input, Button, Text, TextInput};
+use iced::widget::{column, container, text, Id, Button, Text, TextInput};
 use iced::{Background, Task};
 use iced::{Element, Length};
 
@@ -81,7 +81,7 @@ impl LoginPage {
         .on_submit(Message::LoginButtonPressed)
         .on_input(Message::PwdInputChanged)
         .style(styles::text_input::main_style)
-        .id(text_input::Id::new(LOGIN_INPUT_ICED_ID));
+        .id(Id::new(LOGIN_INPUT_ICED_ID));
 
         let div_pwd_cont = container(div_pwd).center_x(Length::Fill);
         // DIV : Login Button
