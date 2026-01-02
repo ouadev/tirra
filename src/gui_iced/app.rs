@@ -189,7 +189,7 @@ impl TirraIced {
                             }
                         }
                         //window::close(window::Id::MAIN)
-                        window::get_latest().and_then(window::close)
+                        window::latest().and_then(window::close)
                     }
                     _ => Task::none(),
                 },
