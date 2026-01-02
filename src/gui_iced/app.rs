@@ -1,5 +1,6 @@
 
-//use crate::widget::text_input;
+use std::sync::OnceLock;
+
 use iced::time::{self, every};
 use iced::widget::Id;
 use iced::widget::operation;
@@ -15,7 +16,7 @@ use crate::gui_iced::styles::style_conf;
 use crate::ui::ui::{KbCtrl, TirraInterface};
 
 
-static DEFAULT_TEMP_DB_PATH: &str = "temporary_db";
+static DB_PATH_ONCE: OnceLock<String> = OnceLock::new();
 
 pub fn app_iced(db_path: String) -> iced::Result {
     #[cfg(target_os = "linux")]
@@ -36,8 +37,13 @@ pub fn app_iced(db_path: String) -> iced::Result {
         undecorated_shadow: false,
     };
 
+    // Set Db Path from argumets
+    if let Err(_e) =  DB_PATH_ONCE.set(db_path){
+        exception("Couldn't set global Db path", None);
+    };
+
     // Run ICED
-    iced::application(TirraIced::new_temp, TirraIced::update, TirraIced::view)
+    iced::application(TirraIced::new, TirraIced::update, TirraIced::view)
         .subscription(TirraIced::subscription)
         //.theme(TirraIced::theme)
         .title(TirraIced::title)
@@ -100,21 +106,28 @@ impl TirraIced {
         )
     }
 
-    fn new_temp() -> (Self, Task<Message>) {
-        let (login_page, _) = LoginPage::new(DEFAULT_TEMP_DB_PATH);
+    fn new() -> (Self, Task<Message>) {
 
+        // Calculaute database path !!
+        let db_path_once = match DB_PATH_ONCE.get() {
+            Some(path) => path.clone(),
+            _ => "temporary.db".to_string()
+        };
+
+        //
+        let (login_page, _) = LoginPage::new(&db_path_once);
         // decide if dark_mode should be used by default.
         style_conf::dark_mode_in_paris();
-
         //return
         (
             Self {
                 page: RunningPage::Login(login_page),
-                db_location: DEFAULT_TEMP_DB_PATH.to_string(),
+                db_location: db_path_once.clone(),
             },
             //command.map(Message::Editor),
             Task::none(),
         )
+        
     }
 
     fn title(&self) -> String {
