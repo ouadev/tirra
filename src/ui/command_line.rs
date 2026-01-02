@@ -5,8 +5,7 @@ use crate::{
         tirracrypto::TirraCrypto,
     },
 };
-use std::fs::File;
-use std::io::Read;
+use std::io;
 
 // Command Line Usage
 const USAGE_STR: &str = "
@@ -14,7 +13,7 @@ Tirra Command Line.
 
 Usage:
 tirra-cli ver
-tirra-cli add     DB_FILE  DATE
+tirra-cli add     DB_FILE  DATE < INPUT_FILE
 tirra-cli delete  DB_FILE  ID
 tirra-cli stat    DB_FILE
 tirra-cli decrypt DB_FILE
@@ -25,7 +24,7 @@ DB_FILE         : path to a tirra database
 PWD_FILE        : path to a file containing the access password.
 DATE            : Unix epotch timestamp
 DB_FILE_PLAIN   : path to unencryped database file.
-entry text input: tirra-source.txt 
+INPUT_FILE      : a file whose content will be added.
 ";
 
 #[derive(PartialEq)]
@@ -74,10 +73,10 @@ pub fn process(args: &Vec<String>, args_count: usize) {
         //init db
         let mut tirra_db = init_db_with_pwd(db_path);
 
-        // Read the content of a file, and add an entry
-        let mut tx_file = File::open("tirra-source.txt").unwrap();
-        let mut content = Vec::new();
-        tx_file.read_to_end(&mut content).unwrap();
+        // read from a standard input
+        let input_txt =
+            io::read_to_string(io::stdin()).expect("no content is found for the new entry");
+        let content = Vec::from(input_txt.as_bytes());
 
         tirra_db.access_start().unwrap();
         let added = tirra_db.api_add_entry(
