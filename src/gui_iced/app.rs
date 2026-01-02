@@ -1,9 +1,8 @@
-
 use std::sync::OnceLock;
 
 use iced::time::{self, every};
-use iced::widget::Id;
 use iced::widget::operation;
+use iced::widget::Id;
 use iced::window::settings::PlatformSpecific;
 use iced::{event, Event, Size, Task};
 use iced::{keyboard, window};
@@ -14,7 +13,6 @@ use crate::gui_iced::pages::editor::{self, EditorPage};
 use crate::gui_iced::pages::login::{self, LoginPage};
 use crate::gui_iced::styles::style_conf;
 use crate::ui::ui::{KbCtrl, TirraInterface};
-
 
 static DB_PATH_ONCE: OnceLock<String> = OnceLock::new();
 
@@ -38,7 +36,7 @@ pub fn app_iced(db_path: String) -> iced::Result {
     };
 
     // Set Db Path from argumets
-    if let Err(_e) =  DB_PATH_ONCE.set(db_path){
+    if let Err(_e) = DB_PATH_ONCE.set(db_path) {
         exception("Couldn't set global Db path", None);
     };
 
@@ -107,11 +105,10 @@ impl TirraIced {
     }
 
     fn new() -> (Self, Task<Message>) {
-
         // Calculaute database path !!
         let db_path_once = match DB_PATH_ONCE.get() {
             Some(path) => path.clone(),
-            _ => "temporary.db".to_string()
+            _ => "temporary.db".to_string(),
         };
 
         //
@@ -127,7 +124,6 @@ impl TirraIced {
             //command.map(Message::Editor),
             Task::none(),
         )
-        
     }
 
     fn title(&self) -> String {
@@ -203,9 +199,7 @@ impl TirraIced {
                 Event::Window(win_ev) => match win_ev {
                     window::Event::Focused => {
                         if let RunningPage::Login(_login_page) = &self.page {
-                            operation::focus(Id::new(
-                                login::LoginPage::text_input_id_to_focus(),
-                            ))
+                            operation::focus(Id::new(login::LoginPage::text_input_id_to_focus()))
                         } else {
                             Task::none()
                         }
@@ -244,25 +238,23 @@ impl TirraIced {
 
     fn subscription(&self) -> Subscription<Message> {
         let kb_event = keyboard::listen().filter_map(|event| {
-            if let keyboard::Event::KeyPressed { key,  modifiers, .. } = event {
-            
-                    match key.as_ref() {
-                        keyboard::Key::Character("s") if modifiers.command() => {
-                            Some(Message::CtrlPlusKey(KbCtrl::CtrlS))
-                        }
-                        keyboard::Key::Character("p") if modifiers.command() => {
-                            Some(Message::CtrlPlusKey(KbCtrl::CtrlP))
-                        }
-                        keyboard::Key::Character("n") if modifiers.command() => {
-                            Some(Message::CtrlPlusKey(KbCtrl::CtrlN))
-                        }
-                        keyboard::Key::Character("k") if modifiers.command() => {
-                            Some(Message::CtrlPlusKey(KbCtrl::CtrlK))
-                        }
-                        _ => None,
+            if let keyboard::Event::KeyPressed { key, modifiers, .. } = event {
+                match key.as_ref() {
+                    keyboard::Key::Character("s") if modifiers.command() => {
+                        Some(Message::CtrlPlusKey(KbCtrl::CtrlS))
                     }
-
-            }else {
+                    keyboard::Key::Character("p") if modifiers.command() => {
+                        Some(Message::CtrlPlusKey(KbCtrl::CtrlP))
+                    }
+                    keyboard::Key::Character("n") if modifiers.command() => {
+                        Some(Message::CtrlPlusKey(KbCtrl::CtrlN))
+                    }
+                    keyboard::Key::Character("k") if modifiers.command() => {
+                        Some(Message::CtrlPlusKey(KbCtrl::CtrlK))
+                    }
+                    _ => None,
+                }
+            } else {
                 None
             }
         });
@@ -276,14 +268,13 @@ impl TirraIced {
         Subscription::batch(vec![tick_event, kb_event, other_events])
     }
 
-    fn view(&self) -> Element<'_,Message> {
+    fn view(&self) -> Element<'_, Message> {
         match &self.page {
             RunningPage::Login(login_page) => login_page.view().map(Message::Login),
 
             RunningPage::Editor(editor_page) => editor_page.view().map(Message::Editor),
         }
     }
-
 
     fn update_editor_page(&mut self, message: editor::Message) -> Task<Message> {
         if let RunningPage::Editor(editor_page) = &mut self.page {

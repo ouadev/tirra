@@ -1,5 +1,5 @@
 use iced::theme::Theme;
-use iced::widget::{column, container, text, Id, Button, Text, TextInput};
+use iced::widget::{column, container, text, Button, Id, Text, TextInput};
 use iced::{Background, Task};
 use iced::{Element, Length};
 
@@ -39,7 +39,7 @@ impl LoginPage {
         }
     }
 
-    pub fn view(&self) -> Element<'_,Message> {
+    pub fn view(&self) -> Element<'_, Message> {
         //DIV : margin-top
         // Header logo thing // ⵜⵉⵔⵔⴰ
         let div_logo = Text::new("ⵜⵔ")
@@ -114,7 +114,6 @@ impl LoginPage {
         // DIV : LoginContainer
         let div_login = container(
             column![
-                
                 div_logo_cont,
                 div_db_cont,
                 div_pwd_cont,

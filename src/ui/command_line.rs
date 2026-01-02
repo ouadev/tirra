@@ -160,7 +160,7 @@ pub fn process(args: &Vec<String>, args_count: usize) {
 
         let clear_path = String::from(&args[2]);
         let enc_path = format!("{}.tirrage", clear_path);
-        
+
         // Get Password
         let password: String = ask_for_pwd();
         let pwd = password.as_bytes();
@@ -182,7 +182,7 @@ pub fn process(args: &Vec<String>, args_count: usize) {
         }
 
         let db_path = String::from(&args[2]);
-        
+
         // Get Password
         let password: String = ask_for_pwd();
         let pwd = password.as_bytes();
@@ -207,7 +207,6 @@ fn init_db_with_pwd(db_path: String) -> TirraDb {
     //
     return tirra_db;
 }
-
 
 fn print_stats(db: &mut TirraDb) {
     db.access_start().unwrap();
@@ -235,7 +234,6 @@ fn print_stats(db: &mut TirraDb) {
         }
     }
 }
-
 
 fn ask_for_pwd() -> String {
     // ask for password
