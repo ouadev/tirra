@@ -14,6 +14,9 @@ use crate::gui_iced::pages::login::{self, LoginPage};
 use crate::gui_iced::styles::style_conf;
 use crate::ui::ui::{KbCtrl, TirraInterface};
 
+
+static DEFAULT_TEMP_DB_PATH: &str = "temporary_db";
+
 pub fn app_iced(db_path: String) -> iced::Result {
     #[cfg(target_os = "linux")]
     let platform_specific = PlatformSpecific {
@@ -34,9 +37,10 @@ pub fn app_iced(db_path: String) -> iced::Result {
     };
 
     // Run ICED
-    iced::application(TirraIced::title, TirraIced::update, TirraIced::view)
+    iced::application(TirraIced::new_temp, TirraIced::update, TirraIced::view)
         .subscription(TirraIced::subscription)
         //.theme(TirraIced::theme)
+        .title(TirraIced::title)
         .settings(Settings {
             id: Some(String::from("win-tirra")),
             default_font: style_conf::FONT_DEFAULT,
@@ -57,7 +61,7 @@ pub fn app_iced(db_path: String) -> iced::Result {
             platform_specific: platform_specific,
             ..Default::default()
         })
-        .run_with(|| TirraIced::new(db_path))
+        .run()
 }
 
 enum RunningPage {
@@ -90,6 +94,23 @@ impl TirraIced {
             Self {
                 page: RunningPage::Login(login_page),
                 db_location: db_to_use,
+            },
+            //command.map(Message::Editor),
+            Task::none(),
+        )
+    }
+
+    fn new_temp() -> (Self, Task<Message>) {
+        let (login_page, _) = LoginPage::new(DEFAULT_TEMP_DB_PATH);
+
+        // decide if dark_mode should be used by default.
+        style_conf::dark_mode_in_paris();
+
+        //return
+        (
+            Self {
+                page: RunningPage::Login(login_page),
+                db_location: DEFAULT_TEMP_DB_PATH.to_string(),
             },
             //command.map(Message::Editor),
             Task::none(),
