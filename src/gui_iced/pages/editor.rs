@@ -2,8 +2,7 @@ use crate::gui_iced::styles::{self, style_conf};
 use crate::ui::ui::{BgRun, TirraInterface, WriterUi};
 use iced::theme::Theme;
 use iced::widget::{
-    column, container, horizontal_space, row, scrollable, text, text_editor, Button, Space,
-    TextInput,
+    self, Button, Space, TextInput, column, container, row, scrollable, text, text_editor
 };
 use iced::Background;
 use iced::Task;
@@ -231,7 +230,7 @@ impl EditorPage {
 
         // status bar
         container(row![
-            Space::with_width(20),
+            Space::new().width(20),
             div_date_create,
             text("   -   ")
                 .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
@@ -243,7 +242,7 @@ impl EditorPage {
                     }
                 }),
             div_date_modify,
-            horizontal_space(),
+            widget::space::horizontal(),
             div_id
         ])
         .style(|_theme: &Theme| {
