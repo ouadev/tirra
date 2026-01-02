@@ -209,20 +209,28 @@ impl TirraIced {
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        let kb_event = keyboard::on_key_press(|key, modifiers| match key.as_ref() {
-            keyboard::Key::Character("s") if modifiers.command() => {
-                Some(Message::CtrlPlusKey(KbCtrl::CtrlS))
+        let kb_event = keyboard::listen().filter_map(|event| {
+            if let keyboard::Event::KeyPressed { key,  modifiers, .. } = event {
+            
+                    match key.as_ref() {
+                        keyboard::Key::Character("s") if modifiers.command() => {
+                            Some(Message::CtrlPlusKey(KbCtrl::CtrlS))
+                        }
+                        keyboard::Key::Character("p") if modifiers.command() => {
+                            Some(Message::CtrlPlusKey(KbCtrl::CtrlP))
+                        }
+                        keyboard::Key::Character("n") if modifiers.command() => {
+                            Some(Message::CtrlPlusKey(KbCtrl::CtrlN))
+                        }
+                        keyboard::Key::Character("k") if modifiers.command() => {
+                            Some(Message::CtrlPlusKey(KbCtrl::CtrlK))
+                        }
+                        _ => None,
+                    }
+
+            }else {
+                None
             }
-            keyboard::Key::Character("p") if modifiers.command() => {
-                Some(Message::CtrlPlusKey(KbCtrl::CtrlP))
-            }
-            keyboard::Key::Character("n") if modifiers.command() => {
-                Some(Message::CtrlPlusKey(KbCtrl::CtrlN))
-            }
-            keyboard::Key::Character("k") if modifiers.command() => {
-                Some(Message::CtrlPlusKey(KbCtrl::CtrlK))
-            }
-            _ => None,
         });
 
         // Configure periodical save tick
