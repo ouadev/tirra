@@ -13,6 +13,7 @@ pub fn button_main(_theme: &Theme, status: Status) -> Style {
         text_color: palette.text,
         border: Border::default(),
         shadow: Shadow::default(),
+        snap: false,
     };
 
     match status {
@@ -35,6 +36,7 @@ pub fn button_entry(_theme: &Theme, status: button::Status) -> button::Style {
         text_color: palette.text,
         border: Border::default(),
         shadow: Shadow::default(),
+        snap: false,
     };
 
     match status {
@@ -58,6 +60,7 @@ pub fn button_entry_selected(_theme: &Theme, status: button::Status) -> button::
         text_color: palette.text,
         border: Border::default(),
         shadow: Shadow::default(),
+        snap: false,
     };
 
     match status {

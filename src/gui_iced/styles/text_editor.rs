@@ -30,7 +30,7 @@ pub fn main_style(theme: &Theme, status: Status) -> Style {
             },
             ..base
         },
-        Status::Focused => Style {
+        Status::Focused { is_hovered: _ }=> Style {
             border: Border {
                 radius: 0.0.into(),
                 width: 0.,
