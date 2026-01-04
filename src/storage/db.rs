@@ -161,7 +161,7 @@ pub struct TirraDb {
  */
 
 impl TirraDb {
-    const DEFAULT_SQL_FILTER: &str = "WHERE id > 0 ORDER BY date_modify DESC LIMIT 20";
+    //const DEFAULT_SQL_FILTER: &str = "WHERE text LIKE '%{}%' ORDER BY {} DESC LIMIT {}";
     const DEFAULT_COMMIT_AUTHOR: &str = "tirra-author";
     const DB_PLAIN_SUFFIX: &str = ".plain";
     const DB_BACKUP_SUFFIX: &str = ".backup";
@@ -199,10 +199,26 @@ impl TirraDb {
     }
 
     /**
+     * build database filter from elements
+     */
+    pub fn build_filter(search: &str, order_by_create: bool, limit: u32) -> String {
+        let order: String;
+        if order_by_create {
+            order = "date_create".to_string();
+        } else {
+            order = "date_modify".to_string();
+        }
+        format!(
+            "WHERE text LIKE '%{}%' ORDER BY {} DESC LIMIT {}",
+            search, order, limit
+        )
+    }
+
+    /**
      * default SQL request to use for the initial loading
      */
     pub fn default_filter() -> String {
-        String::from(Self::DEFAULT_SQL_FILTER)
+        TirraDb::build_filter("", false, 50)
     }
 
     /**

@@ -2,12 +2,14 @@ use crate::gui_iced::styles::{self, style_conf};
 use crate::ui::ui::{BgRun, TirraInterface, WriterUi};
 use iced::theme::Theme;
 use iced::widget::{
-    self, column, container, row, scrollable, text, text_editor, Button, Space, TextInput,
+    self, column, container, row, scrollable, text, text_editor, Button, Id, Space, TextInput,
 };
 use iced::Background;
 use iced::Task;
 use iced::{Element, Length};
 
+const SEARCH_INPUT_ICED_ID: &str = "searchinput-id";
+const CLI_INPUT_ICED_ID: &str = "cliinput-id";
 pub struct EditorPage {
     pub writer_ui: WriterUi,
     pub content: text_editor::Content,
@@ -21,6 +23,8 @@ pub enum Message {
     NewEntryClicked,
     CliSubmited,
     CliChanged(String),
+    SearchSubmited,
+    SearchChanged(String),
 }
 impl EditorPage {
     pub fn new(db_location: &str, crypto_pwd: &[u8]) -> (Self, Task<Message>) {
@@ -85,6 +89,17 @@ impl EditorPage {
                 self.refresh_editor();
                 Task::none()
             }
+
+            Message::SearchChanged(s) => {
+                self.writer_ui.on_search_input(s);
+                Task::none()
+            }
+
+            Message::SearchSubmited => {
+                self.writer_ui.on_search_submit();
+                self.refresh_editor();
+                Task::none()
+            }
         }
     }
 
@@ -118,12 +133,30 @@ impl EditorPage {
         let mut div_add = Button::new(
             text(WriterUi::UI_WRITER_NEWENTRY_TEXT).size(style_conf::STYLE_TEXT_SIZE_NORMAL),
         )
-        .width(Length::Fill)
+        .width(Length::Fixed(50.))
         .style(styles::button::button_main);
 
         if self.writer_ui.view_button_newentry_enabled() {
             div_add = div_add.on_press(Message::NewEntryClicked);
         }
+
+        // Search
+        let div_search = TextInput::new("search", &self.writer_ui.search_text())
+            .width(Length::Fill)
+            .size(15.0)
+            //.font(style_conf::FONT_COMMAND_LINE)
+            .style(styles::text_input::main_style)
+            .on_submit(Message::SearchSubmited)
+            .on_input(Message::SearchChanged)
+            .id(Id::new(SEARCH_INPUT_ICED_ID));
+
+        // Another control button
+        let div_sort = Button::new(text("x").size(style_conf::STYLE_TEXT_SIZE_NORMAL))
+            .width(Length::Fixed(0.))
+            .style(styles::button::button_main);
+
+        // control bar
+        let control_bar = row![div_add, div_search, div_sort];
 
         //DIV : list of entries
         let div_entries = column(self.writer_ui.entry_view_iter().map(|entry_view| {
@@ -149,7 +182,7 @@ impl EditorPage {
         let div_entries_scroll = scrollable(div_entries);
 
         // DIV : Left Pan
-        container(column![div_add, div_entries_scroll])
+        container(column![control_bar, div_entries_scroll])
             .width(250)
             .height(Length::Fill)
             .style(|_theme: &Theme| {
@@ -266,7 +299,8 @@ impl EditorPage {
         .font(style_conf::FONT_COMMAND_LINE)
         .style(styles::text_input::main_style)
         .on_submit(Message::CliSubmited)
-        .on_input(Message::CliChanged);
+        .on_input(Message::CliChanged)
+        .id(Id::new(CLI_INPUT_ICED_ID));
 
         let mut div_command_cont;
         if self.writer_ui.is_cli_visible() {
@@ -343,5 +377,19 @@ impl EditorPage {
         match bg_work {
             BgRun::Nothing => Task::none(),
         }
+    }
+
+    /**
+     * returns the ID of the text input to gain focus when the program starts.
+     */
+    pub fn search_input_id_to_focus() -> &'static str {
+        &SEARCH_INPUT_ICED_ID
+    }
+
+    /**
+     * returns the ID of the text input to gain focus when the program starts.
+     */
+    pub fn cli_input_id_to_focus() -> &'static str {
+        &CLI_INPUT_ICED_ID
     }
 }

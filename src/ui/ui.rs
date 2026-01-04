@@ -8,12 +8,13 @@ use chrono::{DateTime, Datelike, Timelike, Utc};
 /**
  * Keyboard control keys
  */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub enum KbCtrl {
     CtrlS,
     CtrlP,
     CtrlN,
     CtrlK,
+    CtrlShiftF,
 }
 
 /**
@@ -137,7 +138,7 @@ impl TirraInterface for LoginUi {
 
     fn on_ctrl(&mut self, control: KbCtrl) {
         match control {
-            KbCtrl::CtrlS | KbCtrl::CtrlP | KbCtrl::CtrlK => {
+            KbCtrl::CtrlS | KbCtrl::CtrlP | KbCtrl::CtrlK | KbCtrl::CtrlShiftF => {
                 println!("login page: Ctrl+{:?}", control);
             }
             KbCtrl::CtrlN => {
@@ -187,13 +188,14 @@ pub struct WriterUi {
     editor_dirty: bool,
     cli_visible: bool,
     cli_text: String,
+    search_text: String,
     last_activity: i64,
     //background work
     bg_work: BgRun,
 }
 
 impl WriterUi {
-    pub const UI_WRITER_NEWENTRY_TEXT: &str = " New entry ";
+    pub const UI_WRITER_NEWENTRY_TEXT: &str = " New ";
     pub const UI_WRITER_CLI_PLACEHOLDER: &str = "> SELECT * FROM entries WHERE ...";
     const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
 
@@ -208,6 +210,7 @@ impl WriterUi {
             error_screen: None,
             cli_visible: false,
             cli_text: String::new(),
+            search_text: String::new(),
             load_request: String::new(),
             tirra_db: TirraDb::new(),
             bg_work: BgRun::Nothing,
@@ -332,6 +335,26 @@ impl WriterUi {
         };
         ////// stop db access
     }
+
+    /**
+     * response to action: search_input command line
+     */
+    pub fn on_search_input(&mut self, s: String) {
+        self.search_text = s;
+    }
+
+    /**
+     * response to action: search_submit
+     */
+    pub fn on_search_submit(&mut self) {
+        // self.cli_text = format!(
+        //    "WHERE text LIKE '%{}%' ORDER BY date_modify DESC LIMIT 20",
+        //    self.search_text
+        //);
+
+        self.cli_text = TirraDb::build_filter(&self.search_text, false, 200);
+        self.on_cli_submit();
+    }
     /**
      * response to action: entry_selected
      */
@@ -416,6 +439,12 @@ impl WriterUi {
         self.cli_text.clone()
     }
 
+    /**
+     * get the text to show in the search bar
+     */
+    pub fn search_text(&self) -> String {
+        self.search_text.clone()
+    }
     /**
      * view status bar contents
      */
@@ -551,6 +580,9 @@ impl TirraInterface for WriterUi {
             KbCtrl::CtrlN => {
                 style_conf::toggle_theme();
             }
+            KbCtrl::CtrlShiftF => {
+                //
+            }
         }
     }
 
@@ -599,4 +631,3 @@ impl<'a> Iterator for EntryViewIterator<'a> {
         return_item
     }
 }
-
