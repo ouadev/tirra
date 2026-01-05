@@ -103,6 +103,7 @@ impl EditorPage {
             }
             Message::SortToggled => {
                 self.writer_ui.on_sort_toggled();
+                self.refresh_editor();
                 Task::none()
             }
         }
@@ -145,16 +146,6 @@ impl EditorPage {
             div_add = div_add.on_press(Message::NewEntryClicked);
         }
 
-        // Search
-        let div_search = TextInput::new("search", &self.writer_ui.search_text())
-            .width(Length::Fill)
-            .size(15.0)
-            //.font(style_conf::FONT_COMMAND_LINE)
-            .style(styles::text_input::main_style)
-            .on_submit(Message::SearchSubmited)
-            .on_input(Message::SearchChanged)
-            .id(Id::new(SEARCH_INPUT_ICED_ID));
-
         // Another control button
         let sort_symbol: String;
         if self.writer_ui.order_by_date_create {
@@ -168,6 +159,15 @@ impl EditorPage {
             .style(styles::button::button_main)
             .on_press(Message::SortToggled);
 
+        // Search
+        let div_search = TextInput::new("search", &self.writer_ui.search_text())
+            .width(Length::Fill)
+            .size(15.0)
+            //.font(style_conf::FONT_COMMAND_LINE)
+            .style(styles::text_input::main_style)
+            .on_submit(Message::SearchSubmited)
+            .on_input(Message::SearchChanged)
+            .id(Id::new(SEARCH_INPUT_ICED_ID));
         // control bar
         let control_bar = row![div_add, div_search, div_sort];
 

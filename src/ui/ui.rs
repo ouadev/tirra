@@ -328,7 +328,8 @@ impl WriterUi {
         match self.tirra_db.api_load_entries(&self.cli_text, true) {
             Ok(entries) => {
                 self.entry_list = entries;
-                self.curr_entry_id = self.entry_list.greatest_id_entry().map(|ent| ent.id);
+                //self.curr_entry_id = self.entry_list.greatest_id_entry().map(|ent| ent.id);
+                self.curr_entry_id = self.entry_list.get_entry(0).map(|ent| ent.id);
                 self.load_request = self.cli_text.clone();
             }
             Err(_err) => {
@@ -350,11 +351,6 @@ impl WriterUi {
      * response to action: search_submit
      */
     pub fn on_search_submit(&mut self) {
-        // self.cli_text = format!(
-        //    "WHERE text LIKE '%{}%' ORDER BY date_modify DESC LIMIT 20",
-        //    self.search_text
-        //);
-
         self.cli_text = TirraDb::build_filter(&self.search_text, self.order_by_date_create, 200);
         self.on_cli_submit();
     }
