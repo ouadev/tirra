@@ -255,11 +255,12 @@ impl WriterUi {
         ////// stop db access
 
         // assignments
-        self.curr_entry_id = entry_list.get_entry(0).map(|ent| ent.id);
         self.entry_list = entry_list;
         self.cli_text = TirraDb::default_filter();
         self.load_request = TirraDb::default_filter();
         self.last_activity = utils::current_timestamp();
+
+        self.update_curr_entry_id(None);
     }
 
     /**
@@ -328,8 +329,7 @@ impl WriterUi {
         match self.tirra_db.api_load_entries(&self.cli_text, true) {
             Ok(entries) => {
                 self.entry_list = entries;
-                //self.curr_entry_id = self.entry_list.greatest_id_entry().map(|ent| ent.id);
-                self.curr_entry_id = self.entry_list.get_entry(0).map(|ent| ent.id);
+                self.update_curr_entry_id(None);
                 self.load_request = self.cli_text.clone();
             }
             Err(_err) => {
@@ -368,7 +368,7 @@ impl WriterUi {
      */
     pub fn on_entry_selected(&mut self, entry_id: u32) {
         self.save_and_reload();
-        self.curr_entry_id = Some(entry_id);
+        self.update_curr_entry_id(Some(entry_id));
     }
     /**
      * response to action: new_entry
@@ -410,7 +410,7 @@ impl WriterUi {
                         TirraEntryList::new()
                     }
                 };
-                self.curr_entry_id = self.entry_list.greatest_id_entry().map(|ent| ent.id);
+                self.update_curr_entry_id(None);
             }
             _ => {
                 println!("error: failure adding new entry, continuing ...");
@@ -564,6 +564,40 @@ impl WriterUi {
         };
         self.editor_dirty = false;
         ////// stop db access
+    }
+
+    /**
+     * Update current Id - the entry in display
+     */
+    fn update_curr_entry_id(&mut self, id: Option<u32>) {
+        // None : leave it
+        // Some(None) : the first in list
+        // Some(Some) : argument id
+        let new_id: Option<Option<u32>>;
+
+        if id.is_none() {
+            if self.curr_entry_id.is_none() {
+                new_id = Some(None);
+            } else {
+                match self.current_entry() {
+                    Some(_) => new_id = None,
+                    None => new_id = Some(None),
+                }
+            }
+        } else {
+            new_id = Some(id);
+        }
+        // set new id
+        match new_id {
+            Some(value) => {
+                if value.is_none() {
+                    self.curr_entry_id = self.entry_list.get_entry(0).map(|ent| ent.id);
+                } else {
+                    self.curr_entry_id = value;
+                }
+            }
+            None => {}
+        }
     }
 }
 
