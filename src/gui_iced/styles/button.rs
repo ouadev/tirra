@@ -11,7 +11,7 @@ pub fn button_main(_theme: &Theme, status: Status) -> Style {
     let base = Style {
         background: Some(Background::Color(palette.control_main)),
         text_color: palette.text,
-        border: Border::default(),
+        border: Border::default().rounded(10.0),
         shadow: Shadow::default(),
         snap: false,
     };

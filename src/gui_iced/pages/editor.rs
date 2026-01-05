@@ -25,6 +25,7 @@ pub enum Message {
     CliChanged(String),
     SearchSubmited,
     SearchChanged(String),
+    SortToggled,
 }
 impl EditorPage {
     pub fn new(db_location: &str, crypto_pwd: &[u8]) -> (Self, Task<Message>) {
@@ -100,6 +101,10 @@ impl EditorPage {
                 self.refresh_editor();
                 Task::none()
             }
+            Message::SortToggled => {
+                self.writer_ui.on_sort_toggled();
+                Task::none()
+            }
         }
     }
 
@@ -151,9 +156,17 @@ impl EditorPage {
             .id(Id::new(SEARCH_INPUT_ICED_ID));
 
         // Another control button
-        let div_sort = Button::new(text("x").size(style_conf::STYLE_TEXT_SIZE_NORMAL))
-            .width(Length::Fixed(0.))
-            .style(styles::button::button_main);
+        let sort_symbol: String;
+        if self.writer_ui.order_by_date_create {
+            sort_symbol = "c".to_string()
+        } else {
+            sort_symbol = "m".to_string()
+        };
+
+        let div_sort = Button::new(text(sort_symbol).size(style_conf::STYLE_TEXT_SIZE_NORMAL))
+            .width(Length::Fixed(50.))
+            .style(styles::button::button_main)
+            .on_press(Message::SortToggled);
 
         // control bar
         let control_bar = row![div_add, div_search, div_sort];

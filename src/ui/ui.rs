@@ -184,6 +184,8 @@ pub struct WriterUi {
     //configuration
     readonly_mode: bool,
     pub error_screen: Option<String>,
+    //db filter parameters
+    pub order_by_date_create: bool,
     //view parameters
     editor_dirty: bool,
     cli_visible: bool,
@@ -195,7 +197,7 @@ pub struct WriterUi {
 }
 
 impl WriterUi {
-    pub const UI_WRITER_NEWENTRY_TEXT: &str = " New ";
+    pub const UI_WRITER_NEWENTRY_TEXT: &str = " +";
     pub const UI_WRITER_CLI_PLACEHOLDER: &str = "> SELECT * FROM entries WHERE ...";
     const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
 
@@ -208,6 +210,7 @@ impl WriterUi {
             entry_list: TirraEntryList::new(),
             readonly_mode: false,
             error_screen: None,
+            order_by_date_create: false,
             cli_visible: false,
             cli_text: String::new(),
             search_text: String::new(),
@@ -352,7 +355,16 @@ impl WriterUi {
         //    self.search_text
         //);
 
-        self.cli_text = TirraDb::build_filter(&self.search_text, false, 200);
+        self.cli_text = TirraDb::build_filter(&self.search_text, self.order_by_date_create, 200);
+        self.on_cli_submit();
+    }
+
+    /**
+     * response to action: sort_entries
+     */
+    pub fn on_sort_toggled(&mut self) {
+        self.order_by_date_create = !self.order_by_date_create;
+        self.cli_text = TirraDb::build_filter(&self.search_text, self.order_by_date_create, 200);
         self.on_cli_submit();
     }
     /**
