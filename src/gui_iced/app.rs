@@ -65,6 +65,7 @@ pub fn app_iced(db_path: String) -> iced::Result {
             platform_specific: platform_specific,
             ..Default::default()
         })
+        .font(include_bytes!("../../resources/ui-icons.ttf").as_slice())
         .run()
 }
 

@@ -1,10 +1,23 @@
 use super::palette::Palette;
 use chrono::{Datelike, Local, Timelike};
 use iced::font::{Family, Stretch, Style, Weight};
-use iced::Font;
+use iced::widget::text;
+use iced::{alignment, Element, Font};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 static DARK_MODE_ENABLED: AtomicBool = AtomicBool::new(false);
+
+pub fn icon<'a, Message>(codepoint: char) -> Element<'a, Message> {
+    const ICON_FONT: Font = Font::with_name("tirra-icons");
+
+    text(codepoint)
+        .font(ICON_FONT)
+        .shaping(text::Shaping::Basic)
+        .size(12.0)
+        .align_x(text::Alignment::Center)
+        .align_y(alignment::Vertical::Center)
+        .into()
+}
 
 pub fn dark_mode_in_paris() -> () {
     let paris = [

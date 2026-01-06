@@ -136,26 +136,26 @@ impl EditorPage {
      */
     fn view_left_pan(&self) -> Element<'_, Message> {
         // DIV : ADD Button
-        let mut div_add = Button::new(
-            text(WriterUi::UI_WRITER_NEWENTRY_TEXT).size(style_conf::STYLE_TEXT_SIZE_NORMAL),
-        )
-        .width(Length::Fixed(50.))
-        .style(styles::button::button_main);
+        let mut div_add = Button::new(style_conf::icon('\u{0e800}'))
+            .width(Length::Fixed(40.))
+            .height(Length::Fixed(30.))
+            .style(styles::button::button_main);
 
         if self.writer_ui.view_button_newentry_enabled() {
             div_add = div_add.on_press(Message::NewEntryClicked);
         }
 
         // Another control button
-        let sort_symbol: String;
+        let sort_icon: Element<'_, Message>;
         if self.writer_ui.order_by_date_create {
-            sort_symbol = "c".to_string()
+            sort_icon = style_conf::icon('\u{0e801}');
         } else {
-            sort_symbol = "m".to_string()
+            sort_icon = style_conf::icon('\u{0e802}');
         };
 
-        let div_sort = Button::new(text(sort_symbol).size(style_conf::STYLE_TEXT_SIZE_NORMAL))
-            .width(Length::Fixed(50.))
+        let div_sort = Button::new(sort_icon)
+            .width(Length::Fixed(40.))
+            .height(Length::Fixed(30.))
             .style(styles::button::button_main)
             .on_press(Message::SortToggled);
 
@@ -164,7 +164,7 @@ impl EditorPage {
             .width(Length::Fill)
             .size(15.0)
             //.font(style_conf::FONT_COMMAND_LINE)
-            .style(styles::text_input::main_style)
+            .style(styles::text_input::transparent_style)
             .on_submit(Message::SearchSubmited)
             .on_input(Message::SearchChanged)
             .id(Id::new(SEARCH_INPUT_ICED_ID));

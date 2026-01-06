@@ -1,6 +1,6 @@
 use iced::theme::Theme;
 use iced::widget::{column, container, text, Button, Id, Text, TextInput};
-use iced::{Background, Task};
+use iced::{alignment, Background, Task};
 use iced::{Element, Length};
 
 use crate::gui_iced::styles::{self, style_conf};
@@ -90,11 +90,15 @@ impl LoginPage {
         } else {
             ui::LoginUi::UI_LOGIN_BUTTON_TEXT_NEWDB
         };
-        let div_decrypt_button =
-            Button::new(text(button_text).size(style_conf::STYLE_TEXT_SIZE_NORMAL))
-                .width(Length::Shrink)
-                .style(styles::button::button_main)
-                .on_press(Message::LoginButtonPressed);
+        let div_decrypt_button = Button::new(
+            text(button_text)
+                .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
+                .align_x(text::Alignment::Center)
+                .align_y(alignment::Vertical::Center),
+        )
+        .width(Length::Shrink)
+        .style(styles::button::button_main)
+        .on_press(Message::LoginButtonPressed);
         let div_dec_cont = container(div_decrypt_button).center_x(Length::Fill);
 
         // DIV : Information box
