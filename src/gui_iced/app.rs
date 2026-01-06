@@ -1,5 +1,6 @@
 use std::sync::OnceLock;
 
+use iced::keyboard::key;
 use iced::time::{self, every};
 use iced::widget::operation;
 use iced::widget::Id;
@@ -161,6 +162,7 @@ impl TirraIced {
             Message::CtrlPlusKey(key) => match &mut self.page {
                 RunningPage::Editor(editor_page) => {
                     editor_page.writer_ui.on_ctrl(key);
+                    editor_page.refresh_editor();
                     //TODO: the decision about what to put on focus should be delegared to UI module instead.
                     if key == KbCtrl::CtrlShiftF {
                         operation::focus(Id::new(editor::EditorPage::search_input_id_to_focus()))
@@ -262,6 +264,12 @@ impl TirraIced {
                     }
                     keyboard::Key::Character("f") if modifiers.command() && modifiers.shift() => {
                         Some(Message::CtrlPlusKey(KbCtrl::CtrlShiftF))
+                    }
+                    keyboard::Key::Named(key::Named::ArrowDown) => {
+                        Some(Message::CtrlPlusKey(KbCtrl::Down))
+                    }
+                    keyboard::Key::Named(key::Named::ArrowUp) => {
+                        Some(Message::CtrlPlusKey(KbCtrl::Up))
                     }
                     _ => None,
                 }

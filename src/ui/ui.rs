@@ -15,6 +15,8 @@ pub enum KbCtrl {
     CtrlN,
     CtrlK,
     CtrlShiftF,
+    Down,
+    Up,
 }
 
 /**
@@ -138,7 +140,12 @@ impl TirraInterface for LoginUi {
 
     fn on_ctrl(&mut self, control: KbCtrl) {
         match control {
-            KbCtrl::CtrlS | KbCtrl::CtrlP | KbCtrl::CtrlK | KbCtrl::CtrlShiftF => {
+            KbCtrl::CtrlS
+            | KbCtrl::CtrlP
+            | KbCtrl::CtrlK
+            | KbCtrl::CtrlShiftF
+            | KbCtrl::Down
+            | KbCtrl::Up => {
                 println!("login page: Ctrl+{:?}", control);
             }
             KbCtrl::CtrlN => {
@@ -599,6 +606,21 @@ impl WriterUi {
             None => {}
         }
     }
+
+    /**
+     * used to move the currently displayed entry when arrows are used.
+     */
+    fn move_curr_entry_id(&mut self, down: bool) {
+        match self.curr_entry_id {
+            Some(id) => match self.entry_list.neighbor_id_entry(id, down) {
+                Some(n_entry) => {
+                    self.curr_entry_id = Some(n_entry.id);
+                }
+                None => {}
+            },
+            _ => {}
+        }
+    }
 }
 
 impl TirraInterface for WriterUi {
@@ -624,6 +646,12 @@ impl TirraInterface for WriterUi {
             }
             KbCtrl::CtrlShiftF => {
                 //
+            }
+            KbCtrl::Down => {
+                self.move_curr_entry_id(true);
+            }
+            KbCtrl::Up => {
+                self.move_curr_entry_id(false);
             }
         }
     }

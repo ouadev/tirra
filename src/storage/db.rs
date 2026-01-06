@@ -146,6 +146,36 @@ impl TirraEntryList {
         }
         ptr_entry
     }
+
+    /**
+     * find next or previous in the list
+     */
+    pub fn neighbor_id_entry(&self, current_id: u32, down: bool) -> Option<&TirraEntry> {
+        let mut neighbor_entry: Option<&TirraEntry> = None;
+        let mut prev_entry: Option<&TirraEntry> = None;
+        let mut curr_found = false;
+        for entry in self.entries.iter() {
+            if entry.id == current_id {
+                curr_found = true;
+                if !down {
+                    //up
+                    neighbor_entry = prev_entry;
+                    break;
+                }else{
+                    continue;
+                }
+                
+            }
+            // down
+            if curr_found {
+                neighbor_entry = Some(entry);
+                break;
+            }
+
+            prev_entry = Some(entry);
+        }
+        neighbor_entry
+    }
 }
 
 /**

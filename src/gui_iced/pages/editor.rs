@@ -367,7 +367,7 @@ impl EditorPage {
             })
             .into()
     }
-    fn refresh_editor(&mut self) {
+    pub fn refresh_editor(&mut self) {
         match self.writer_ui.current_entry() {
             Some(entry) => {
                 self.content = text_editor::Content::with_text(&entry.text);
