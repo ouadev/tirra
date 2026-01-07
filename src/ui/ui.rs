@@ -495,7 +495,8 @@ impl WriterUi {
                         TirraEntryList::new()
                     }
                 };
-                self.update_curr_entry_id(None);
+                let just_added_id = self.entry_list.greatest_id_entry().map(|ent| ent.id);
+                self.update_curr_entry_id(just_added_id);
             }
             _ => {
                 println!("error: failure adding new entry, continuing ...");
