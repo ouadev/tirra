@@ -1,5 +1,5 @@
 use iced::theme::Theme;
-use iced::widget::{column, container, text, Button, Id, Text, TextInput};
+use iced::widget::{column, container, row, space, text, Button, Id, Text, TextInput};
 use iced::{alignment, Background, Task};
 use iced::{Element, Length};
 
@@ -83,7 +83,7 @@ impl LoginPage {
         .style(styles::text_input::main_style)
         .id(Id::new(LOGIN_INPUT_ICED_ID));
 
-        let div_pwd_cont = container(div_pwd).center_x(Length::Fill);
+        //let div_pwd_cont = container(div_pwd).center_x(Length::Fill);
         // DIV : Login Button
         let button_text = if self.login_ui.db_found {
             ui::LoginUi::UI_LOGIN_BUTTON_TEXT_DECRYPT
@@ -96,10 +96,12 @@ impl LoginPage {
                 .align_x(text::Alignment::Center)
                 .align_y(alignment::Vertical::Center),
         )
-        .width(Length::Shrink)
+        .width(Length::Fixed(60.))
         .style(styles::button::button_main)
         .on_press(Message::LoginButtonPressed);
-        let div_dec_cont = container(div_decrypt_button).center_x(Length::Fill);
+        //let div_dec_cont = container(div_decrypt_button).center_x(Length::Fill);
+        let div_dec_cont =
+            container(row![div_pwd, space().width(10), div_decrypt_button]).center_x(Length::Fill);
 
         // DIV : Information box
         let div_info = Text::new(&self.login_ui.info_text)
@@ -116,24 +118,16 @@ impl LoginPage {
         let div_info_cont = container(div_info).center_x(Length::Fill).padding(20);
 
         // DIV : LoginContainer
-        let div_login = container(
-            column![
-                div_logo_cont,
-                div_db_cont,
-                div_pwd_cont,
-                div_dec_cont,
-                div_info_cont
-            ]
-            .spacing(10),
-        )
-        .center_x(400)
-        .height(Length::Fill)
-        .style(|_theme: &Theme| {
-            //let palette = theme.extended_palette();
-            let palette = style_conf::palette();
-            container::Style::default().background(palette.background_secondary)
-            //.with_border( Color::BLACK, 1)
-        });
+        let div_login =
+            container(column![div_logo_cont, div_db_cont, div_dec_cont, div_info_cont].spacing(10))
+                .center_x(400)
+                .height(Length::Fill)
+                .style(|_theme: &Theme| {
+                    //let palette = theme.extended_palette();
+                    let palette = style_conf::palette();
+                    container::Style::default().background(palette.background_secondary)
+                    //.with_border( Color::BLACK, 1)
+                });
 
         let body = container(div_login)
             .center_x(Length::Fill)

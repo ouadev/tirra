@@ -54,8 +54,8 @@ pub struct LoginUi {
 }
 
 impl LoginUi {
-    pub const UI_LOGIN_BUTTON_TEXT_DECRYPT: &str = "Decrypt & Access";
-    pub const UI_LOGIN_BUTTON_TEXT_NEWDB: &str = "New Database";
+    pub const UI_LOGIN_BUTTON_TEXT_DECRYPT: &str = "Access";
+    pub const UI_LOGIN_BUTTON_TEXT_NEWDB: &str = "New";
     pub const UI_LOGIN_PWDINPUT_PLACEHOLDER: &str = "Passphrase";
 
     pub fn new(db_location: &str) -> Self {
