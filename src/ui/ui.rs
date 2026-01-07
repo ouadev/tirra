@@ -199,6 +199,8 @@ pub struct WriterUi {
     cli_text: String,
     search_text: String,
     last_activity: i64,
+    pub modifying_create_date: u8,
+    pub create_date_change_text: String,
     //background work
     bg_work: BgRun,
 }
@@ -207,6 +209,7 @@ impl WriterUi {
     pub const UI_WRITER_NEWENTRY_TEXT: &str = " +";
     pub const UI_WRITER_CLI_PLACEHOLDER: &str = "> SELECT * FROM entries WHERE ...";
     const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
+    const UI_CREATE_DATE_CHANGE_VISIBILITY_TICKS: u8 = 3;
 
     pub fn new() -> Self {
         //return
@@ -219,6 +222,8 @@ impl WriterUi {
             error_screen: None,
             order_by_date_create: false,
             cli_visible: false,
+            modifying_create_date: 0,
+            create_date_change_text: String::new(),
             cli_text: String::new(),
             search_text: String::new(),
             load_request: String::new(),
@@ -360,6 +365,79 @@ impl WriterUi {
     pub fn on_search_submit(&mut self) {
         self.cli_text = TirraDb::build_filter(&self.search_text, self.order_by_date_create, 200);
         self.on_cli_submit();
+    }
+
+    /**
+     * response to action: create_date input
+     */
+    pub fn on_create_date_input(&mut self, s: String) {
+        self.create_date_change_text = s;
+        self.modifying_create_date = Self::UI_CREATE_DATE_CHANGE_VISIBILITY_TICKS;
+    }
+
+    /**
+     * response to action: create_date submitted
+     */
+    pub fn on_create_date_submit(&mut self) {
+        let epoch: u64;
+
+        match self.create_date_change_text.parse::<u64>() {
+            Ok(number) => epoch = number,
+            Err(_e) => {
+                self.create_date_change_text.clear();
+                return;
+            }
+        }
+        // database access
+        ////// start db access
+        if let Err(_) = self.tirra_db.access_start() {
+            exception("Db access start", Some(&self.tirra_db));
+        }
+
+        if self.editor_dirty {
+            if let Some(entry) = self.current_entry() {
+                if let Err(error) =
+                    self.tirra_db
+                        .api_update_entry(&entry.text.clone(), entry.id, false)
+                {
+                    self.error_screen = Some(format!(
+                        "error: I couldn't write the current entry content to database ({:?})",
+                        error
+                    ));
+                }
+            }
+            self.editor_dirty = false;
+        }
+
+        match self
+            .tirra_db
+            .api_update_create_date(self.curr_entry_id.unwrap(), epoch, false)
+        {
+            Ok(()) => {
+                self.entry_list = match self.tirra_db.api_load_entries(&self.load_request, true) {
+                    Ok(list) => list,
+                    Err(_err) => {
+                        exception("loading entries", Some(&self.tirra_db));
+                        TirraEntryList::new()
+                    }
+                };
+                self.update_curr_entry_id(None);
+            }
+            Err(_err) => {
+                println!("create_date changed failed !!!");
+            }
+        };
+
+        // end modifying session
+        self.create_date_change_text.clear();
+        self.modifying_create_date = 0;
+    }
+
+    /**
+     * response to action: create_date text zone double clicked
+     */
+    pub fn on_create_date_doubleclicked(&mut self) {
+        self.modifying_create_date = Self::UI_CREATE_DATE_CHANGE_VISIBILITY_TICKS;
     }
 
     /**
@@ -602,6 +680,8 @@ impl WriterUi {
                 } else {
                     self.curr_entry_id = value;
                 }
+                //cancel any ongoing create_date change operation
+                self.modifying_create_date = 0;
             }
             None => {}
         }
@@ -627,6 +707,10 @@ impl TirraInterface for WriterUi {
     fn on_tick(&mut self) {
         // periodic save
         self.save_and_reload();
+        //reduce the visibility counter for the create_date change input field
+        if self.modifying_create_date > 0 {
+            self.modifying_create_date -= 1;
+        }
     }
 
     fn on_ctrl(&mut self, control: KbCtrl) {

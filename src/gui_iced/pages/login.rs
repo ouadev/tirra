@@ -52,7 +52,7 @@ impl LoginPage {
                 //let palette = theme.extended_palette();
                 let palette = style_conf::palette();
                 text::Style {
-                    color: Some(palette.background_main),
+                    color: Some(palette.control_main),
                 }
             });
         let div_logo_cont = container(div_logo).center_x(Length::Fill).padding(20);
@@ -63,7 +63,6 @@ impl LoginPage {
             .width(Length::Fill)
             .align_x(iced::alignment::Horizontal::Center)
             .style(|_theme: &Theme| {
-                //let palette = theme.extended_palette();
                 let palette = style_conf::palette();
                 text::Style {
                     color: Some(palette.text),

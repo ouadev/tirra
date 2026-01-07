@@ -161,10 +161,9 @@ impl TirraEntryList {
                     //up
                     neighbor_entry = prev_entry;
                     break;
-                }else{
+                } else {
                     continue;
                 }
-                
             }
             // down
             if curr_found {
@@ -385,6 +384,26 @@ impl TirraDb {
         return result;
     }
 
+    pub fn api_update_create_date(
+        &mut self,
+        entry_id: u32,
+        time: u64,
+        last: bool,
+    ) -> Result<(), TirraDbError> {
+        //check access
+        let db = if let Some(conn) = &mut self.conn {
+            conn
+        } else {
+            return Err(TirraDbError::CryptoAccessFailure);
+        };
+
+        let result = Self::op_update_create_date(db, entry_id, time);
+        if result.is_err() || last {
+            self.access_stop(last)?;
+        }
+        return result;
+    }
+
     pub fn api_add_entry(
         &mut self,
         type_entry: u8,
@@ -526,6 +545,39 @@ impl TirraDb {
 
         // record commit
         let _ = TirraDb::op_commit(&transaction, now, Self::DEFAULT_COMMIT_AUTHOR, text_entry);
+
+        // end transaction
+        transaction
+            .commit()
+            .map_err(|_e| TirraDbError::DbRequestError)
+    }
+
+    /**
+     * Operation: UpdateCreateDate
+     */
+    fn op_update_create_date(
+        db: &mut Connection,
+        entry_id: u32,
+        time: u64,
+    ) -> Result<(), TirraDbError> {
+        let now = utils::time_now();
+        // start transaction
+        let transaction = db
+            .transaction()
+            .map_err(|_e| TirraDbError::DbRequestError)?;
+
+        //save
+        transaction
+            .execute(
+                "UPDATE entries SET
+                    date_create = ?1
+                    WHERE id    = ?2",
+                (time, entry_id),
+            )
+            .map_err(|_e| TirraDbError::DbRequestError)?;
+
+        // record commit
+        let _ = TirraDb::op_commit(&transaction, now, Self::DEFAULT_COMMIT_AUTHOR, "");
 
         // end transaction
         transaction

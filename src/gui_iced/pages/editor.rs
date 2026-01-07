@@ -1,8 +1,10 @@
 use crate::gui_iced::styles::{self, style_conf};
 use crate::ui::ui::{BgRun, TirraInterface, WriterUi};
 use iced::theme::Theme;
+use iced::widget::operation;
 use iced::widget::{
-    self, column, container, row, scrollable, text, text_editor, Button, Id, Space, TextInput,
+    self, column, container, mouse_area, row, scrollable, text, text_editor, Button, Id, Space,
+    TextInput,
 };
 use iced::Background;
 use iced::Task;
@@ -10,6 +12,7 @@ use iced::{Element, Length};
 
 const SEARCH_INPUT_ICED_ID: &str = "searchinput-id";
 const CLI_INPUT_ICED_ID: &str = "cliinput-id";
+const CREATE_DATE_EDIT_ID: &str = "create_date_input_id";
 pub struct EditorPage {
     pub writer_ui: WriterUi,
     pub content: text_editor::Content,
@@ -25,7 +28,10 @@ pub enum Message {
     CliChanged(String),
     SearchSubmited,
     SearchChanged(String),
+    CreateDateSubmited,
+    CreateDateChanged(String),
     SortToggled,
+    CreateDateDoubleClicked,
 }
 impl EditorPage {
     pub fn new(db_location: &str, crypto_pwd: &[u8]) -> (Self, Task<Message>) {
@@ -101,10 +107,25 @@ impl EditorPage {
                 self.refresh_editor();
                 Task::none()
             }
+
+            Message::CreateDateChanged(s) => {
+                self.writer_ui.on_create_date_input(s);
+                Task::none()
+            }
+
+            Message::CreateDateSubmited => {
+                self.writer_ui.on_create_date_submit();
+                self.refresh_editor();
+                Task::none()
+            }
             Message::SortToggled => {
                 self.writer_ui.on_sort_toggled();
                 self.refresh_editor();
                 Task::none()
+            }
+            Message::CreateDateDoubleClicked => {
+                self.writer_ui.on_create_date_doubleclicked();
+                operation::focus(Id::new(CREATE_DATE_EDIT_ID))
             }
         }
     }
@@ -243,7 +264,9 @@ impl EditorPage {
                     }
                 });
 
-            row![text_ymd, text_space, text_wdm].height(Length::Shrink)
+            row![text_ymd, text_space, text_wdm]
+                .height(Length::Shrink)
+                .width(Length::Fixed(150.))
         };
 
         //calculate the date_time to display
@@ -274,10 +297,28 @@ impl EditorPage {
                 }
             });
 
+        //mouse areas
+        let date_modify = TextInput::new("epoch", &self.writer_ui.create_date_change_text)
+            .width(Length::Fixed(150.))
+            .size(10.0)
+            .style(styles::text_input::main_style_borders)
+            .on_submit(Message::CreateDateSubmited)
+            .on_input(Message::CreateDateChanged)
+            .id(Id::new(CREATE_DATE_EDIT_ID));
+
+        let date_create_area;
+        if self.writer_ui.modifying_create_date > 0 {
+            date_create_area = container(date_modify);
+        } else {
+            date_create_area = container(
+                mouse_area(div_date_create).on_double_click(Message::CreateDateDoubleClicked),
+            );
+        }
+
         // status bar
         container(row![
             Space::new().width(20),
-            div_date_create,
+            date_create_area,
             text("   -   ")
                 .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
                 .style(|_theme: &Theme| {
