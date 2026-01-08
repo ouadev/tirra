@@ -2,6 +2,7 @@ use crate::gui_iced::styles::{self, style_conf};
 use crate::ui::ui::{BgRun, TirraInterface, WriterUi};
 use iced::theme::Theme;
 use iced::widget::operation;
+use iced::widget::scrollable::Scrollbar;
 use iced::widget::{
     self, column, container, mouse_area, row, scrollable, text, text_editor, Button, Id, Space,
     TextInput,
@@ -371,15 +372,22 @@ impl EditorPage {
             });
 
         // DIV : Editor Text Zone
-        let mut div_editor_text = text_editor(&self.content)
-            .height(Length::Fill)
+        let mut div_editor = text_editor(&self.content)
+            .height(Length::Shrink)
             .padding(20)
             .font(style_conf::FONT_EDITOR)
             .style(styles::text_editor::main_style);
         if self.writer_ui.is_entry_selected() {
             // let the editor disabled if there is no current entry.
-            div_editor_text = div_editor_text.on_action(Message::EditorAction);
+            div_editor = div_editor.on_action(Message::EditorAction);
         }
+
+        let scrollbar: Scrollbar = Scrollbar::default().spacing(0).width(8).scroller_width(8);
+        let direction = scrollable::Direction::Vertical(scrollbar);
+        let div_editor_text = scrollable(div_editor)
+            .direction(direction)
+            .width(Length::Fill)
+            .height(Length::Fill);
 
         // DIV : Editor Status Zone
         let div_editor_status = self.view_editor_status();
