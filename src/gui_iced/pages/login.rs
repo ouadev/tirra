@@ -1,8 +1,9 @@
 use iced::theme::Theme;
-use iced::widget::{Button, Id, Space, Text, TextInput, column, container, row, space, text};
-use iced::{alignment, Background, Task};
+use iced::widget::{column, container, row, space, text, Id, Space, Text, TextInput};
+use iced::{Background, Task};
 use iced::{Element, Length};
 
+use crate::gui_iced::components::button::button_submit;
 use crate::gui_iced::styles::{self, style_conf};
 use crate::ui::ui::{self, LoginUi, TirraInterface};
 
@@ -82,23 +83,17 @@ impl LoginPage {
         .style(styles::text_input::main_style)
         .id(Id::new(LOGIN_INPUT_ICED_ID));
 
-        //let div_pwd_cont = container(div_pwd).center_x(Length::Fill);
         // DIV : Login Button
         let button_text = if self.login_ui.db_found {
             ui::LoginUi::UI_LOGIN_BUTTON_TEXT_DECRYPT
         } else {
             ui::LoginUi::UI_LOGIN_BUTTON_TEXT_NEWDB
         };
-        let div_decrypt_button = Button::new(
-            text(button_text)
-                .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
-                .align_x(text::Alignment::Center)
-                .align_y(alignment::Vertical::Center),
-        )
-        .width(Length::Fixed(60.))
-        .style(styles::button::button_main)
-        .on_press(Message::LoginButtonPressed);
-        //let div_dec_cont = container(div_decrypt_button).center_x(Length::Fill);
+
+        let div_decrypt_button = button_submit(text(button_text))
+            .width(Length::Fixed(60.))
+            .on_press(Message::LoginButtonPressed);
+
         let div_dec_cont =
             container(row![div_pwd, space().width(10), div_decrypt_button]).center_x(Length::Fill);
 

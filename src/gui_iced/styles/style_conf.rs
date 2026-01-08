@@ -1,13 +1,13 @@
 use super::palette::Palette;
 use chrono::{Datelike, Local, Timelike};
 use iced::font::{Family, Stretch, Style, Weight};
-use iced::widget::text;
-use iced::{alignment, Element, Font};
+use iced::widget::{text, Text};
+use iced::{alignment, Font};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 static DARK_MODE_ENABLED: AtomicBool = AtomicBool::new(false);
 
-pub fn icon<'a, Message>(codepoint: char) -> Element<'a, Message> {
+pub fn icon<'a>(codepoint: char) -> Text<'a> {
     const ICON_FONT: Font = Font::with_name("tirra-icons");
 
     text(codepoint)

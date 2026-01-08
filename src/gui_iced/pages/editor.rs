@@ -1,12 +1,13 @@
+use crate::gui_iced::components::button::button_submit;
 use crate::gui_iced::styles::{self, style_conf};
 use crate::ui::ui::{BgRun, TirraInterface, WriterUi};
 use iced::theme::Theme;
-use iced::widget::operation;
 use iced::widget::scrollable::Scrollbar;
 use iced::widget::{
     self, column, container, mouse_area, row, scrollable, text, text_editor, Button, Id, Space,
     TextInput,
 };
+use iced::widget::{operation, Text};
 use iced::Background;
 use iced::Task;
 use iced::{Element, Length};
@@ -158,27 +159,25 @@ impl EditorPage {
      */
     fn view_left_pan(&self) -> Element<'_, Message> {
         // DIV : ADD Button
-        let mut div_add = Button::new(style_conf::icon('\u{0e800}'))
+        let mut div_add = button_submit(style_conf::icon('\u{0e800}'))
             .width(Length::Fixed(40.))
-            .height(Length::Fixed(30.))
-            .style(styles::button::button_main);
+            .height(Length::Fixed(30.));
 
         if self.writer_ui.view_button_newentry_enabled() {
             div_add = div_add.on_press(Message::NewEntryClicked);
         }
 
         // Another control button
-        let sort_icon: Element<'_, Message>;
+        let sort_icon: Text<'_>;
         if self.writer_ui.order_by_date_create {
             sort_icon = style_conf::icon('\u{0e801}');
         } else {
             sort_icon = style_conf::icon('\u{0e802}');
         };
 
-        let div_sort = Button::new(sort_icon)
+        let div_sort = button_submit(sort_icon)
             .width(Length::Fixed(40.))
             .height(Length::Fixed(30.))
-            .style(styles::button::button_main)
             .on_press(Message::SortToggled);
 
         // Search
