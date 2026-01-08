@@ -1,5 +1,5 @@
 use iced::theme::Theme;
-use iced::widget::{column, container, row, space, text, Button, Id, Text, TextInput};
+use iced::widget::{Button, Id, Space, Text, TextInput, column, container, row, space, text};
 use iced::{alignment, Background, Task};
 use iced::{Element, Length};
 
@@ -102,6 +102,16 @@ impl LoginPage {
         let div_dec_cont =
             container(row![div_pwd, space().width(10), div_decrypt_button]).center_x(Length::Fill);
 
+        let input_zone = container(column![div_db_cont, div_dec_cont].spacing(10))
+            .center_x(400)
+            .height(Length::Fixed(150.))
+            .style(|_theme: &Theme| {
+                //let palette = theme.extended_palette();
+                let palette = style_conf::palette();
+                container::Style::default().background(palette.background_secondary)
+                //.with_border( Color::BLACK, 1)
+            });
+
         // DIV : Information box
         let div_info = Text::new(&self.login_ui.info_text)
             .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
@@ -117,16 +127,18 @@ impl LoginPage {
         let div_info_cont = container(div_info).center_x(Length::Fill).padding(20);
 
         // DIV : LoginContainer
-        let div_login =
-            container(column![div_logo_cont, div_db_cont, div_dec_cont, div_info_cont].spacing(10))
-                .center_x(400)
-                .height(Length::Fill)
-                .style(|_theme: &Theme| {
-                    //let palette = theme.extended_palette();
-                    let palette = style_conf::palette();
-                    container::Style::default().background(palette.background_secondary)
-                    //.with_border( Color::BLACK, 1)
-                });
+        let div_login = container(
+            column![
+                Space::new().height(50),
+                div_logo_cont,
+                Space::new().height(20),
+                input_zone,
+                div_info_cont
+            ]
+            .spacing(10),
+        )
+        .center_x(400)
+        .height(Length::Fill);
 
         let body = container(div_login)
             .center_x(Length::Fill)
