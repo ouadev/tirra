@@ -1,4 +1,5 @@
-
+use iced::widget::container;
+use iced::widget::scrollable;
 use iced::widget::text_editor::default;
 use iced::widget::text_editor::Status;
 use iced::widget::text_editor::Style;
@@ -41,4 +42,42 @@ pub fn main_style(theme: &Theme, status: Status) -> Style {
         },
         Status::Disabled => base,
     }
+}
+
+pub fn scroller_style(theme: &Theme, status: scrollable::Status) -> scrollable::Style {
+    let palette = style_conf::palette();
+    let mut return_style = scrollable::default(theme, status);
+
+    //container background
+    return_style.container =
+        container::Style::default().background(Background::Color(palette.background_neutral));
+
+    //color of the rail
+    return_style.vertical_rail.background = Some(Background::Color(palette.background_secondary));
+
+    match status {
+        scrollable::Status::Hovered {
+            is_horizontal_scrollbar_hovered: _,
+            is_vertical_scrollbar_hovered,
+            ..
+        } => {
+            if is_vertical_scrollbar_hovered {
+                return_style.vertical_rail.scroller.background =
+                    Background::Color(palette.control_main);
+            }
+        }
+        scrollable::Status::Dragged {
+            is_horizontal_scrollbar_dragged: _,
+            is_vertical_scrollbar_dragged,
+            ..
+        } => {
+            if is_vertical_scrollbar_dragged {
+                return_style.vertical_rail.scroller.background =
+                    Background::Color(palette.control_main);
+            }
+        }
+        _ => {}
+    }
+    //scrollable::Status::Dragged { .. } |
+    return_style
 }

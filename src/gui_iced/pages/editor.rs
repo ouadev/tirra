@@ -2,13 +2,13 @@ use crate::gui_iced::components;
 use crate::gui_iced::components::button::button_list_entry;
 use crate::gui_iced::styles::{self, style_conf};
 use crate::ui::ui::{BgRun, TirraInterface, WriterUi};
-use iced::overlay::menu::Style;
+
 use iced::theme::Theme;
-use iced::widget::scrollable::Status;
-use iced::widget::scrollable::{Rail, Scrollbar};
+
+use iced::widget::scrollable::Scrollbar;
 use iced::widget::{
-    self, column, container, mouse_area, row, scrollable, text, text_editor, Button, Id,
-    Scrollable, Space, TextInput,
+    self, column, container, mouse_area, row, scrollable, text, text_editor, Button, Id, Space,
+    TextInput,
 };
 use iced::widget::{operation, Text};
 use iced::Task;
@@ -215,10 +215,9 @@ impl EditorPage {
             column![entry_button].into()
         })); //Column
 
-        let entries_scroll = scrollable(div_entries);
-
+        // entries Container
         let container_entries =
-            container(entries_scroll)
+            container(div_entries)
                 .height(Length::Fill)
                 .style(|_theme: &Theme| {
                     let palette = style_conf::palette();
@@ -228,8 +227,17 @@ impl EditorPage {
                         .border(border)
                 });
 
+        // entries scrollable
+        let scrollbar: Scrollbar = Scrollbar::default().spacing(0).width(6).scroller_width(6);
+        let direction = scrollable::Direction::Vertical(scrollbar);
+        let entries_scroll = scrollable(container_entries)
+            .direction(direction)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .style(styles::text_editor::scroller_style);
+
         // DIV : Left Pan
-        container(column![control_bar, container_entries])
+        container(column![control_bar, entries_scroll])
             .width(250)
             .into()
     }
@@ -389,19 +397,13 @@ impl EditorPage {
         }
 
         let editor_cont = container(div_editor).height(Length::Fill);
-        let scrollbar: Scrollbar = Scrollbar::default().spacing(0).width(8).scroller_width(8);
+        let scrollbar: Scrollbar = Scrollbar::default().spacing(0).width(6).scroller_width(6);
         let direction = scrollable::Direction::Vertical(scrollbar);
         let div_editor_text = scrollable(editor_cont)
             .direction(direction)
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(|theme: &Theme, status: Status| {
-                let palette = style_conf::palette();
-                let mut return_style = scrollable::default(theme, status);
-                return_style.container = container::Style::default()
-                    .background(Background::Color(palette.background_neutral));
-                return_style
-            });
+            .style(styles::text_editor::scroller_style);
 
         // DIV : Editor Status Zone
         let div_editor_status = self.view_editor_status();
