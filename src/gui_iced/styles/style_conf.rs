@@ -19,6 +19,18 @@ pub fn icon<'a>(codepoint: char) -> Text<'a> {
         .into()
 }
 
+pub fn icon_add<'a>() -> Text<'a> {
+    icon('\u{0e800}')
+}
+
+pub fn icon_sort_create<'a>() -> Text<'a> {
+    icon('\u{0e801}')
+}
+
+pub fn icon_sort_modify<'a>() -> Text<'a> {
+    icon('\u{0e802}')
+}
+
 pub fn dark_mode_in_paris() -> () {
     let paris = [
         (8, 17),

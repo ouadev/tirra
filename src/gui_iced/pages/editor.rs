@@ -1,4 +1,5 @@
-use crate::gui_iced::components::button::button_submit;
+use crate::gui_iced::components;
+use crate::gui_iced::components::button::{button_list_entry};
 use crate::gui_iced::styles::{self, style_conf};
 use crate::ui::ui::{BgRun, TirraInterface, WriterUi};
 use iced::theme::Theme;
@@ -8,8 +9,8 @@ use iced::widget::{
     TextInput,
 };
 use iced::widget::{operation, Text};
-use iced::Background;
 use iced::Task;
+use iced::{border, Background};
 use iced::{Element, Length};
 
 const SEARCH_INPUT_ICED_ID: &str = "searchinput-id";
@@ -141,7 +142,8 @@ impl EditorPage {
             .height(Length::Fill)
             .style(|_theme: &Theme| {
                 let palette = style_conf::palette();
-                container::Style::default().background(Background::Color(palette.background_main))
+                container::Style::default()
+                    .background(Background::Color(palette.background_neutral))
             });
         // DIV : Left Pan
         let div_leftpan = self.view_left_pan();
@@ -159,7 +161,7 @@ impl EditorPage {
      */
     fn view_left_pan(&self) -> Element<'_, Message> {
         // DIV : ADD Button
-        let mut div_add = button_submit(style_conf::icon('\u{0e800}'))
+        let mut div_add = components::button::button_action(style_conf::icon_add())
             .width(Length::Fixed(40.))
             .height(Length::Fixed(30.));
 
@@ -170,12 +172,12 @@ impl EditorPage {
         // Another control button
         let sort_icon: Text<'_>;
         if self.writer_ui.order_by_date_create {
-            sort_icon = style_conf::icon('\u{0e801}');
+            sort_icon = style_conf::icon_sort_create();
         } else {
-            sort_icon = style_conf::icon('\u{0e802}');
+            sort_icon = style_conf::icon_sort_modify();
         };
 
-        let div_sort = button_submit(sort_icon)
+        let div_sort = components::button::button_action(sort_icon)
             .width(Length::Fixed(40.))
             .height(Length::Fixed(30.))
             .on_press(Message::SortToggled);
@@ -189,8 +191,12 @@ impl EditorPage {
             .on_submit(Message::SearchSubmited)
             .on_input(Message::SearchChanged)
             .id(Id::new(SEARCH_INPUT_ICED_ID));
+
         // control bar
-        let control_bar = row![div_add, div_search, div_sort];
+        let control_bar = container(row![div_add, div_search, div_sort]).style(|_theme: &Theme| {
+            let palette = style_conf::palette();
+            container::Style::default().background(palette.background_neutral)
+        });
 
         //DIV : list of entries
         let div_entries = column(self.writer_ui.entry_view_iter().map(|entry_view| {
@@ -198,33 +204,31 @@ impl EditorPage {
             let link_text = text(entry_view.title)
                 .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
                 .shaping(text::Shaping::Advanced);
+
             //entry button
-            let ent_button = Button::new(link_text)
+            let entry_button = button_list_entry(link_text, entry_view.selected)
                 .width(Length::Fill)
-                .style(if entry_view.selected {
-                    styles::button::button_entry_selected
-                } else {
-                    styles::button::button_entry
-                })
-                .clip(true)
                 .on_press(Message::EntryClicked(entry_view.id));
 
-            //let ent_separator: Rule = horizontal_rule(1);
-            column![ent_button].into()
+            column![entry_button].into()
         })); //Column
 
-        let div_entries_scroll = scrollable(div_entries);
+        let entries_scroll = scrollable(div_entries);
+
+        let container_entries =
+            container(entries_scroll)
+                .height(Length::Fill)
+                .style(|_theme: &Theme| {
+                    let palette = style_conf::palette();
+                    let border = border::width(1).color(palette.background_main);
+                    container::Style::default()
+                        .background(palette.background_secondary)
+                        .border(border)
+                });
 
         // DIV : Left Pan
-        container(column![control_bar, div_entries_scroll])
+        container(column![control_bar, container_entries])
             .width(250)
-            .height(Length::Fill)
-            .style(|_theme: &Theme| {
-                //let palette = theme.extended_palette();
-                let palette = style_conf::palette();
-
-                container::Style::default().background(palette.background_secondary)
-            })
             .into()
     }
 
@@ -334,7 +338,7 @@ impl EditorPage {
         ])
         .style(|_theme: &Theme| {
             let palette = style_conf::palette();
-            container::Style::default().background(Background::Color(palette.background_main))
+            container::Style::default().background(Background::Color(palette.background_neutral))
         })
         .into()
     }
@@ -343,7 +347,7 @@ impl EditorPage {
      * VIEW : editor
      */
     fn view_editor(&self) -> Element<'_, Message> {
-        // DIV : Command line experimentation
+        // DIV : Command line
         let div_cmd_input = TextInput::new(
             WriterUi::UI_WRITER_CLI_PLACEHOLDER,
             &self.writer_ui.cli_text(),
@@ -351,7 +355,7 @@ impl EditorPage {
         .width(Length::Fill)
         .size(style_conf::STYLE_TEXT_SIZE_COMMAND)
         .font(style_conf::FONT_COMMAND_LINE)
-        .style(styles::text_input::main_style)
+        .style(styles::text_input::transparent_style)
         .on_submit(Message::CliSubmited)
         .on_input(Message::CliChanged)
         .id(Id::new(CLI_INPUT_ICED_ID));
@@ -367,7 +371,8 @@ impl EditorPage {
             .width(Length::Fill)
             .style(|_theme: &Theme| {
                 let palette = style_conf::palette();
-                container::Style::default().background(Background::Color(palette.background_main))
+                container::Style::default()
+                    .background(Background::Color(palette.background_neutral))
             });
 
         // DIV : Editor Text Zone

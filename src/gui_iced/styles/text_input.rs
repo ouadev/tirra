@@ -28,7 +28,7 @@ pub fn transparent_style(_theme: &Theme, _status: Status) -> Style {
     let palette_tirra = style_conf::palette();
 
     let base = Style {
-        background: Background::Color(palette_tirra.background_secondary),
+        background: Background::Color(palette_tirra.background_neutral),
         border: Border {
             radius: 5.0.into(),
             width: 0.,

@@ -9,9 +9,33 @@ pub fn button_main(_theme: &Theme, status: Status) -> Style {
     //let palette = theme.extended_palette();
     let palette = style_conf::palette();
     let base = Style {
-        background: Some(Background::Color(palette.control_main)),
+        background: None,
         text_color: palette.text,
-        border: Border::default().rounded(5.0),
+        border: Border::default().width(1).color(palette.background_main),
+        shadow: Shadow::default(),
+        snap: false,
+    };
+
+    match status {
+        Status::Active | Status::Pressed => base,
+        Status::Hovered => Style {
+            background: Some(Background::Color(palette.background_main)),
+            ..base
+        },
+        Status::Disabled => Style {
+            background: Some(Background::Color(palette.control_disabled)),
+            ..base
+        },
+    }
+}
+
+pub fn button_action(_theme: &Theme, status: Status) -> Style {
+    //let palette = theme.extended_palette();
+    let palette = style_conf::palette();
+    let base = Style {
+        background: None,
+        text_color: palette.text,
+        border: Border::default(),
         shadow: Shadow::default(),
         snap: false,
     };

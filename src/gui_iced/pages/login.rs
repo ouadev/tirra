@@ -1,9 +1,9 @@
 use iced::theme::Theme;
 use iced::widget::{column, container, row, space, text, Id, Space, Text, TextInput};
-use iced::{Background, Task};
+use iced::{border, Background, Task};
 use iced::{Element, Length};
 
-use crate::gui_iced::components::button::button_submit;
+use crate::gui_iced::components;
 use crate::gui_iced::styles::{self, style_conf};
 use crate::ui::ui::{self, LoginUi, TirraInterface};
 
@@ -80,7 +80,7 @@ impl LoginPage {
         .secure(true)
         .on_submit(Message::LoginButtonPressed)
         .on_input(Message::PwdInputChanged)
-        .style(styles::text_input::main_style)
+        .style(styles::text_input::transparent_style)
         .id(Id::new(LOGIN_INPUT_ICED_ID));
 
         // DIV : Login Button
@@ -90,7 +90,7 @@ impl LoginPage {
             ui::LoginUi::UI_LOGIN_BUTTON_TEXT_NEWDB
         };
 
-        let div_decrypt_button = button_submit(text(button_text))
+        let div_decrypt_button = components::button::button_submit(text(button_text))
             .width(Length::Fixed(60.))
             .on_press(Message::LoginButtonPressed);
 
@@ -103,8 +103,10 @@ impl LoginPage {
             .style(|_theme: &Theme| {
                 //let palette = theme.extended_palette();
                 let palette = style_conf::palette();
-                container::Style::default().background(palette.background_secondary)
-                //.with_border( Color::BLACK, 1)
+                let border = border::width(1).color(palette.background_main);
+                container::Style::default()
+                    .background(palette.background_secondary)
+                    .border(border)
             });
 
         // DIV : Information box
@@ -140,7 +142,8 @@ impl LoginPage {
             .height(Length::Fill)
             .style(|_theme: &Theme| {
                 let palette = style_conf::palette();
-                container::Style::default().background(Background::Color(palette.background_main))
+                container::Style::default()
+                    .background(Background::Color(palette.background_neutral))
             });
 
         body.into()

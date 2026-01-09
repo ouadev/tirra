@@ -1,3 +1,4 @@
+
 use iced::widget::text_editor::default;
 use iced::widget::text_editor::Status;
 use iced::widget::text_editor::Style;
@@ -9,7 +10,7 @@ pub fn main_style(theme: &Theme, status: Status) -> Style {
     let palette = theme.extended_palette();
     let palette_tirra = style_conf::palette();
     let base = Style {
-        background: Background::Color(palette_tirra.background_main),
+        background: Background::Color(palette_tirra.background_neutral),
         border: Border {
             radius: 0.0.into(),
             width: 0.,
@@ -30,7 +31,7 @@ pub fn main_style(theme: &Theme, status: Status) -> Style {
             },
             ..base
         },
-        Status::Focused { is_hovered: _ }=> Style {
+        Status::Focused { is_hovered: _ } => Style {
             border: Border {
                 radius: 0.0.into(),
                 width: 0.,
