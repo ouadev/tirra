@@ -387,7 +387,7 @@ impl EditorPage {
 
         // DIV : Editor Text Zone
         let mut div_editor = text_editor(&self.content)
-            .height(Length::Shrink)
+            .height(Length::Fill)
             .padding(20)
             .font(style_conf::FONT_EDITOR)
             .style(styles::text_editor::main_style);
@@ -397,19 +397,12 @@ impl EditorPage {
         }
 
         let editor_cont = container(div_editor).height(Length::Fill);
-        let scrollbar: Scrollbar = Scrollbar::default().spacing(0).width(6).scroller_width(6);
-        let direction = scrollable::Direction::Vertical(scrollbar);
-        let div_editor_text = scrollable(editor_cont)
-            .direction(direction)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .style(styles::text_editor::scroller_style);
 
         // DIV : Editor Status Zone
         let div_editor_status = self.view_editor_status();
 
         //Editor
-        column![div_command_cont, div_editor_text, div_editor_status].into()
+        column![div_command_cont, editor_cont, div_editor_status].into()
     }
 
     fn view_error_screen(&self, message: String) -> Element<'_, Message> {
