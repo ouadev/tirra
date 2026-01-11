@@ -11,7 +11,7 @@ pub fn main_style(_theme: &Theme, _status: Status) -> Style {
     let base = Style {
         background: Background::Color(palette_tirra.background_main),
         border: Border {
-            radius: 5.0.into(),
+            radius: 0.0.into(),
             width: 0.,
             color: Color::default(),
         },

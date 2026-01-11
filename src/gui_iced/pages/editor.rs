@@ -11,7 +11,7 @@ use iced::widget::{
     TextInput,
 };
 use iced::widget::{operation, Text};
-use iced::{border, color, Background};
+use iced::{border, Background};
 use iced::{Element, Length};
 use iced::{Padding, Task};
 
@@ -387,24 +387,19 @@ impl EditorPage {
         .width(Length::Fill)
         .size(style_conf::STYLE_TEXT_SIZE_COMMAND)
         .font(style_conf::FONT_COMMAND_LINE)
-        .style(styles::text_input::transparent_style)
+        .style(styles::text_input::main_style)
         .on_submit(Message::CliSubmited)
         .on_input(Message::CliChanged)
         .id(Id::new(CLI_INPUT_ICED_ID));
 
         let mut div_command_cont;
-        if self.writer_ui.is_cli_visible() {
-            div_command_cont = container(div_cmd_input).height(30);
-        } else {
-            div_command_cont = container("").height(10);
-        }
+        div_command_cont = container(div_cmd_input).height(Length::Shrink);
 
         div_command_cont = div_command_cont
             .width(Length::Fill)
             .style(|_theme: &Theme| {
                 let palette = style_conf::palette();
-                container::Style::default()
-                    .background(Background::Color(palette.background_neutral))
+                container::Style::default().background(Background::Color(palette.control_main))
             });
 
         // DIV : Editor Text Zone
@@ -429,7 +424,11 @@ impl EditorPage {
         let div_editor_status = self.view_editor_status();
 
         //Editor
-        column![div_command_cont, editor_cont, div_editor_status].into()
+        if self.writer_ui.is_cli_visible() {
+            column![div_command_cont, editor_cont, div_editor_status].into()
+        } else {
+            column![editor_cont, div_editor_status].into()
+        }
     }
 
     fn view_error_screen(&self, message: String) -> Element<'_, Message> {
