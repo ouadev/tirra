@@ -6,6 +6,7 @@ use crate::ui::ui::{BgRun, TirraInterface, WriterUi};
 use iced::theme::Theme;
 
 use iced::widget::scrollable::Scrollbar;
+use iced::widget::text::Wrapping;
 use iced::widget::{
     self, column, container, mouse_area, row, scrollable, space, text, text_editor, Button, Id,
     Space, TextInput,
@@ -211,11 +212,13 @@ impl EditorPage {
             // entry link text
             let link_text = text(entry_view.title)
                 .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
+                .wrapping(Wrapping::WordOrGlyph)
                 .shaping(text::Shaping::Advanced);
 
             //entry button
             let entry_button = button_list_entry(link_text, entry_view.selected)
                 .width(Length::Fill)
+                .height(30.)
                 .on_press(Message::EntryClicked(entry_view.id));
 
             column![entry_button].into()
@@ -403,7 +406,8 @@ impl EditorPage {
             .width(Length::Fill)
             .style(|_theme: &Theme| {
                 let palette = style_conf::palette();
-                container::Style::default().background(Background::Color(palette.background_neutral))
+                container::Style::default()
+                    .background(Background::Color(palette.background_neutral))
             });
 
         // DIV : Editor Text Zone
