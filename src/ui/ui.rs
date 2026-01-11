@@ -201,6 +201,7 @@ pub struct WriterUi {
     last_activity: i64,
     pub modifying_create_date: u8,
     pub create_date_change_text: String,
+    pub editor_needs_refresh: bool,
     //background work
     bg_work: BgRun,
 }
@@ -224,6 +225,7 @@ impl WriterUi {
             cli_visible: false,
             modifying_create_date: 0,
             create_date_change_text: String::new(),
+            editor_needs_refresh: false,
             cli_text: String::new(),
             search_text: String::new(),
             load_request: String::new(),
@@ -350,6 +352,7 @@ impl WriterUi {
             }
         };
         ////// stop db access
+        self.editor_needs_refresh = true;
     }
 
     /**
@@ -357,6 +360,7 @@ impl WriterUi {
      */
     pub fn on_search_input(&mut self, s: String) {
         self.search_text = s;
+        self.editor_needs_refresh = true;
     }
 
     /**
@@ -431,6 +435,7 @@ impl WriterUi {
         // end modifying session
         self.create_date_change_text.clear();
         self.modifying_create_date = 0;
+        self.editor_needs_refresh = true;
     }
 
     /**
@@ -446,6 +451,7 @@ impl WriterUi {
     pub fn on_sort_toggled(&mut self) {
         self.order_by_date_create = !self.order_by_date_create;
         self.cli_text = TirraDb::build_filter(&self.search_text, self.order_by_date_create, 200);
+        self.editor_needs_refresh = true;
         self.on_cli_submit();
     }
     /**
@@ -454,6 +460,7 @@ impl WriterUi {
     pub fn on_entry_selected(&mut self, entry_id: u32) {
         self.save_and_reload();
         self.update_curr_entry_id(Some(entry_id));
+        self.editor_needs_refresh = true;
     }
     /**
      * response to action: new_entry
@@ -504,6 +511,7 @@ impl WriterUi {
         }
 
         ////// stop db access
+        self.editor_needs_refresh = true;
     }
 
     /**
@@ -734,9 +742,11 @@ impl TirraInterface for WriterUi {
             }
             KbCtrl::Down => {
                 self.move_curr_entry_id(true);
+                self.editor_needs_refresh = true;
             }
             KbCtrl::Up => {
                 self.move_curr_entry_id(false);
+                self.editor_needs_refresh = true;
             }
         }
     }

@@ -60,6 +60,7 @@ impl EditorPage {
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
+        let task;
         match message {
             Message::EditorAction(action) => {
                 match &action {
@@ -73,66 +74,67 @@ impl EditorPage {
                     _ => self.content.perform(action),
                 }
 
-                Task::none()
+                task = Task::none();
             }
 
             Message::Tick => {
                 self.writer_ui.on_tick();
-                self.task_from_ui()
+                task = self.task_from_ui();
             }
             Message::EntryClicked(entry_id) => {
                 self.writer_ui.on_entry_selected(entry_id);
-                self.refresh_editor();
-                Task::none()
+                task = Task::none();
             }
             Message::NewEntryClicked => {
                 self.writer_ui.on_new_entry();
-                self.refresh_editor();
-                Task::none()
+                task = Task::none();
             }
 
             Message::CliChanged(s) => {
                 self.writer_ui.on_cli_input(s);
-                Task::none()
+                task = Task::none();
             }
 
             Message::CliSubmited => {
                 self.writer_ui.on_cli_submit();
-                self.refresh_editor();
-                Task::none()
+                task = Task::none();
             }
 
             Message::SearchChanged(s) => {
                 self.writer_ui.on_search_input(s);
-                Task::none()
+                task = Task::none();
             }
 
             Message::SearchSubmited => {
                 self.writer_ui.on_search_submit();
-                self.refresh_editor();
-                Task::none()
+                task = Task::none();
             }
 
             Message::CreateDateChanged(s) => {
                 self.writer_ui.on_create_date_input(s);
-                Task::none()
+                task = Task::none();
             }
 
             Message::CreateDateSubmited => {
                 self.writer_ui.on_create_date_submit();
-                self.refresh_editor();
-                Task::none()
+                task = Task::none();
             }
             Message::SortToggled => {
                 self.writer_ui.on_sort_toggled();
-                self.refresh_editor();
-                Task::none()
+                task = Task::none();
             }
             Message::CreateDateDoubleClicked => {
                 self.writer_ui.on_create_date_doubleclicked();
-                operation::focus(Id::new(CREATE_DATE_EDIT_ID))
+                task = operation::focus(Id::new(CREATE_DATE_EDIT_ID));
             }
         }
+
+        if self.writer_ui.editor_needs_refresh {
+            self.refresh_editor();
+            self.writer_ui.editor_needs_refresh = false;
+        }
+
+        task
     }
 
     pub fn view(&self) -> Element<'_, Message> {

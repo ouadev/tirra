@@ -162,7 +162,7 @@ impl TirraIced {
             Message::CtrlPlusKey(key) => match &mut self.page {
                 RunningPage::Editor(editor_page) => {
                     editor_page.writer_ui.on_ctrl(key);
-                    editor_page.refresh_editor();
+                    let _ = self.update_editor_page(editor::Message::Tick);
                     //TODO: the decision about what to put on focus should be delegared to UI module instead.
                     if key == KbCtrl::CtrlShiftF {
                         operation::focus(Id::new(editor::EditorPage::search_input_id_to_focus()))
