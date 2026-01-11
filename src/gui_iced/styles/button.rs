@@ -47,7 +47,8 @@ pub fn button_action(_theme: &Theme, status: Status) -> Style {
             ..base
         },
         Status::Disabled => Style {
-            background: Some(Background::Color(palette.control_disabled)),
+            //background: Some(Background::Color(palette.control_disabled)),
+            text_color: palette.control_disabled,
             ..base
         },
     }
