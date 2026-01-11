@@ -30,7 +30,7 @@ pub fn transparent_style(_theme: &Theme, _status: Status) -> Style {
     let base = Style {
         background: Background::Color(palette_tirra.background_neutral),
         border: Border {
-            radius: 5.0.into(),
+            radius: 0.0.into(),
             width: 0.,
             color: Color::default(),
         },

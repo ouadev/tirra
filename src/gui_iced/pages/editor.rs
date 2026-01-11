@@ -11,7 +11,7 @@ use iced::widget::{
     TextInput,
 };
 use iced::widget::{operation, Text};
-use iced::{border, Background};
+use iced::{border, color, Background};
 use iced::{Element, Length};
 use iced::{Padding, Task};
 
@@ -196,11 +196,15 @@ impl EditorPage {
             .on_input(Message::SearchChanged)
             .id(Id::new(SEARCH_INPUT_ICED_ID));
 
+        let container_search = container(div_search).padding(1.);
+
         // control bar
-        let control_bar = container(row![div_add, div_search, div_sort]).style(|_theme: &Theme| {
-            let palette = style_conf::palette();
-            container::Style::default().background(palette.background_neutral)
-        });
+        let control_bar = container(row![div_add, container_search, div_sort])
+            .height(Length::Shrink)
+            .style(|_theme: &Theme| {
+                let palette = style_conf::palette();
+                container::Style::default().background(palette.background_neutral)
+            });
 
         //DIV : list of entries
         let div_entries = column(self.writer_ui.entry_view_iter().map(|entry_view| {
@@ -223,10 +227,7 @@ impl EditorPage {
                 .height(Length::Fill)
                 .style(|_theme: &Theme| {
                     let palette = style_conf::palette();
-                    let border = border::width(1).color(palette.background_main);
-                    container::Style::default()
-                        .background(palette.background_secondary)
-                        .border(border)
+                    container::Style::default().background(palette.background_secondary)
                 });
 
         // entries scrollable
@@ -239,9 +240,24 @@ impl EditorPage {
             .style(styles::text_editor::scroller_style);
 
         // DIV : Left Pan
-        container(column![control_bar, entries_scroll])
+        let left_pan = container(column![control_bar, entries_scroll])
             .width(250)
-            .into()
+            .height(Length::Fill)
+            .padding(Padding {
+                top: 0.,
+                right: 1.,
+                bottom: 1.,
+                left: 0.,
+            })
+            .style(|_theme: &Theme| {
+                let palette = style_conf::palette();
+                let border = border::width(1).color(palette.background_main);
+                container::Style::default()
+                    .background(color!(0x6e231e))
+                    .border(border)
+            });
+
+        left_pan.into()
     }
 
     /**
