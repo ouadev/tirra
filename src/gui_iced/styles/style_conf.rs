@@ -72,7 +72,7 @@ pub fn toggle_theme() {
 */
 pub fn palette() -> Palette {
     if DARK_MODE_ENABLED.load(Ordering::Relaxed) {
-        Palette::DARK_TIRRA
+        Palette::DARK_TIRRA_GREEN
     } else {
         Palette::LIGHT_TIRRA
     }

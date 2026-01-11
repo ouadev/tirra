@@ -36,8 +36,8 @@ impl Palette {
 
     pub const DARK_TIRRA_GREEN: Self = Self {
         background_neutral: color!(0x2C3930),
-        background_main: color!(0x526458),
-        background_secondary: color!(0x2d3f33),
+        background_main: color!(0x5D7464),
+        background_secondary: color!(0x3F4F44),
 
         text: color!(0xcccccc),
 
