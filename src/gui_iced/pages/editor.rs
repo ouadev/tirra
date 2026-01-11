@@ -7,8 +7,8 @@ use iced::theme::Theme;
 
 use iced::widget::scrollable::Scrollbar;
 use iced::widget::{
-    self, column, container, mouse_area, row, scrollable, text, text_editor, Button, Id, Space,
-    TextInput,
+    self, column, container, mouse_area, row, scrollable, space, text, text_editor, Button, Id,
+    Space, TextInput,
 };
 use iced::widget::{operation, Text};
 use iced::{border, Background};
@@ -200,7 +200,7 @@ impl EditorPage {
 
         // control bar
         let control_bar = container(row![div_add, container_search, div_sort])
-            .height(Length::Shrink)
+            .height(Length::Fixed(30.))
             .style(|_theme: &Theme| {
                 let palette = style_conf::palette();
                 container::Style::default().background(palette.background_neutral)
@@ -393,20 +393,24 @@ impl EditorPage {
         .id(Id::new(CLI_INPUT_ICED_ID));
 
         let mut div_command_cont;
-        div_command_cont = container(div_cmd_input).height(Length::Shrink);
+        if self.writer_ui.is_cli_visible() {
+            div_command_cont = container(div_cmd_input).height(Length::Fixed(30.));
+        } else {
+            div_command_cont = container(space()).height(Length::Fixed(30.));
+        }
 
         div_command_cont = div_command_cont
             .width(Length::Fill)
             .style(|_theme: &Theme| {
                 let palette = style_conf::palette();
-                container::Style::default().background(Background::Color(palette.control_main))
+                container::Style::default().background(Background::Color(palette.background_neutral))
             });
 
         // DIV : Editor Text Zone
         let mut div_editor = text_editor(&self.content)
             .height(Length::Fill)
             .padding(Padding {
-                top: 20.,
+                top: 0.,
                 right: 10.,
                 bottom: 2.,
                 left: 20.,
@@ -424,11 +428,7 @@ impl EditorPage {
         let div_editor_status = self.view_editor_status();
 
         //Editor
-        if self.writer_ui.is_cli_visible() {
-            column![div_command_cont, editor_cont, div_editor_status].into()
-        } else {
-            column![editor_cont, div_editor_status].into()
-        }
+        column![div_command_cont, editor_cont, div_editor_status].into()
     }
 
     fn view_error_screen(&self, message: String) -> Element<'_, Message> {
