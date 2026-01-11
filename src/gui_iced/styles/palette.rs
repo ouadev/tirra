@@ -33,4 +33,15 @@ impl Palette {
         control_main: color!(0x6272a4),
         control_disabled: color!(0x000000),
     };
+
+    pub const DARK_TIRRA_GREEN: Self = Self {
+        background_neutral: color!(0x2C3930),
+        background_main: color!(0x526458),
+        background_secondary: color!(0x2d3f33),
+
+        text: color!(0xcccccc),
+
+        control_main: color!(0xA27B5C),
+        control_disabled: color!(0x0e6174),
+    };
 }
