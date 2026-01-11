@@ -11,9 +11,9 @@ use iced::widget::{
     TextInput,
 };
 use iced::widget::{operation, Text};
-use iced::Task;
 use iced::{border, Background};
 use iced::{Element, Length};
+use iced::{Padding, Task};
 
 const SEARCH_INPUT_ICED_ID: &str = "searchinput-id";
 const CLI_INPUT_ICED_ID: &str = "cliinput-id";
@@ -282,7 +282,7 @@ impl EditorPage {
 
             row![text_ymd, text_space, text_wdm]
                 .height(Length::Shrink)
-                .width(Length::Fixed(150.))
+                .width(Length::Fixed(180.))
         };
 
         //calculate the date_time to display
@@ -335,7 +335,7 @@ impl EditorPage {
         container(row![
             Space::new().width(20),
             date_create_area,
-            text("   -   ")
+            text("-    ")
                 .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
                 .style(|_theme: &Theme| {
                     //let palette = theme.extended_palette();
@@ -346,8 +346,10 @@ impl EditorPage {
                 }),
             div_date_modify,
             widget::space::horizontal(),
-            div_id
+            div_id,
+            Space::new().width(10)
         ])
+        .padding(2)
         .style(|_theme: &Theme| {
             let palette = style_conf::palette();
             container::Style::default().background(Background::Color(palette.background_neutral))
@@ -390,7 +392,12 @@ impl EditorPage {
         // DIV : Editor Text Zone
         let mut div_editor = text_editor(&self.content)
             .height(Length::Fill)
-            .padding(20)
+            .padding(Padding {
+                top: 20.,
+                right: 10.,
+                bottom: 2.,
+                left: 20.,
+            })
             .font(style_conf::FONT_EDITOR)
             .style(styles::text_editor::main_style);
         if self.writer_ui.is_entry_selected() {
