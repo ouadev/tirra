@@ -167,7 +167,7 @@ impl EditorPage {
         // DIV : ADD Button
         let mut div_add = components::button::button_action(style_conf::icon_add())
             .width(Length::Fixed(40.))
-            .height(Length::Fixed(30.));
+            .height(Length::Fill);
 
         if self.writer_ui.view_button_newentry_enabled() {
             div_add = div_add.on_press(Message::NewEntryClicked);
@@ -183,7 +183,7 @@ impl EditorPage {
 
         let div_sort = components::button::button_action(sort_icon)
             .width(Length::Fixed(40.))
-            .height(Length::Fixed(30.))
+            .height(Length::Fill)
             .on_press(Message::SortToggled);
 
         // Search
@@ -239,8 +239,10 @@ impl EditorPage {
             .height(Length::Fill)
             .style(styles::text_editor::scroller_style);
 
+        let separator = Space::new().width(Length::Fill).height(Length::Fixed(1.0));
+
         // DIV : Left Pan
-        let left_pan = container(column![control_bar, entries_scroll])
+        let left_pan = container(column![control_bar, separator, entries_scroll])
             .width(250)
             .height(Length::Fill)
             .padding(Padding {
@@ -253,7 +255,7 @@ impl EditorPage {
                 let palette = style_conf::palette();
                 let border = border::width(1).color(palette.background_main);
                 container::Style::default()
-                    .background(color!(0x6e231e))
+                    .background(palette.background_main)
                     .border(border)
             });
 
