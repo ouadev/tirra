@@ -20,7 +20,7 @@ impl Palette {
         text: color!(0x000000),
 
         control_main: color!(0x72b775),
-        control_disabled: color!(0x0e6174),
+        control_disabled: color!(0x4c4c4c),
     };
 
     pub const DARK_TIRRA: Self = Self {
@@ -31,7 +31,7 @@ impl Palette {
         text: color!(0xFFFFFF),
 
         control_main: color!(0x6272a4),
-        control_disabled: color!(0x000000),
+        control_disabled: color!(0x707070),
     };
 
     pub const DARK_TIRRA_GREEN: Self = Self {
