@@ -1,5 +1,5 @@
 use crate::gui_iced::components;
-use crate::gui_iced::components::button::{button_action, button_list_entry, button_submit};
+use crate::gui_iced::components::button::{button_list_entry, button_submit};
 use crate::gui_iced::styles::{self, style_conf};
 use crate::ui::ui::{BgRun, TirraInterface, WriterUi};
 
@@ -130,7 +130,7 @@ impl EditorPage {
                 task = operation::focus(Id::new(CREATE_DATE_EDIT_ID));
             }
             Message::DeleteEntryClicked => {
-                println!("id to delete");
+                self.writer_ui.on_delete_entry_clicked();
                 task = Task::none();
             }
         }

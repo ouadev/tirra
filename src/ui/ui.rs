@@ -446,6 +446,42 @@ impl WriterUi {
     }
 
     /**
+     * response to action: remove entry clicked
+     */
+    pub fn on_delete_entry_clicked(&mut self) {
+        ////// start db access
+        if let Err(_) = self.tirra_db.access_start() {
+            exception("Db access start", Some(&self.tirra_db));
+        }
+
+        //
+
+        if let Some(entry) = self.current_entry() {
+            if let Err(error) = self.tirra_db.api_remove_entry(entry.id, false) {
+                self.error_screen = Some(format!(
+                    "error: I couldn't delete the current entry ({:?})",
+                    error
+                ));
+            }
+        }
+
+        // load entries
+        match self.tirra_db.api_load_entries(&self.cli_text, true) {
+            Ok(entries) => {
+                self.entry_list = entries;
+                self.update_curr_entry_id(None);
+                self.load_request = self.cli_text.clone();
+            }
+            Err(_err) => {
+                println!("New Loader request failed !!!");
+                self.cli_text = self.load_request.clone();
+            }
+        };
+        ////// stop db access
+        self.editor_needs_refresh = true;
+    }
+
+    /**
      * response to action: sort_entries
      */
     pub fn on_sort_toggled(&mut self) {
