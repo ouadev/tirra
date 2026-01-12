@@ -36,7 +36,7 @@ pub fn icon_delete_entry<'a>() -> Text<'a> {
 }
 
 pub fn icon_unlock<'a>() -> Text<'a> {
-    icon('\u{0e804}')
+    icon('\u{0f13e}')
 }
 
 pub fn dark_mode_in_paris() -> () {
