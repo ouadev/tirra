@@ -19,6 +19,7 @@ use iced::{Padding, Task};
 const SEARCH_INPUT_ICED_ID: &str = "searchinput-id";
 const CLI_INPUT_ICED_ID: &str = "cliinput-id";
 const CREATE_DATE_EDIT_ID: &str = "create_date_input_id";
+const TEXT_EDITOR_ID: &str = "text_editor_id";
 pub struct EditorPage {
     pub writer_ui: WriterUi,
     pub content: text_editor::Content,
@@ -89,7 +90,7 @@ impl EditorPage {
             }
             Message::NewEntryClicked => {
                 self.writer_ui.on_new_entry();
-                task = Task::none();
+                task = operation::focus(Id::new(TEXT_EDITOR_ID));
             }
 
             Message::CliChanged(s) => {
@@ -431,7 +432,8 @@ impl EditorPage {
                 left: 20.,
             })
             .font(style_conf::FONT_EDITOR)
-            .style(styles::text_editor::main_style);
+            .style(styles::text_editor::main_style)
+            .id(Id::new(TEXT_EDITOR_ID));
         if self.writer_ui.is_entry_selected() {
             // let the editor disabled if there is no current entry.
             div_editor = div_editor.on_action(Message::EditorAction);
