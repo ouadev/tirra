@@ -7,6 +7,8 @@ use iced::{Background, Border, Theme};
 
 use super::style_conf;
 
+pub const TEXT_EDITOR_FONT_SIZE: u32 = 19;
+
 pub fn main_style(theme: &Theme, status: Status) -> Style {
     let palette = theme.extended_palette();
     let palette_tirra = style_conf::palette();
