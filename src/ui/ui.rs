@@ -13,6 +13,7 @@ pub enum KbCtrl {
     CtrlS,
     CtrlP,
     CtrlN,
+    CtrlL,
     CtrlK,
     CtrlShiftF,
     Down,
@@ -143,12 +144,13 @@ impl TirraInterface for LoginUi {
             KbCtrl::CtrlS
             | KbCtrl::CtrlP
             | KbCtrl::CtrlK
+            | KbCtrl::CtrlN
             | KbCtrl::CtrlShiftF
             | KbCtrl::Down
             | KbCtrl::Up => {
                 println!("login page: Ctrl+{:?}", control);
             }
-            KbCtrl::CtrlN => {
+            KbCtrl::CtrlL => {
                 style_conf::toggle_theme();
             }
         }
@@ -794,8 +796,11 @@ impl TirraInterface for WriterUi {
                 //run stuff on the editor, for testing purposes.
                 println!("editor page: Ctrl-K Command");
             }
-            KbCtrl::CtrlN => {
+            KbCtrl::CtrlL => {
                 style_conf::toggle_theme();
+            }
+            KbCtrl::CtrlN => {
+                self.on_new_entry();
             }
             KbCtrl::CtrlShiftF => {
                 //

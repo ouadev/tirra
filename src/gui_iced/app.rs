@@ -259,6 +259,9 @@ impl TirraIced {
                     keyboard::Key::Character("n") if modifiers.command() => {
                         Some(Message::CtrlPlusKey(KbCtrl::CtrlN))
                     }
+                    keyboard::Key::Character("l") if modifiers.command() => {
+                        Some(Message::CtrlPlusKey(KbCtrl::CtrlL))
+                    }
                     keyboard::Key::Character("k") if modifiers.command() => {
                         Some(Message::CtrlPlusKey(KbCtrl::CtrlK))
                     }
