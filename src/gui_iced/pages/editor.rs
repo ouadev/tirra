@@ -1,5 +1,5 @@
 use crate::gui_iced::components;
-use crate::gui_iced::components::button::button_list_entry;
+use crate::gui_iced::components::button::{button_action, button_list_entry, button_submit};
 use crate::gui_iced::styles::{self, style_conf};
 use crate::ui::ui::{BgRun, TirraInterface, WriterUi};
 
@@ -38,6 +38,7 @@ pub enum Message {
     CreateDateChanged(String),
     SortToggled,
     CreateDateDoubleClicked,
+    DeleteEntryClicked,
 }
 impl EditorPage {
     pub fn new(db_location: &str, crypto_pwd: &[u8]) -> (Self, Task<Message>) {
@@ -127,6 +128,10 @@ impl EditorPage {
             Message::CreateDateDoubleClicked => {
                 self.writer_ui.on_create_date_doubleclicked();
                 task = operation::focus(Id::new(CREATE_DATE_EDIT_ID));
+            }
+            Message::DeleteEntryClicked => {
+                println!("id to delete");
+                task = Task::none();
             }
         }
 
@@ -383,7 +388,7 @@ impl EditorPage {
      */
     fn view_editor(&self) -> Element<'_, Message> {
         // DIV : Command line
-        let div_cmd_input = TextInput::new(
+        let input_cmd = TextInput::new(
             WriterUi::UI_WRITER_CLI_PLACEHOLDER,
             &self.writer_ui.cli_text(),
         )
@@ -395,9 +400,13 @@ impl EditorPage {
         .on_input(Message::CliChanged)
         .id(Id::new(CLI_INPUT_ICED_ID));
 
+        let button_delete = button_submit(text("remove")).on_press(Message::DeleteEntryClicked);
+
+        let div_cli = row![input_cmd, Space::new().width(10), button_delete];
+
         let mut div_command_cont;
         if self.writer_ui.is_cli_visible() {
-            div_command_cont = container(div_cmd_input).height(Length::Fixed(30.));
+            div_command_cont = container(div_cli).height(Length::Fixed(30.));
         } else {
             div_command_cont = container(space()).height(Length::Fixed(30.));
         }

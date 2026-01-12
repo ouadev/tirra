@@ -9,11 +9,11 @@ pub fn main_style(_theme: &Theme, _status: Status) -> Style {
     let palette_tirra = style_conf::palette();
 
     let base = Style {
-        background: Background::Color(palette_tirra.background_main),
+        background: Background::Color(palette_tirra.background_secondary),
         border: Border {
             radius: 0.0.into(),
-            width: 0.,
-            color: Color::default(),
+            width: 1.,
+            color: palette_tirra.background_main,
         },
         icon: Color::default(),
         placeholder: color!(0x8f8f8f),
