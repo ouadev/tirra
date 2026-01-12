@@ -31,6 +31,14 @@ pub fn icon_sort_modify<'a>() -> Text<'a> {
     icon('\u{0e802}')
 }
 
+pub fn icon_delete_entry<'a>() -> Text<'a> {
+    icon('\u{0e803}')
+}
+
+pub fn icon_unlock<'a>() -> Text<'a> {
+    icon('\u{0e804}')
+}
+
 pub fn dark_mode_in_paris() -> () {
     let paris = [
         (8, 17),

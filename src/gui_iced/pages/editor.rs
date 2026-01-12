@@ -1,5 +1,5 @@
 use crate::gui_iced::components;
-use crate::gui_iced::components::button::{button_list_entry, button_submit};
+use crate::gui_iced::components::button::{button_action, button_list_entry};
 use crate::gui_iced::styles::{self, style_conf};
 use crate::ui::ui::{BgRun, TirraInterface, WriterUi};
 
@@ -400,7 +400,8 @@ impl EditorPage {
         .on_input(Message::CliChanged)
         .id(Id::new(CLI_INPUT_ICED_ID));
 
-        let button_delete = button_submit(text("remove")).on_press(Message::DeleteEntryClicked);
+        let button_delete =
+            button_action(style_conf::icon_delete_entry()).on_press(Message::DeleteEntryClicked);
 
         let div_cli = row![input_cmd, Space::new().width(10), button_delete];
 
