@@ -449,19 +449,43 @@ impl WriterUi {
      * response to action: remove entry clicked
      */
     pub fn on_delete_entry_clicked(&mut self) {
+        let prev_entry: u32;
+        if let Some(entry) = self.current_entry() {
+            prev_entry = entry.id;
+        } else {
+            return;
+        }
+
         ////// start db access
         if let Err(_) = self.tirra_db.access_start() {
             exception("Db access start", Some(&self.tirra_db));
         }
 
-        //
+        // remove current entry
+        let removed: bool;
+        if let Err(error) = self.tirra_db.api_remove_entry(prev_entry, false) {
+            self.error_screen = Some(format!(
+                "error: I couldn't delete the current entry ({:?})",
+                error
+            ));
+            removed = false;
+        } else {
+            removed = true;
+        }
 
-        if let Some(entry) = self.current_entry() {
-            if let Err(error) = self.tirra_db.api_remove_entry(entry.id, false) {
-                self.error_screen = Some(format!(
-                    "error: I couldn't delete the current entry ({:?})",
-                    error
-                ));
+        // move to the neighboring entry
+        let mut current_id_after: Option<u32> = None;
+        if removed {
+            match self.entry_list.neighbor_id_entry(prev_entry, true) {
+                Some(n_entry) => {
+                    current_id_after = Some(n_entry.id);
+                }
+                None => match self.entry_list.neighbor_id_entry(prev_entry, false) {
+                    Some(n_entry) => {
+                        current_id_after = Some(n_entry.id);
+                    }
+                    None => {}
+                },
             }
         }
 
@@ -469,7 +493,7 @@ impl WriterUi {
         match self.tirra_db.api_load_entries(&self.cli_text, true) {
             Ok(entries) => {
                 self.entry_list = entries;
-                self.update_curr_entry_id(None);
+                self.update_curr_entry_id(current_id_after);
                 self.load_request = self.cli_text.clone();
             }
             Err(_err) => {
