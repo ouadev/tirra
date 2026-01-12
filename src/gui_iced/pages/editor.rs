@@ -216,10 +216,14 @@ impl EditorPage {
         //DIV : list of entries
         let div_entries = column(self.writer_ui.entry_view_iter().map(|entry_view| {
             // entry link text
-            let link_text = text(entry_view.title)
-                .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
-                .wrapping(Wrapping::WordOrGlyph)
-                .shaping(text::Shaping::Advanced);
+            let link_text = text(if entry_view.title.is_empty() {
+                "...".to_string()
+            } else {
+                entry_view.title
+            })
+            .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
+            .wrapping(Wrapping::WordOrGlyph)
+            .shaping(text::Shaping::Advanced);
 
             //entry button
             let entry_button = button_list_entry(link_text, entry_view.selected)
