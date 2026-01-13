@@ -843,7 +843,7 @@ impl<'a> Iterator for EntryViewIterator<'a> {
         match self.inner.entry_list.get_entry(self.pos) {
             Some(entry) => {
                 return_item = Some(EntryView {
-                    title: entry.title(30),
+                    title: entry.title(25),
                     id: entry.id,
                     selected: match self.inner.curr_entry_id {
                         Some(id) => entry.id == id,
