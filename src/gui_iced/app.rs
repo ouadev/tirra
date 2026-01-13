@@ -34,6 +34,7 @@ pub fn app_iced(db_path: String) -> iced::Result {
         drag_and_drop: true,
         skip_taskbar: false,
         undecorated_shadow: false,
+        corner_preference: Default::default(),
     };
 
     // Set Db Path from argumets
