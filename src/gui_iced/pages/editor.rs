@@ -510,4 +510,11 @@ impl EditorPage {
     pub fn cli_input_id_to_focus() -> &'static str {
         &CLI_INPUT_ICED_ID
     }
+    
+    /**
+     * returns the ID of the text editor.
+     */
+    pub fn text_editor_id_to_input() -> &'static str {
+        &TEXT_EDITOR_ID
+    }
 }

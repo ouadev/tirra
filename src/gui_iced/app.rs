@@ -168,6 +168,8 @@ impl TirraIced {
                         operation::focus(Id::new(editor::EditorPage::search_input_id_to_focus()))
                     } else if key == KbCtrl::CtrlP {
                         operation::focus(Id::new(editor::EditorPage::cli_input_id_to_focus()))
+                    } else if key == KbCtrl::CtrlN {
+                        operation::focus(editor::EditorPage::text_editor_id_to_input())
                     } else {
                         Task::none()
                     }
