@@ -31,6 +31,9 @@ hkdf = "0.12.4"
 # CLI Password 
 rpassword = "7.4"
 
+# text editor widget
+iced-code-editor = "0.3"
+
 [profile.release]
 strip = true    # Automatically strip symbols from the binary.
 panic = "abort"

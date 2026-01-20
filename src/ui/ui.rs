@@ -837,6 +837,7 @@ impl TirraInterface for WriterUi {
             }
             KbCtrl::CtrlL => {
                 style_conf::toggle_theme();
+                self.editor_needs_refresh = true;
             }
             KbCtrl::CtrlN => {
                 self.on_new_entry();

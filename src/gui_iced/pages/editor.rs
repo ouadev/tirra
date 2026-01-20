@@ -16,6 +16,7 @@ use iced::widget::{operation, Text};
 use iced::{border, Background};
 use iced::{Element, Length};
 use iced::{Padding, Task};
+use iced_code_editor::{ CodeEditor, Message as EditorMessage};
 
 const SEARCH_INPUT_ICED_ID: &str = "searchinput-id";
 const CLI_INPUT_ICED_ID: &str = "cliinput-id";
@@ -24,6 +25,7 @@ const TEXT_EDITOR_ID: &str = "text_editor_id";
 pub struct EditorPage {
     pub writer_ui: WriterUi,
     pub content: text_editor::Content,
+    pub editor: CodeEditor,
 }
 
 #[derive(Debug, Clone)]
@@ -44,6 +46,7 @@ pub enum Message {
     DeleteEntryClicked,
     ResetCliClicked,
     LoaderPagination(bool),
+    EditorEvent(EditorMessage),
 }
 impl EditorPage {
     pub fn new(db_location: &str, crypto_pwd: &[u8]) -> (Self, Task<Message>) {
@@ -56,11 +59,15 @@ impl EditorPage {
             _ => text_editor::Content::with_text(""),
         };
 
+        let mut editor = CodeEditor::new("rise head as long as you are alive", "rust")
+            .with_line_numbers_enabled(false);
+        editor.set_theme(styles::text_editor::ludog_editor_style());
         //return
         (
             Self {
                 writer_ui: writer_ui,
                 content: init_content,
+                editor: editor,
             },
             Task::none(),
         )
@@ -142,6 +149,7 @@ impl EditorPage {
                 self.writer_ui.on_delete_entry_clicked();
                 task = Task::none();
             }
+
             Message::ResetCliClicked => {
                 self.writer_ui.on_reset_cli_clicked();
                 task = Task::none();
@@ -150,10 +158,15 @@ impl EditorPage {
                 self.writer_ui.on_pagination_clicked(next);
                 task = Task::none();
             }
+            Message::EditorEvent(event) => {
+                task = self.editor.update(&event).map(Message::EditorEvent);
+            }
         }
 
         if self.writer_ui.editor_needs_refresh {
             self.refresh_editor();
+            self.editor
+                .set_theme(styles::text_editor::ludog_editor_style());
             self.writer_ui.editor_needs_refresh = false;
         }
 
@@ -175,11 +188,14 @@ impl EditorPage {
         // DIV : Left Pan
         let div_leftpan = self.view_left_pan();
 
+        // new editor
+        let new_editor = container(self.editor.view().map(Message::EditorEvent));
+
         // All
         if let Some(message) = &self.writer_ui.error_screen {
             row![self.view_error_screen(message.clone())].into()
         } else {
-            row![div_leftpan, div_sep, div_editor].into()
+            row![div_leftpan, div_sep, div_editor, new_editor].into()
         }
     }
 

@@ -3,6 +3,7 @@ use iced::widget::scrollable;
 use iced::widget::text_editor::default;
 use iced::widget::text_editor::Status;
 use iced::widget::text_editor::Style;
+use iced::Color;
 use iced::{Background, Border, Theme};
 
 use super::style_conf;
@@ -43,6 +44,20 @@ pub fn main_style(theme: &Theme, status: Status) -> Style {
             ..base
         },
         Status::Disabled => base,
+    }
+}
+
+pub fn ludog_editor_style() -> iced_code_editor::theme::Style {
+    let palette_tirra = style_conf::palette();
+    iced_code_editor::theme::Style {
+        background: palette_tirra.background_neutral,
+        text_color: palette_tirra.text,
+        gutter_background: palette_tirra.background_neutral,
+        gutter_border: palette_tirra.background_neutral,
+        line_number_color: palette_tirra.background_neutral,
+        scrollbar_background: palette_tirra.background_neutral,
+        scroller_color: palette_tirra.control_main,
+        current_line_highlight: Color::TRANSPARENT,
     }
 }
 
