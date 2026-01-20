@@ -17,7 +17,6 @@ use iced::{Element, Length};
 use iced::{Padding, Task};
 use iced_code_editor::{CodeEditor, Message as EditorMessage};
 
-
 const SEARCH_INPUT_ICED_ID: &str = "searchinput-id";
 const CLI_INPUT_ICED_ID: &str = "cliinput-id";
 const CREATE_DATE_EDIT_ID: &str = "create_date_input_id";
@@ -53,13 +52,12 @@ impl EditorPage {
         let mut writer_ui = WriterUi::new();
         writer_ui.connect(db_location, crypto_pwd);
 
-
-        let mut editor = CodeEditor::new("rise head as long as you are alive", "rust")
+        let mut editor = CodeEditor::new("rise head as long as you are alive", "plain")
             .with_line_numbers_enabled(false);
         editor.set_theme(styles::text_editor::ludog_editor_style());
 
         // initial editor content
-        match writer_ui.current_entry() {
+        let _ = match &writer_ui.entry_live {
             Some(entry) => editor.reset(&entry.text),
             _ => editor.reset("no entry is found !!"),
         };
@@ -76,9 +74,12 @@ impl EditorPage {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         let task;
         match message {
-
             Message::Tick => {
                 self.writer_ui.on_tick();
+                let _task_editor = self
+                    .editor
+                    .update(&EditorMessage::Tick)
+                    .map(|e| Message::EditorEvent(e));
                 task = self.task_from_ui();
             }
             Message::EntryClicked(entry_id) => {
@@ -147,7 +148,9 @@ impl EditorPage {
             Message::EditorEvent(event) => {
                 task = self.editor.update(&event).map(Message::EditorEvent);
                 if !self.writer_ui.is_readonly() {
-                    self.writer_ui.content_changed(&self.editor.content());
+                    if let iced_code_editor::Message::CharacterInput(_c) = event {
+                        self.writer_ui.content_changed(&self.editor.content());
+                    }
                 }
             }
         }
@@ -653,10 +656,10 @@ impl EditorPage {
     pub fn refresh_editor(&mut self) {
         match &self.writer_ui.entry_live {
             Some(entry) => {
-                self.editor.reset(&entry.text);
+                let _ = self.editor.reset(&entry.text);
             }
             _ => {
-                self.editor.reset(" Nothing was found");
+                let _ = self.editor.reset(" Nothing was found");
             }
         }
     }

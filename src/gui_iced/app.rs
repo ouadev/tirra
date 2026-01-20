@@ -13,7 +13,7 @@ use crate::common::exception::exception;
 use crate::gui_iced::pages::editor::{self, EditorPage};
 use crate::gui_iced::pages::login::{self, LoginPage};
 use crate::gui_iced::styles::style_conf;
-use crate::ui::ui::{KbCtrl, TirraInterface};
+use crate::ui::ui::{KbCtrl, TirraInterface, TICK_NS};
 
 static DB_PATH_ONCE: OnceLock<String> = OnceLock::new();
 
@@ -285,7 +285,7 @@ impl TirraIced {
         });
 
         // Configure periodical save tick
-        let tick_event = every(time::Duration::new(5, 0)).map(|_| Message::PeriodicTick);
+        let tick_event = every(time::Duration::new(0, TICK_NS)).map(|_| Message::PeriodicTick);
 
         // Other application events
         let other_events = event::listen().map(Message::IgnoredEvent);

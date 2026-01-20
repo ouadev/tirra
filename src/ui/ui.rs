@@ -5,6 +5,8 @@ use crate::{
 };
 use chrono::{DateTime, Datelike, Timelike, Utc};
 
+pub static TICK_NS: u32 = 500000000; //500ms
+
 /**
  * Keyboard control keys
  */
@@ -190,6 +192,7 @@ enum EntryLiveSource {
 }
 
 pub struct WriterUi {
+    ticks: u32,
     //db access
     tirra_db: TirraDb,
     //entries
@@ -227,6 +230,7 @@ impl WriterUi {
         //return
         Self {
             entry_live: None,
+            ticks: 0,
             editor_dirty: false,
             last_activity: 0,
             entry_list: TirraEntryList::new(),
@@ -814,6 +818,10 @@ impl WriterUi {
 
 impl TirraInterface for WriterUi {
     fn on_tick(&mut self) {
+        self.ticks += 1;
+        if self.ticks % 6 != 0 {
+            return;
+        }
         // periodic save
         //self.save_and_reload();
         self.save_live();
