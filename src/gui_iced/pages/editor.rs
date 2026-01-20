@@ -9,14 +9,14 @@ use iced::theme::Theme;
 use iced::widget::scrollable::Scrollbar;
 use iced::widget::text::Wrapping;
 use iced::widget::{
-    self, column, container, mouse_area, row, scrollable, space, text, text_editor, Button, Id,
-    Space, TextInput,
+    self, column, container, mouse_area, row, scrollable, space, text, Button, Id, Space, TextInput,
 };
 use iced::widget::{operation, Text};
 use iced::{border, Background};
 use iced::{Element, Length};
 use iced::{Padding, Task};
-use iced_code_editor::{ CodeEditor, Message as EditorMessage};
+use iced_code_editor::{CodeEditor, Message as EditorMessage};
+
 
 const SEARCH_INPUT_ICED_ID: &str = "searchinput-id";
 const CLI_INPUT_ICED_ID: &str = "cliinput-id";
@@ -24,14 +24,13 @@ const CREATE_DATE_EDIT_ID: &str = "create_date_input_id";
 const TEXT_EDITOR_ID: &str = "text_editor_id";
 pub struct EditorPage {
     pub writer_ui: WriterUi,
-    pub content: text_editor::Content,
     pub editor: CodeEditor,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
     Tick,
-    EditorAction(text_editor::Action),
+    //    EditorAction(text_editor::Action),
     EntryClicked(u32),
     NewEntryClicked,
     LiveEntryClicked,
@@ -53,20 +52,21 @@ impl EditorPage {
         //instantiate Editor UI
         let mut writer_ui = WriterUi::new();
         writer_ui.connect(db_location, crypto_pwd);
-        // initial editor content
-        let init_content = match &writer_ui.entry_live {
-            Some(entry) => text_editor::Content::with_text(&entry.text),
-            _ => text_editor::Content::with_text(""),
-        };
+
 
         let mut editor = CodeEditor::new("rise head as long as you are alive", "rust")
             .with_line_numbers_enabled(false);
         editor.set_theme(styles::text_editor::ludog_editor_style());
+
+        // initial editor content
+        match writer_ui.current_entry() {
+            Some(entry) => editor.reset(&entry.text),
+            _ => editor.reset("no entry is found !!"),
+        };
         //return
         (
             Self {
                 writer_ui: writer_ui,
-                content: init_content,
                 editor: editor,
             },
             Task::none(),
@@ -76,20 +76,6 @@ impl EditorPage {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         let task;
         match message {
-            Message::EditorAction(action) => {
-                match &action {
-                    text_editor::Action::Edit(_edit) => {
-                        // block editing when in readonly mode
-                        if !self.writer_ui.is_readonly() && self.writer_ui.is_entry_selected() {
-                            self.content.perform(action);
-                            self.writer_ui.content_changed(&self.content.text());
-                        }
-                    }
-                    _ => self.content.perform(action),
-                }
-
-                task = Task::none();
-            }
 
             Message::Tick => {
                 self.writer_ui.on_tick();
@@ -160,6 +146,9 @@ impl EditorPage {
             }
             Message::EditorEvent(event) => {
                 task = self.editor.update(&event).map(Message::EditorEvent);
+                if !self.writer_ui.is_readonly() {
+                    self.writer_ui.content_changed(&self.editor.content());
+                }
             }
         }
 
@@ -188,14 +177,11 @@ impl EditorPage {
         // DIV : Left Pan
         let div_leftpan = self.view_left_pan();
 
-        // new editor
-        let new_editor = container(self.editor.view().map(Message::EditorEvent));
-
         // All
         if let Some(message) = &self.writer_ui.error_screen {
             row![self.view_error_screen(message.clone())].into()
         } else {
-            row![div_leftpan, div_sep, div_editor, new_editor].into()
+            row![div_leftpan, div_sep, div_editor].into()
         }
     }
 
@@ -596,7 +582,7 @@ impl EditorPage {
             });
 
         // DIV : Editor Text Zone
-        let mut div_editor = text_editor(&self.content)
+        /* let mut div_editor = text_editor(&self.content)
             .height(Length::Fill)
             .size(style_conf::TEXT_EDITOR_FONT_SIZE)
             .padding(Padding {
@@ -625,6 +611,12 @@ impl EditorPage {
                         .background(Background::Color(palette.background_neutral))
                 })
         };
+
+        let editor_cont = container(div_editor).height(Length::Fill);
+        */
+
+        // new editor
+        let editor_cont = container(self.editor.view().map(Message::EditorEvent));
 
         // DIV : Editor Status Zone
         let div_editor_status = if self.writer_ui.is_entry_selected() {
@@ -661,10 +653,10 @@ impl EditorPage {
     pub fn refresh_editor(&mut self) {
         match &self.writer_ui.entry_live {
             Some(entry) => {
-                self.content = text_editor::Content::with_text(&entry.text);
+                self.editor.reset(&entry.text);
             }
             _ => {
-                self.content = text_editor::Content::with_text("");
+                self.editor.reset(" Nothing was found");
             }
         }
     }
