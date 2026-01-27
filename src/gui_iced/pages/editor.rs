@@ -260,39 +260,44 @@ impl EditorPage {
 
         let separator = Space::new().width(Length::Fill).height(Length::Fixed(1.0));
 
-        // Loader details
-        let div_page_prev = button_action(text("<"))
-            .width(50.)
-            .height(Length::Fill)
-            .on_press(Message::LoaderPagination(false));
-        let div_page_next = button_action(text(">"))
-            .width(50.)
-            .height(Length::Fill)
-            .on_press(Message::LoaderPagination(true));
-
+        // Pagination details
+        let div_pagination;
         let pagionation_brief = self.writer_ui.pagination_brief();
-        let page_brief = format!(
-            "{} - {} / {}",
-            pagionation_brief.0, pagionation_brief.1, pagionation_brief.2
-        );
-        let div_page_text = text(page_brief)
-            .align_x(text::Alignment::Center)
-            .size(13.)
-            .wrapping(Wrapping::WordOrGlyph)
-            .shaping(text::Shaping::Advanced)
-            .color(palette().text)
-            .width(Length::Fill);
+        if pagionation_brief.2 > (pagionation_brief.1 - pagionation_brief.0) {
+            let div_page_prev = button_action(text("<"))
+                .width(50.)
+                .height(Length::Fill)
+                .on_press(Message::LoaderPagination(false));
+            let div_page_next = button_action(text(">"))
+                .width(50.)
+                .height(Length::Fill)
+                .on_press(Message::LoaderPagination(true));
 
-        let div_pagination = container(row![div_page_prev, div_page_text, div_page_next])
-            .height(Length::Fixed(30.))
-            .padding(Padding {
-                top: 5.,
-                ..Default::default()
-            })
-            .style(|_theme: &Theme| {
-                let palette = style_conf::palette();
-                container::Style::default().background(palette.background_secondary)
-            });
+            let page_brief = format!(
+                "{} - {} / {}",
+                pagionation_brief.0, pagionation_brief.1, pagionation_brief.2
+            );
+            let div_page_text = text(page_brief)
+                .align_x(text::Alignment::Center)
+                .size(13.)
+                .wrapping(Wrapping::WordOrGlyph)
+                .shaping(text::Shaping::Advanced)
+                .color(palette().text)
+                .width(Length::Fill);
+
+            div_pagination = container(row![div_page_prev, div_page_text, div_page_next])
+                .height(Length::Fixed(30.))
+                .padding(Padding {
+                    top: 5.,
+                    ..Default::default()
+                })
+                .style(|_theme: &Theme| {
+                    let palette = style_conf::palette();
+                    container::Style::default().background(palette.background_secondary)
+                });
+        } else {
+            div_pagination = container(space());
+        }
 
         // DIV : Left Pan
         let left_pan = container(column![
