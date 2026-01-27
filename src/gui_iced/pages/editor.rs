@@ -40,7 +40,7 @@ pub enum Message {
     SortToggled,
     CreateDateDoubleClicked,
     DeleteEntryClicked,
-    LoaderNavigation(bool),
+    LoaderPagination(bool),
 }
 impl EditorPage {
     pub fn new(db_location: &str, crypto_pwd: &[u8]) -> (Self, Task<Message>) {
@@ -135,8 +135,8 @@ impl EditorPage {
                 self.writer_ui.on_delete_entry_clicked();
                 task = Task::none();
             }
-            Message::LoaderNavigation(_next) => {
-                println!("Loader Navigation");
+            Message::LoaderPagination(next) => {
+                self.writer_ui.on_pagination_clicked(next);
                 task = Task::none();
             }
         }
@@ -267,7 +267,7 @@ impl EditorPage {
         let loader_details = button_action(navigaton_text)
             .width(Length::Fill)
             .height(25.)
-            .on_press(Message::LoaderNavigation(true));
+            .on_press(Message::LoaderPagination(true));
 
         // DIV : Left Pan
         let left_pan = container(column![

@@ -195,6 +195,7 @@ pub struct WriterUi {
     pub error_screen: Option<String>,
     //db filter parameters
     pub order_by_date_create: bool,
+    pagination_offset: u32,
     //view parameters
     editor_dirty: bool,
     cli_visible: bool,
@@ -225,6 +226,7 @@ impl WriterUi {
             readonly_mode: false,
             error_screen: None,
             order_by_date_create: false,
+            pagination_offset: 0u32,
             cli_visible: false,
             modifying_create_date: 0,
             create_date_change_text: String::new(),
@@ -261,7 +263,7 @@ impl WriterUi {
         // Load all entries into memory and display the first one
         let entry_list = match self
             .tirra_db
-            .api_load_entries(&self.default_loader_request(), true)
+            .api_load_entries(&self.calc_loader_request(), true)
         {
             Ok(list) => list,
             Err(_err) => {
@@ -273,8 +275,8 @@ impl WriterUi {
 
         // assignments
         self.entry_list = entry_list;
-        self.cli_text = self.default_loader_request();
-        self.load_request = self.default_loader_request();
+        self.cli_text = self.calc_loader_request();
+        self.load_request = self.calc_loader_request();
         self.last_activity = utils::current_timestamp();
 
         self.update_curr_entry_id(None);
@@ -369,12 +371,7 @@ impl WriterUi {
      * response to action: search_submit
      */
     pub fn on_search_submit(&mut self) {
-        self.cli_text = TirraDb::build_filter(
-            &self.search_text,
-            self.order_by_date_create,
-            0,
-            Self::UI_ENTRIES_PAGINATION_MAX,
-        );
+        self.cli_text = self.calc_loader_request();
         self.on_cli_submit();
     }
 
@@ -450,6 +447,29 @@ impl WriterUi {
      */
     pub fn on_create_date_doubleclicked(&mut self) {
         self.modifying_create_date = Self::UI_CREATE_DATE_CHANGE_VISIBILITY_TICKS;
+    }
+
+    /**
+     * response to action: pagination button clicked
+     */
+    pub fn on_pagination_clicked(&mut self, next: bool) {
+        let total = self.entry_list.get_limitless_count();
+        if next {
+            if self.pagination_offset + Self::UI_ENTRIES_PAGINATION_MAX <= total {
+                self.pagination_offset += Self::UI_ENTRIES_PAGINATION_MAX;
+            } else {
+                return;
+            }
+        } else {
+            if self.pagination_offset >= Self::UI_ENTRIES_PAGINATION_MAX {
+                self.pagination_offset -= Self::UI_ENTRIES_PAGINATION_MAX;
+            } else {
+                return;
+            }
+        }
+
+        self.cli_text = self.calc_loader_request();
+        self.on_cli_submit();
     }
 
     /**
@@ -786,11 +806,11 @@ impl WriterUi {
     /**
      * default SQL request to use for the initial loading
      */
-    fn default_loader_request(&self) -> String {
+    fn calc_loader_request(&self) -> String {
         TirraDb::build_filter(
-            "",
+            &self.search_text,
             self.order_by_date_create,
-            0,
+            self.pagination_offset,
             Self::UI_ENTRIES_PAGINATION_MAX,
         )
     }
