@@ -209,11 +209,11 @@ fn init_db_with_pwd(db_path: String) -> TirraDb {
 
 fn print_stats(db: &mut TirraDb) {
     db.access_start().unwrap();
-    let loaded = db.api_load_entries(&TirraDb::default_filter(), false);
+    let loaded = db.api_load_entries(&TirraDb::build_filter("", true, 0, 1), false);
 
     match loaded {
         Ok(list) => {
-            println!("entries:\t\t {}", list.len());
+            println!("entries:\t\t {}", list.get_limitless_count());
         }
         Err(_) => {
             println!("Error loading entries from database");

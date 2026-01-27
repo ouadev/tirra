@@ -213,6 +213,7 @@ impl WriterUi {
     pub const UI_WRITER_CLI_PLACEHOLDER: &str = "> SELECT * FROM entries WHERE ...";
     const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
     const UI_CREATE_DATE_CHANGE_VISIBILITY_TICKS: u8 = 3;
+    const UI_ENTRIES_PAGINATION_MAX: u32 = 50;
 
     pub fn new() -> Self {
         //return
@@ -260,7 +261,7 @@ impl WriterUi {
         // Load all entries into memory and display the first one
         let entry_list = match self
             .tirra_db
-            .api_load_entries(&TirraDb::default_filter(), true)
+            .api_load_entries(&self.default_loader_request(), true)
         {
             Ok(list) => list,
             Err(_err) => {
@@ -272,8 +273,8 @@ impl WriterUi {
 
         // assignments
         self.entry_list = entry_list;
-        self.cli_text = TirraDb::default_filter();
-        self.load_request = TirraDb::default_filter();
+        self.cli_text = self.default_loader_request();
+        self.load_request = self.default_loader_request();
         self.last_activity = utils::current_timestamp();
 
         self.update_curr_entry_id(None);
@@ -368,7 +369,12 @@ impl WriterUi {
      * response to action: search_submit
      */
     pub fn on_search_submit(&mut self) {
-        self.cli_text = TirraDb::build_filter(&self.search_text, self.order_by_date_create, 200);
+        self.cli_text = TirraDb::build_filter(
+            &self.search_text,
+            self.order_by_date_create,
+            0,
+            Self::UI_ENTRIES_PAGINATION_MAX,
+        );
         self.on_cli_submit();
     }
 
@@ -511,7 +517,12 @@ impl WriterUi {
      */
     pub fn on_sort_toggled(&mut self) {
         self.order_by_date_create = !self.order_by_date_create;
-        self.cli_text = TirraDb::build_filter(&self.search_text, self.order_by_date_create, 200);
+        self.cli_text = TirraDb::build_filter(
+            &self.search_text,
+            self.order_by_date_create,
+            0,
+            Self::UI_ENTRIES_PAGINATION_MAX,
+        );
         self.editor_needs_refresh = true;
         self.on_cli_submit();
     }
@@ -770,6 +781,18 @@ impl WriterUi {
             },
             _ => {}
         }
+    }
+
+    /**
+     * default SQL request to use for the initial loading
+     */
+    fn default_loader_request(&self) -> String {
+        TirraDb::build_filter(
+            "",
+            self.order_by_date_create,
+            0,
+            Self::UI_ENTRIES_PAGINATION_MAX,
+        )
     }
 }
 

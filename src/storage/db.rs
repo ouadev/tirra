@@ -245,7 +245,7 @@ impl TirraDb {
     /**
      * build database filter from elements
      */
-    pub fn build_filter(search: &str, order_by_create: bool, limit: u32) -> String {
+    pub fn build_filter(search: &str, order_by_create: bool, offset: u32, limit: u32) -> String {
         let order: String;
         if order_by_create {
             order = "date_create".to_string();
@@ -253,17 +253,11 @@ impl TirraDb {
             order = "date_modify".to_string();
         }
         format!(
-            "WHERE text LIKE '%{}%' ORDER BY {} DESC LIMIT {}",
-            search, order, limit
+            "WHERE text LIKE '%{}%' ORDER BY {} DESC LIMIT {},{}",
+            search, order, offset, limit
         )
     }
 
-    /**
-     * default SQL request to use for the initial loading
-     */
-    pub fn default_filter() -> String {
-        TirraDb::build_filter("", false, 50)
-    }
 
     /**
      * Start access to db.
