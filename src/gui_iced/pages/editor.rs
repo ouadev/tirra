@@ -1,5 +1,6 @@
 use crate::gui_iced::components;
 use crate::gui_iced::components::button::{button_action, button_list_entry};
+use crate::gui_iced::styles::style_conf::palette;
 use crate::gui_iced::styles::{self, style_conf};
 use crate::ui::ui::{BgRun, TirraInterface, WriterUi};
 
@@ -262,11 +263,11 @@ impl EditorPage {
         // Loader details
         let div_page_prev = button_action(text("<"))
             .width(50.)
-            .height(25.)
+            .height(Length::Fill)
             .on_press(Message::LoaderPagination(false));
         let div_page_next = button_action(text(">"))
             .width(50.)
-            .height(25.)
+            .height(Length::Fill)
             .on_press(Message::LoaderPagination(true));
 
         let pagionation_brief = self.writer_ui.pagination_brief();
@@ -276,12 +277,22 @@ impl EditorPage {
         );
         let div_page_text = text(page_brief)
             .align_x(text::Alignment::Center)
-            .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
+            .size(13.)
             .wrapping(Wrapping::WordOrGlyph)
             .shaping(text::Shaping::Advanced)
+            .color(palette().text)
             .width(Length::Fill);
 
-        let div_pagination = row![div_page_prev, div_page_text, div_page_next];
+        let div_pagination = container(row![div_page_prev, div_page_text, div_page_next])
+            .height(Length::Fixed(30.))
+            .padding(Padding {
+                top: 5.,
+                ..Default::default()
+            })
+            .style(|_theme: &Theme| {
+                let palette = style_conf::palette();
+                container::Style::default().background(palette.background_secondary)
+            });
 
         // DIV : Left Pan
         let left_pan = container(column![
