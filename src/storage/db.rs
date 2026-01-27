@@ -84,6 +84,7 @@ impl TirraEntry {
 
 pub struct TirraEntryList {
     entries: Vec<TirraEntry>,
+    limitless_count: u32, //count of entries if no sql LIMIT is applied.
 }
 
 impl TirraEntryList {
@@ -91,11 +92,25 @@ impl TirraEntryList {
      * new empty list of entries
      */
     pub fn new() -> Self {
-        Self { entries: vec![] }
+        Self {
+            entries: vec![],
+            limitless_count: 0u32,
+        }
     }
 
     pub fn from_vec(entries: Vec<TirraEntry>) -> Self {
-        Self { entries: entries }
+        Self {
+            entries: entries,
+            limitless_count: 0,
+        }
+    }
+
+    pub fn set_limitless_count(&mut self, count: u32) {
+        self.limitless_count = count;
+    }
+
+    pub fn get_limitless_count(&self) -> u32 {
+        self.limitless_count
     }
 
     pub fn get_entry(&self, position: usize) -> Option<&TirraEntry> {
@@ -625,6 +640,7 @@ impl TirraDb {
      */
     fn op_load_entries(db: &mut Connection, filter: &str) -> Result<TirraEntryList, TirraDbError> {
         let mut vec_entries = Vec::new();
+        let mut total_count: u32 = 0;
 
         {
             let sql = format!(
@@ -633,7 +649,8 @@ impl TirraDb {
             date_create,
             date_modify,
             type,
-            text
+            text,
+            COUNT(*) OVER() as total_count
             FROM entries
             {}",
                 filter
@@ -644,6 +661,8 @@ impl TirraDb {
             };
 
             let entry_iter = match stmt.query_map([], |row| {
+                total_count = row.get::<_, u32>(5)?;
+
                 Ok(TirraEntry {
                     id: row.get(0)?,
                     date_create: row.get(1)?,
@@ -667,7 +686,9 @@ impl TirraDb {
             }
         }
 
-        return Ok(TirraEntryList::from_vec(vec_entries));
+        let mut list = TirraEntryList::from_vec(vec_entries);
+        list.set_limitless_count(total_count);
+        return Ok(list);
     }
 
     /**

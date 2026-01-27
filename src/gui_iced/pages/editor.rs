@@ -40,6 +40,7 @@ pub enum Message {
     SortToggled,
     CreateDateDoubleClicked,
     DeleteEntryClicked,
+    LoaderNavigation(bool),
 }
 impl EditorPage {
     pub fn new(db_location: &str, crypto_pwd: &[u8]) -> (Self, Task<Message>) {
@@ -132,6 +133,10 @@ impl EditorPage {
             }
             Message::DeleteEntryClicked => {
                 self.writer_ui.on_delete_entry_clicked();
+                task = Task::none();
+            }
+            Message::LoaderNavigation(_next) => {
+                println!("Loader Navigation");
                 task = Task::none();
             }
         }
@@ -254,23 +259,38 @@ impl EditorPage {
 
         let separator = Space::new().width(Length::Fill).height(Length::Fixed(1.0));
 
+        // Loader details
+        let navigaton_text = text(self.writer_ui.entry_list.get_limitless_count())
+            .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
+            .wrapping(Wrapping::WordOrGlyph)
+            .shaping(text::Shaping::Advanced);
+        let loader_details = button_action(navigaton_text)
+            .width(Length::Fill)
+            .height(25.)
+            .on_press(Message::LoaderNavigation(true));
+
         // DIV : Left Pan
-        let left_pan = container(column![control_bar, separator, entries_scroll])
-            .width(250)
-            .height(Length::Fill)
-            .padding(Padding {
-                top: 0.,
-                right: 1.,
-                bottom: 1.,
-                left: 0.,
-            })
-            .style(|_theme: &Theme| {
-                let palette = style_conf::palette();
-                let border = border::width(1).color(palette.background_main);
-                container::Style::default()
-                    .background(palette.background_main)
-                    .border(border)
-            });
+        let left_pan = container(column![
+            control_bar,
+            separator,
+            entries_scroll,
+            loader_details
+        ])
+        .width(250)
+        .height(Length::Fill)
+        .padding(Padding {
+            top: 0.,
+            right: 1.,
+            bottom: 1.,
+            left: 0.,
+        })
+        .style(|_theme: &Theme| {
+            let palette = style_conf::palette();
+            let border = border::width(1).color(palette.background_main);
+            container::Style::default()
+                .background(palette.background_main)
+                .border(border)
+        });
 
         left_pan.into()
     }
@@ -510,7 +530,7 @@ impl EditorPage {
     pub fn cli_input_id_to_focus() -> &'static str {
         &CLI_INPUT_ICED_ID
     }
-    
+
     /**
      * returns the ID of the text editor.
      */

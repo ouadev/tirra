@@ -188,7 +188,7 @@ pub struct WriterUi {
     tirra_db: TirraDb,
     //entries
     load_request: String,
-    entry_list: TirraEntryList,
+    pub entry_list: TirraEntryList,
     curr_entry_id: Option<u32>,
     //configuration
     readonly_mode: bool,
