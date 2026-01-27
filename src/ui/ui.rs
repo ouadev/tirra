@@ -362,7 +362,6 @@ impl WriterUi {
      */
     pub fn on_search_input(&mut self, s: String) {
         self.search_text = s;
-        self.editor_needs_refresh = true;
     }
 
     /**
