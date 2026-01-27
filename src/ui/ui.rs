@@ -214,7 +214,7 @@ impl WriterUi {
     pub const UI_WRITER_CLI_PLACEHOLDER: &str = "> SELECT * FROM entries WHERE ...";
     const TIRRA_INACTIVITY_SECONDS: i64 = 180; // close the editor if inactivity is detected
     const UI_CREATE_DATE_CHANGE_VISIBILITY_TICKS: u8 = 3;
-    const UI_ENTRIES_PAGINATION_MAX: u32 = 50;
+    const UI_ENTRIES_PAGINATION_MAX: u32 = 30;
 
     pub fn new() -> Self {
         //return
@@ -638,6 +638,16 @@ impl WriterUi {
      */
     pub fn search_text(&self) -> String {
         self.search_text.clone()
+    }
+    /**
+     * Pagination brief: (from, to, total)
+     */
+    pub fn pagination_brief(&self) -> (u32, u32, u32) {
+        (
+            self.pagination_offset,
+            self.pagination_offset + Self::UI_ENTRIES_PAGINATION_MAX,
+            self.entry_list.get_limitless_count(),
+        )
     }
     /**
      * view status bar contents

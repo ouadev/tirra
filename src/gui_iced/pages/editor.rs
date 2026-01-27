@@ -260,21 +260,35 @@ impl EditorPage {
         let separator = Space::new().width(Length::Fill).height(Length::Fixed(1.0));
 
         // Loader details
-        let navigaton_text = text(self.writer_ui.entry_list.get_limitless_count())
-            .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
-            .wrapping(Wrapping::WordOrGlyph)
-            .shaping(text::Shaping::Advanced);
-        let loader_details = button_action(navigaton_text)
-            .width(Length::Fill)
+        let div_page_prev = button_action(text("<"))
+            .width(50.)
+            .height(25.)
+            .on_press(Message::LoaderPagination(false));
+        let div_page_next = button_action(text(">"))
+            .width(50.)
             .height(25.)
             .on_press(Message::LoaderPagination(true));
+
+        let pagionation_brief = self.writer_ui.pagination_brief();
+        let page_brief = format!(
+            "{} - {} / {}",
+            pagionation_brief.0, pagionation_brief.1, pagionation_brief.2
+        );
+        let div_page_text = text(page_brief)
+            .align_x(text::Alignment::Center)
+            .size(style_conf::STYLE_TEXT_SIZE_NORMAL)
+            .wrapping(Wrapping::WordOrGlyph)
+            .shaping(text::Shaping::Advanced)
+            .width(Length::Fill);
+
+        let div_pagination = row![div_page_prev, div_page_text, div_page_next];
 
         // DIV : Left Pan
         let left_pan = container(column![
             control_bar,
             separator,
             entries_scroll,
-            loader_details
+            div_pagination
         ])
         .width(250)
         .height(Length::Fill)
