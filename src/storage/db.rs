@@ -42,6 +42,7 @@ pub enum TirraDbError {
 /**
  * Tirra Entry
  */
+#[derive(Clone)]
 pub struct TirraEntry {
     pub id: u32,
     pub date_create: u64,

@@ -183,13 +183,19 @@ pub struct EntryViewIterator<'a> {
     pos: usize,
 }
 
+enum EntryLiveSource {
+    Empty,    // no live entry
+    Id(u32),  //with this id if found
+    Explorer, //the first one from the explorer
+}
+
 pub struct WriterUi {
     //db access
     tirra_db: TirraDb,
     //entries
     load_request: String,
     pub entry_list: TirraEntryList,
-    curr_entry_id: Option<u32>,
+    pub entry_live: Option<TirraEntry>,
     //configuration
     readonly_mode: bool,
     pub error_screen: Option<String>,
@@ -219,7 +225,7 @@ impl WriterUi {
     pub fn new() -> Self {
         //return
         Self {
-            curr_entry_id: None,
+            entry_live: None,
             editor_dirty: false,
             last_activity: 0,
             entry_list: TirraEntryList::new(),
@@ -279,34 +285,37 @@ impl WriterUi {
         self.load_request = self.calc_loader_request();
         self.last_activity = utils::current_timestamp();
 
-        self.update_curr_entry_id(None);
+        //self.update_curr_entry_id(None);
+        self.set_entry_live(EntryLiveSource::Empty);
     }
 
     /**
      * to be called when the Editor Widget content has changed.
      */
     pub fn content_changed(&mut self, new_text: &str) {
-        match self.curr_entry_id {
-            Some(id) => match self.entry_list.find_by_id_mut(id) {
-                Some(entry) => {
-                    entry.text = String::from(new_text);
-                    self.editor_dirty = true;
-                }
-                _ => {
-                    exception("ui: current entry id mismatch", Some(&self.tirra_db));
-                }
-            },
-            _ => {
-                exception("ui: current id should be set", Some(&self.tirra_db));
+        if let Some(live) = &mut self.entry_live {
+            //save live entry
+            live.text = String::from(new_text);
+            //save inside the explorer
+            if let Some(explorer_entry) = self.entry_list.find_by_id_mut(live.id) {
+                explorer_entry.text = String::from(new_text);
+            } else {
+                //it is ok. the explorer is exploring some other land.
             }
+            //
+            self.editor_dirty = true;
+        } else {
+            exception("ui: live entry not set", Some(&self.tirra_db));
         }
     }
 
-    pub fn current_entry(&self) -> Option<&TirraEntry> {
-        match self.curr_entry_id {
+    pub fn deprec_current_entry(&self) -> Option<&TirraEntry> {
+        /*match self.curr_entry_id {
             Some(id) => self.entry_list.find_by_id(id),
             _ => None,
         }
+        */
+        None
     }
 
     /**
@@ -330,7 +339,7 @@ impl WriterUi {
             exception("Db access start", Some(&self.tirra_db));
         }
 
-        if self.editor_dirty {
+        /*if self.editor_dirty {
             if let Some(entry) = self.current_entry() {
                 if let Err(error) =
                     self.tirra_db
@@ -343,12 +352,12 @@ impl WriterUi {
                 }
             }
             self.editor_dirty = false;
-        }
+        }*/
 
         match self.tirra_db.api_load_entries(&self.cli_text, true) {
             Ok(entries) => {
                 self.entry_list = entries;
-                self.update_curr_entry_id(None);
+                //self.update_curr_entry_id(None);
                 self.load_request = self.cli_text.clone();
             }
             Err(_err) => {
@@ -357,7 +366,7 @@ impl WriterUi {
             }
         };
         ////// stop db access
-        self.editor_needs_refresh = true;
+        //self.editor_needs_refresh = true;
     }
 
     /**
@@ -402,7 +411,7 @@ impl WriterUi {
             exception("Db access start", Some(&self.tirra_db));
         }
 
-        if self.editor_dirty {
+        /*if self.editor_dirty {
             if let Some(entry) = self.current_entry() {
                 if let Err(error) =
                     self.tirra_db
@@ -415,14 +424,18 @@ impl WriterUi {
                 }
             }
             self.editor_dirty = false;
-        }
+        }*/
 
-        match self
-            .tirra_db
-            .api_update_create_date(self.curr_entry_id.unwrap(), epoch, false)
-        {
+        match self.tirra_db.api_update_create_date(
+            self.entry_live.as_ref().unwrap().id,
+            epoch,
+            false,
+        ) {
             Ok(()) => {
-                self.entry_list = match self.tirra_db.api_load_entries(&self.load_request, true) {
+                if let Some(entry) = &mut self.entry_live {
+                    entry.date_create = epoch;
+                }
+                /*self.entry_list = match self.tirra_db.api_load_entries(&self.load_request, true) {
                     Ok(list) => list,
                     Err(_err) => {
                         exception("loading entries", Some(&self.tirra_db));
@@ -430,6 +443,7 @@ impl WriterUi {
                     }
                 };
                 self.update_curr_entry_id(None);
+                */
             }
             Err(_err) => {
                 println!("create_date changed failed !!!");
@@ -439,7 +453,7 @@ impl WriterUi {
         // end modifying session
         self.create_date_change_text.clear();
         self.modifying_create_date = 0;
-        self.editor_needs_refresh = true;
+        //self.editor_needs_refresh = true;
     }
 
     /**
@@ -476,9 +490,16 @@ impl WriterUi {
      * response to action: remove entry clicked
      */
     pub fn on_delete_entry_clicked(&mut self) {
-        let prev_entry: u32;
+        /*let prev_entry: u32;
         if let Some(entry) = self.current_entry() {
             prev_entry = entry.id;
+        } else {
+            return;
+        }*/
+
+        let live_id: u32;
+        if let Some(entry) = &self.entry_live {
+            live_id = entry.id;
         } else {
             return;
         }
@@ -489,19 +510,21 @@ impl WriterUi {
         }
 
         // remove current entry
-        let removed: bool;
-        if let Err(error) = self.tirra_db.api_remove_entry(prev_entry, false) {
+
+        if let Err(error) = self.tirra_db.api_remove_entry(live_id, true) {
             self.error_screen = Some(format!(
                 "error: I couldn't delete the current entry ({:?})",
                 error
             ));
-            removed = false;
         } else {
-            removed = true;
+            self.set_entry_live(EntryLiveSource::Empty);
         }
 
+        // Current Explorer state affected ?
+        self.reload_if_needed(live_id);
+
         // move to the neighboring entry
-        let mut current_id_after: Option<u32> = None;
+        /*let mut current_id_after: Option<u32> = None;
         if removed {
             match self.entry_list.neighbor_id_entry(prev_entry, true) {
                 Some(n_entry) => {
@@ -528,6 +551,8 @@ impl WriterUi {
                 self.cli_text = self.load_request.clone();
             }
         };
+        */
+
         ////// stop db access
         self.editor_needs_refresh = true;
     }
@@ -550,8 +575,10 @@ impl WriterUi {
      * response to action: entry_selected
      */
     pub fn on_entry_selected(&mut self, entry_id: u32) {
-        self.save_and_reload();
-        self.update_curr_entry_id(Some(entry_id));
+        //self.save_and_reload();
+        self.save_live();
+        //self.update_curr_entry_id(Some(entry_id));
+        self.set_entry_live(EntryLiveSource::Id(entry_id));
         self.editor_needs_refresh = true;
     }
     /**
@@ -566,28 +593,16 @@ impl WriterUi {
             exception("Db access start", Some(&self.tirra_db));
         }
         // Save before creating a new entry
-        if self.editor_dirty {
-            if let Some(entry) = self.current_entry() {
-                if let Err(error) =
-                    self.tirra_db
-                        .api_update_entry(&entry.text.clone(), entry.id, false)
-                {
-                    self.error_screen = Some(format!(
-                        "error: I couldn't write the current entry content to database ({:?})",
-                        error
-                    ));
-                }
-            }
-            self.editor_dirty = false;
-        }
+        self.save_live();
 
         let now = utils::time_now();
         match self
             .tirra_db
-            .api_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", now, now, false)
+            .api_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", now, now, true)
         {
             Ok(()) => {
-                self.entry_list = match self.tirra_db.api_load_entries(&self.load_request, true) {
+
+                /*self.entry_list = match self.tirra_db.api_load_entries(&self.load_request, true) {
                     Ok(list) => list,
                     Err(_err) => {
                         exception("loading entries", Some(&self.tirra_db));
@@ -596,6 +611,8 @@ impl WriterUi {
                 };
                 let just_added_id = self.entry_list.greatest_id_entry().map(|ent| ent.id);
                 self.update_curr_entry_id(just_added_id);
+                */
+                //TODO: retrieve new entry ID  and populate live_entry.
             }
             _ => {
                 println!("error: failure adding new entry, continuing ...");
@@ -671,34 +688,31 @@ impl WriterUi {
             (year_month_day, weekday_time)
         };
         //current entry
-        match self.curr_entry_id {
-            Some(id) => {
-                match self.entry_list.find_by_id(id) {
-                    Some(entry) => {
-                        let dt_create = utils::datetime_from_unix(entry.date_create as i64);
-                        let dt_modify = utils::datetime_from_unix(entry.date_modify as i64);
-                        //
-                        let (create_date_str, create_time_str) = dt_format(dt_create);
-                        let (modify_date_str, modify_time_str) = dt_format(dt_modify);
-                        //
-                        Some((
-                            entry.id,
-                            create_date_str,
-                            create_time_str,
-                            modify_date_str,
-                            modify_time_str,
-                        ))
-                    }
-                    _ => {
-                        exception(
-                            "misalignment between gui and model (curr_entry_id)",
-                            Some(&self.tirra_db),
-                        );
-                        None
-                    }
-                }
+
+        match &self.entry_live {
+            Some(entry) => {
+                let dt_create = utils::datetime_from_unix(entry.date_create as i64);
+                let dt_modify = utils::datetime_from_unix(entry.date_modify as i64);
+                //
+                let (create_date_str, create_time_str) = dt_format(dt_create);
+                let (modify_date_str, modify_time_str) = dt_format(dt_modify);
+                //
+                Some((
+                    entry.id,
+                    create_date_str,
+                    create_time_str,
+                    modify_date_str,
+                    modify_time_str,
+                ))
             }
-            _ => None,
+            _ => {
+                /*exception(
+                    "misalignment between gui and model (curr_entry_id)",
+                    Some(&self.tirra_db),
+                );
+                */
+                None
+            }
         }
     }
 
@@ -706,7 +720,7 @@ impl WriterUi {
      * view button new_entry_enabled attribute.
      */
     pub fn view_button_newentry_enabled(&self) -> bool {
-        if self.curr_entry_id.is_some() && !self.readonly_mode {
+        if self.entry_live.is_some() && !self.readonly_mode {
             true
         } else {
             false
@@ -714,7 +728,7 @@ impl WriterUi {
     }
 
     pub fn is_entry_selected(&self) -> bool {
-        self.curr_entry_id.is_some()
+        self.entry_live.is_some()
     }
 
     /**
@@ -727,7 +741,32 @@ impl WriterUi {
         }
     }
 
-    fn save_and_reload(&mut self) {
+    fn reload_if_needed(&mut self, id: u32) {
+        match self.entry_list.find_by_id(id) {
+            Some(_entry) => {
+                ////// start db access
+                if let Err(_) = self.tirra_db.access_start() {
+                    exception("Db access start", Some(&self.tirra_db));
+                }
+
+                self.entry_list = match self
+                    .tirra_db
+                    .api_load_entries(&self.load_request.clone(), true)
+                {
+                    Ok(list) => list,
+                    Err(_err) => {
+                        exception("loading entries", Some(&self.tirra_db));
+                        TirraEntryList::new()
+                    }
+                };
+                self.editor_dirty = false;
+                ////// stop db access
+            }
+            _ => {}
+        }
+    }
+
+    /*fn save_and_reload(&mut self) {
         if !self.editor_dirty {
             return;
         }
@@ -761,40 +800,91 @@ impl WriterUi {
         self.editor_dirty = false;
         ////// stop db access
     }
+    */
+
+    /**
+     *
+     */
+    fn save_live(&mut self) {
+        if !self.editor_dirty {
+            return;
+        }
+        ////// start db access
+        if let Err(_) = self.tirra_db.access_start() {
+            exception("Db access start", Some(&self.tirra_db));
+        }
+
+        if let Some(entry) = &self.entry_live {
+            if let Err(error) = self
+                .tirra_db
+                .api_update_entry(&entry.text.clone(), entry.id, true)
+            {
+                self.error_screen = Some(format!(
+                    "error: I couldn't write the current entry content to database ({:?})",
+                    error
+                ));
+            }
+        }
+        self.editor_dirty = false;
+    }
 
     /**
      * Update current Id - the entry in display
      */
-    fn update_curr_entry_id(&mut self, id: Option<u32>) {
-        // None : leave it
-        // Some(None) : the first in list
-        // Some(Some) : argument id
-        let new_id: Option<Option<u32>>;
+    /*fn update_curr_entry_id(&mut self, id: Option<u32>) {
+            // None : leave it
+            // Some(None) : the first in list
+            // Some(Some) : argument id
+            let new_id: Option<Option<u32>>;
 
-        if id.is_none() {
-            if self.curr_entry_id.is_none() {
-                new_id = Some(None);
-            } else {
-                match self.current_entry() {
-                    Some(_) => new_id = None,
-                    None => new_id = Some(None),
-                }
-            }
-        } else {
-            new_id = Some(id);
-        }
-        // set new id
-        match new_id {
-            Some(value) => {
-                if value.is_none() {
-                    self.curr_entry_id = self.entry_list.get_entry(0).map(|ent| ent.id);
+            if id.is_none() {
+                if self.curr_entry_id.is_none() {
+                    new_id = Some(None);
                 } else {
-                    self.curr_entry_id = value;
+                    match self.current_entry() {
+                        Some(_) => new_id = None,
+                        None => new_id = Some(None),
+                    }
                 }
-                //cancel any ongoing create_date change operation
-                self.modifying_create_date = 0;
+            } else {
+                new_id = Some(id);
             }
-            None => {}
+            // set new id
+            match new_id {
+                Some(value) => {
+                    if value.is_none() {
+                        self.curr_entry_id = self.entry_list.get_entry(0).map(|ent| ent.id);
+                    } else {
+                        self.curr_entry_id = value;
+                    }
+                    //cancel any ongoing create_date change operation
+                    self.modifying_create_date = 0;
+                }
+                None => {}
+            }
+        }
+    */
+
+    fn set_entry_live(&mut self, source: EntryLiveSource) {
+        match source {
+            EntryLiveSource::Explorer => {
+                //select the first in the explorer's list
+                if let Some(entry_ref) = self.entry_list.get_entry(0) {
+                    self.entry_live = Some(entry_ref.clone());
+                }
+            }
+
+            EntryLiveSource::Id(id) => {
+                if let Some(entry) = self.entry_list.find_by_id(id) {
+                    self.entry_live = Some(entry.clone());
+                } else {
+                    //TODO: exception ?
+                }
+            }
+
+            EntryLiveSource::Empty => {
+                self.entry_live = None;
+            }
         }
     }
 
@@ -802,10 +892,10 @@ impl WriterUi {
      * used to move the currently displayed entry when arrows are used.
      */
     fn move_curr_entry_id(&mut self, down: bool) {
-        match self.curr_entry_id {
-            Some(id) => match self.entry_list.neighbor_id_entry(id, down) {
+        match &self.entry_live {
+            Some(entry) => match self.entry_list.neighbor_id_entry(entry.id, down) {
                 Some(n_entry) => {
-                    self.curr_entry_id = Some(n_entry.id);
+                    self.entry_live = Some(n_entry.clone());
                 }
                 None => {}
             },
@@ -829,7 +919,8 @@ impl WriterUi {
 impl TirraInterface for WriterUi {
     fn on_tick(&mut self) {
         // periodic save
-        self.save_and_reload();
+        //self.save_and_reload();
+        self.save_live();
         //reduce the visibility counter for the create_date change input field
         if self.modifying_create_date > 0 {
             self.modifying_create_date -= 1;
@@ -842,7 +933,7 @@ impl TirraInterface for WriterUi {
                 self.on_show_cli();
             }
             KbCtrl::CtrlS => {
-                self.save_and_reload();
+                self.save_live();
             }
             KbCtrl::CtrlK => {
                 //run stuff on the editor, for testing purposes.
@@ -869,7 +960,7 @@ impl TirraInterface for WriterUi {
     }
 
     fn on_close(&mut self) {
-        self.save_and_reload();
+        self.save_live();
     }
 
     fn on_activity(&mut self) {
@@ -897,8 +988,8 @@ impl<'a> Iterator for EntryViewIterator<'a> {
                 return_item = Some(EntryView {
                     title: entry.title(25),
                     id: entry.id,
-                    selected: match self.inner.curr_entry_id {
-                        Some(id) => entry.id == id,
+                    selected: match &self.inner.entry_live {
+                        Some(live) => entry.id == live.id,
                         _ => false,
                     },
                 });

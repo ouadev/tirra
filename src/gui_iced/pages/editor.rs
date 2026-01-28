@@ -49,9 +49,9 @@ impl EditorPage {
         let mut writer_ui = WriterUi::new();
         writer_ui.connect(db_location, crypto_pwd);
         // initial editor content
-        let init_content = match writer_ui.current_entry() {
+        let init_content = match &writer_ui.entry_live {
             Some(entry) => text_editor::Content::with_text(&entry.text),
-            _ => text_editor::Content::with_text("no entry is found !!"),
+            _ => text_editor::Content::with_text(""),
         };
 
         //return
@@ -182,9 +182,9 @@ impl EditorPage {
             .width(Length::Fixed(40.))
             .height(Length::Fill);
 
-        if self.writer_ui.view_button_newentry_enabled() {
-            div_add = div_add.on_press(Message::NewEntryClicked);
-        }
+        //if self.writer_ui.view_button_newentry_enabled() {
+        div_add = div_add.on_press(Message::NewEntryClicked);
+        //}
 
         // Another control button
         let sort_icon: Text<'_>;
@@ -496,7 +496,11 @@ impl EditorPage {
         let editor_cont = container(div_editor).height(Length::Fill);
 
         // DIV : Editor Status Zone
-        let div_editor_status = self.view_editor_status();
+        let div_editor_status = if self.writer_ui.is_entry_selected() {
+            self.view_editor_status()
+        } else {
+            container(space()).into()
+        };
 
         //Editor
         column![div_command_cont, editor_cont, div_editor_status].into()
@@ -522,13 +526,14 @@ impl EditorPage {
             })
             .into()
     }
+
     pub fn refresh_editor(&mut self) {
-        match self.writer_ui.current_entry() {
+        match &self.writer_ui.entry_live {
             Some(entry) => {
                 self.content = text_editor::Content::with_text(&entry.text);
             }
             _ => {
-                self.content = text_editor::Content::with_text(" Nothing was found");
+                self.content = text_editor::Content::with_text("");
             }
         }
     }
