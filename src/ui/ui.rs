@@ -380,7 +380,20 @@ impl WriterUi {
      * response to action: search_submit
      */
     pub fn on_search_submit(&mut self) {
+        self.pagination_offset = 0;
         self.cli_text = self.calc_loader_request();
+        self.on_cli_submit();
+    }
+
+    /**
+     * response to action: sort_entries
+     */
+    pub fn on_sort_toggled(&mut self) {
+        self.order_by_date_create = !self.order_by_date_create;
+        self.pagination_offset = 0;
+
+        self.cli_text = self.calc_loader_request();
+        //self.editor_needs_refresh = true;
         self.on_cli_submit();
     }
 
@@ -557,20 +570,6 @@ impl WriterUi {
         self.editor_needs_refresh = true;
     }
 
-    /**
-     * response to action: sort_entries
-     */
-    pub fn on_sort_toggled(&mut self) {
-        self.order_by_date_create = !self.order_by_date_create;
-        self.cli_text = TirraDb::build_filter(
-            &self.search_text,
-            self.order_by_date_create,
-            0,
-            Self::UI_ENTRIES_PAGINATION_MAX,
-        );
-        self.editor_needs_refresh = true;
-        self.on_cli_submit();
-    }
     /**
      * response to action: entry_selected
      */
