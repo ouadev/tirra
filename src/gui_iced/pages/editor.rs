@@ -71,7 +71,7 @@ impl EditorPage {
                 match &action {
                     text_editor::Action::Edit(_edit) => {
                         // block editing when in readonly mode
-                        if !self.writer_ui.is_readonly() {
+                        if !self.writer_ui.is_readonly() && self.writer_ui.is_entry_selected() {
                             self.content.perform(action);
                             self.writer_ui.content_changed(&self.content.text());
                         }
@@ -240,14 +240,18 @@ impl EditorPage {
             column![entry_button].into()
         })); //Column
 
+        //let div_entries = div_entries.push(button_list_entry(text(""), false));
         // entries Container
-        let container_entries =
-            container(div_entries)
-                .height(Length::Fill)
-                .style(|_theme: &Theme| {
-                    let palette = style_conf::palette();
-                    container::Style::default().background(palette.background_secondary)
-                });
+        let container_entries = container(div_entries)
+            .height(Length::Fill)
+            .padding(Padding {
+                bottom: 20.,
+                ..Default::default()
+            })
+            .style(|_theme: &Theme| {
+                let palette = style_conf::palette();
+                container::Style::default().background(palette.background_secondary)
+            });
 
         // entries scrollable
         let scrollbar: Scrollbar = Scrollbar::default().spacing(0).width(6).scroller_width(6);
@@ -488,12 +492,23 @@ impl EditorPage {
             .font(style_conf::FONT_EDITOR)
             .style(styles::text_editor::main_style)
             .id(Id::new(TEXT_EDITOR_ID));
-        if self.writer_ui.is_entry_selected() {
-            // let the editor disabled if there is no current entry.
-            div_editor = div_editor.on_action(Message::EditorAction);
-        }
+        // if self.writer_ui.is_entry_selected() {
+        // let the editor disabled if there is no current entry.
+        div_editor = div_editor.on_action(Message::EditorAction);
+        //}
 
-        let editor_cont = container(div_editor).height(Length::Fill);
+        let editor_cont = if self.writer_ui.is_entry_selected() {
+            container(div_editor).height(Length::Fill)
+        } else {
+            container(space().height(Length::Fill))
+                .height(Length::Fill)
+                .width(Length::Fill)
+                .style(|_theme: &Theme| {
+                    let palette = style_conf::palette();
+                    container::Style::default()
+                        .background(Background::Color(palette.background_neutral))
+                })
+        };
 
         // DIV : Editor Status Zone
         let div_editor_status = if self.writer_ui.is_entry_selected() {

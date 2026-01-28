@@ -286,7 +286,7 @@ impl WriterUi {
         self.last_activity = utils::current_timestamp();
 
         //self.update_curr_entry_id(None);
-        self.set_entry_live(EntryLiveSource::Empty);
+        self.set_entry_live(EntryLiveSource::Explorer);
     }
 
     /**
