@@ -442,7 +442,7 @@ impl WriterUi {
         match self.tirra_db.api_update_create_date(
             self.entry_live.as_ref().unwrap().id,
             epoch,
-            false,
+            true,
         ) {
             Ok(()) => {
                 if let Some(entry) = &mut self.entry_live {
