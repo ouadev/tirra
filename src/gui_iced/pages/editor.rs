@@ -264,11 +264,11 @@ impl EditorPage {
         let div_pagination;
         let pagionation_brief = self.writer_ui.pagination_brief();
         if pagionation_brief.2 > (pagionation_brief.1 - pagionation_brief.0) {
-            let div_page_prev = button_action(text("<"))
+            let div_page_prev = button_action(style_conf::icon_left())
                 .width(50.)
                 .height(Length::Fill)
                 .on_press(Message::LoaderPagination(false));
-            let div_page_next = button_action(text(">"))
+            let div_page_next = button_action(style_conf::icon_right())
                 .width(50.)
                 .height(Length::Fill)
                 .on_press(Message::LoaderPagination(true));

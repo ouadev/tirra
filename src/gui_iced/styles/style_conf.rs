@@ -39,6 +39,14 @@ pub fn icon_unlock<'a>() -> Text<'a> {
     icon('\u{0f13e}')
 }
 
+pub fn icon_left<'a>() -> Text<'a> {
+    icon('\u{f104}')
+}
+
+pub fn icon_right<'a>() -> Text<'a> {
+    icon('\u{f105}')
+}
+
 pub fn dark_mode_in_paris() -> () {
     let paris = [
         (8, 17),

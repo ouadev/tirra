@@ -25,6 +25,11 @@ pub fn button_action<'a, T: 'a>(content_text: Text<'a>) -> Button<'a, T> {
 }
 
 pub fn button_list_entry<'a, T: 'a>(content_text: Text<'a>, selected: bool) -> Button<'a, T> {
+    let content_text = if selected {
+        content_text.font(style_conf::FONT_STATUS_DATE_BOLD)
+    } else {
+        content_text.font(style_conf::FONT_STATUS_DATE)
+    };
     Button::new(content_text)
         .style(if selected {
             styles::button::button_entry_selected
