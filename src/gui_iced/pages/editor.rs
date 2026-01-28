@@ -225,19 +225,30 @@ impl EditorPage {
             });
 
         // Live Entry
-        let div_live = if let Some(entry) = &self.writer_ui.entry_live {
-            let live_text = text(entry.title(25))
-                .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
-                .wrapping(Wrapping::WordOrGlyph)
-                .shaping(text::Shaping::Advanced);
-            button_list_entry(live_text, true)
+        let div_live = match &self.writer_ui.entry_live {
+            Some(entry) => {
+                match self.writer_ui.entry_list.find_by_id(entry.id) {
+                    Some(_expl_entry) => {
+                        //don't display
+                        button_list_entry(text(""), false)
+                            .width(Length::Fill)
+                            .height(0.0)
+                    }
+                    _ => {
+                        let live_text = text(entry.title(25))
+                            .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
+                            .wrapping(Wrapping::WordOrGlyph)
+                            .shaping(text::Shaping::Advanced);
+                        button_list_entry(live_text, true)
+                            .width(Length::Fill)
+                            .height(30.)
+                            .on_press(Message::LiveEntryClicked)
+                    }
+                }
+            }
+            _ => button_list_entry(text(""), false)
                 .width(Length::Fill)
-                .height(30.)
-                .on_press(Message::LiveEntryClicked)
-        } else {
-            button_list_entry(text(""), false)
-                .width(Length::Fill)
-                .height(0.0)
+                .height(0.0),
         };
 
         //DIV : list of entries
