@@ -598,9 +598,27 @@ impl WriterUi {
         let now = utils::time_now();
         match self
             .tirra_db
-            .api_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", now, now, true)
+            .api_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", now, now, false)
         {
             Ok(()) => {
+                //load the last one ??
+                let temp_list = match self
+                    .tirra_db
+                    .api_load_entries(&TirraDb::build_filter("", true, 0, 1), true)
+                {
+                    Ok(list) => list,
+                    Err(_err) => {
+                        exception("loading entries", Some(&self.tirra_db));
+                        TirraEntryList::new()
+                    }
+                };
+                if temp_list.len() > 0 {
+                    let last_entry = temp_list.get_entry(0).unwrap();
+                    self.entry_live = Some(last_entry.clone());
+                    self.reload_if_needed(last_entry.id);
+                } else {
+                    exception("DB should return one entry", Some(&self.tirra_db));
+                }
 
                 /*self.entry_list = match self.tirra_db.api_load_entries(&self.load_request, true) {
                     Ok(list) => list,
@@ -615,7 +633,7 @@ impl WriterUi {
                 //TODO: retrieve new entry ID  and populate live_entry.
             }
             _ => {
-                println!("error: failure adding new entry, continuing ...");
+                exception("Failure adding a new entry", Some(&self.tirra_db));
             }
         }
 
