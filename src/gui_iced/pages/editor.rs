@@ -32,6 +32,7 @@ pub enum Message {
     EditorAction(text_editor::Action),
     EntryClicked(u32),
     NewEntryClicked,
+    LiveEntryClicked,
     CliSubmited,
     CliChanged(String),
     SearchSubmited,
@@ -93,6 +94,10 @@ impl EditorPage {
             Message::NewEntryClicked => {
                 self.writer_ui.on_new_entry();
                 task = operation::focus(Id::new(TEXT_EDITOR_ID));
+            }
+
+            Message::LiveEntryClicked => {
+                task = Task::none();
             }
 
             Message::CliChanged(s) => {
@@ -219,6 +224,22 @@ impl EditorPage {
                 container::Style::default().background(palette.background_neutral)
             });
 
+        // Live Entry
+        let div_live = if let Some(entry) = &self.writer_ui.entry_live {
+            let live_text = text(entry.title(25))
+                .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
+                .wrapping(Wrapping::WordOrGlyph)
+                .shaping(text::Shaping::Advanced);
+            button_list_entry(live_text, true)
+                .width(Length::Fill)
+                .height(30.)
+                .on_press(Message::LiveEntryClicked)
+        } else {
+            button_list_entry(text(""), false)
+                .width(Length::Fill)
+                .height(0.0)
+        };
+
         //DIV : list of entries
         let div_entries = column(self.writer_ui.entry_view_iter().map(|entry_view| {
             // entry link text
@@ -240,7 +261,6 @@ impl EditorPage {
             column![entry_button].into()
         })); //Column
 
-        //let div_entries = div_entries.push(button_list_entry(text(""), false));
         // entries Container
         let container_entries = container(div_entries)
             .height(Length::Fill)
@@ -307,6 +327,7 @@ impl EditorPage {
         let left_pan = container(column![
             control_bar,
             separator,
+            div_live,
             entries_scroll,
             div_pagination
         ])
