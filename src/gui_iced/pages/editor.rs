@@ -282,7 +282,7 @@ impl EditorPage {
 
             let separator =
                 container(space())
-                    .height(1.0)
+                    .height(0.0)
                     .width(Length::Fill)
                     .style(|_theme: &Theme| {
                         let palette = style_conf::palette();
@@ -534,7 +534,7 @@ impl EditorPage {
         // DIV : Editor Text Zone
         let mut div_editor = text_editor(&self.content)
             .height(Length::Fill)
-            .size(styles::text_editor::TEXT_EDITOR_FONT_SIZE)
+            .size(style_conf::TEXT_EDITOR_FONT_SIZE)
             .padding(Padding {
                 top: 0.,
                 right: 10.,

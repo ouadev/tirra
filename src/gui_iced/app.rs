@@ -50,7 +50,7 @@ pub fn app_iced(db_path: String) -> iced::Result {
         .settings(Settings {
             id: Some(String::from("win-tirra")),
             default_font: style_conf::FONT_DEFAULT,
-            default_text_size: style_conf::STYLE_TEXT_SIZE_EDITOR,
+            default_text_size: style_conf::STYLE_TEXT_SIZE_DEFAULT,
             ..Settings::default()
         })
         .window(window::Settings {
