@@ -230,25 +230,36 @@ impl EditorPage {
                 match self.writer_ui.entry_list.find_by_id(entry.id) {
                     Some(_expl_entry) => {
                         //don't display
-                        button_list_entry(text(""), false)
+                        let button = button_list_entry(text(""), false)
                             .width(Length::Fill)
-                            .height(0.0)
+                            .height(0.0);
+                        column![button]
                     }
                     _ => {
                         let live_text = text(entry.title(25))
                             .size(style_conf::STYLE_TEXT_SIZE_EDITOR_STATUS)
                             .wrapping(Wrapping::WordOrGlyph)
                             .shaping(text::Shaping::Advanced);
-                        button_list_entry(live_text, true)
+                        let button = button_list_entry(live_text, true)
                             .width(Length::Fill)
                             .height(30.)
-                            .on_press(Message::LiveEntryClicked)
+                            .on_press(Message::LiveEntryClicked);
+                        let separator = container(space()).height(4.0).width(Length::Fill).style(
+                            |_theme: &Theme| {
+                                let palette = style_conf::palette();
+                                container::Style::default().background(palette.background_neutral)
+                            },
+                        );
+                        column![button, separator]
                     }
                 }
             }
-            _ => button_list_entry(text(""), false)
-                .width(Length::Fill)
-                .height(0.0),
+            _ => {
+                let button = button_list_entry(text(""), false)
+                    .width(Length::Fill)
+                    .height(0.0);
+                column![button]
+            }
         };
 
         //DIV : list of entries
@@ -271,7 +282,7 @@ impl EditorPage {
 
             let separator =
                 container(space())
-                    .height(2.0)
+                    .height(1.0)
                     .width(Length::Fill)
                     .style(|_theme: &Theme| {
                         let palette = style_conf::palette();
