@@ -266,10 +266,19 @@ impl EditorPage {
             //entry button
             let entry_button = button_list_entry(link_text, entry_view.selected)
                 .width(Length::Fill)
-                .height(30.)
+                .height(35.)
                 .on_press(Message::EntryClicked(entry_view.id));
 
-            column![entry_button].into()
+            let separator =
+                container(space())
+                    .height(2.0)
+                    .width(Length::Fill)
+                    .style(|_theme: &Theme| {
+                        let palette = style_conf::palette();
+                        container::Style::default().background(palette.background_neutral)
+                    });
+
+            column![entry_button, separator].into()
         })); //Column
 
         // entries Container

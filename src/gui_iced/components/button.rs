@@ -2,6 +2,7 @@ use crate::gui_iced::styles::{self, style_conf};
 use iced::{
     alignment,
     widget::{text, Button, Text},
+    Padding,
 };
 
 pub fn button_submit<'a, T: 'a>(content_text: Text<'a>) -> Button<'a, T> {
@@ -31,6 +32,12 @@ pub fn button_list_entry<'a, T: 'a>(content_text: Text<'a>, selected: bool) -> B
         content_text.font(style_conf::FONT_STATUS_DATE)
     };
     Button::new(content_text)
+        .padding(Padding {
+            top: 5.,
+            bottom: 5.,
+            left: 10.,
+            right: 0.,
+        })
         .style(if selected {
             styles::button::button_entry_selected
         } else {
