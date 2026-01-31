@@ -15,6 +15,20 @@ pub struct TirraEntry {
     pub text: String,
 }
 
+/**
+* @brief    representation of the `information` table latest row.
+*/
+pub struct TirraDbInformation {
+    pub id: u32,
+    pub schema_ver: u32,
+    pub local_commit: Option<Vec<u8>>,
+    pub origin_commit: Option<Vec<u8>>,
+    pub local_source: String,
+    pub origin_source: String,
+    pub local_ts: u64,
+    pub origin_ts: u64,
+}
+
 #[derive(Debug)]
 pub enum TirraDbError {
     CryptoAccessFailure, // Failure to decrypt the database
@@ -39,6 +53,21 @@ pub fn tirra_db_init(crypto: &TirraCrypto) -> Result<(), TirraDbError> {
             date_modify INTEGER NOT NULL,
             type        INTEGER,
             text        BLOB
+        )",
+        (),
+    )
+    .map_err(|_e| TirraDbError::DbInitError)?;
+
+    db.execute(
+        "CREATE TABLE information (
+            id              INTEGER PRIMARY KEY,
+            schema_ver      INTEGER,
+            local_commit    BLOB,
+            origin_commit   BLOB,
+            local_source    BLOB,
+            origin_source   BLOB,
+            local_ts        INTEGER NOT NULL,
+            origin_ts       INTEGER NOT NULL
         )",
         (),
     )
@@ -284,4 +313,110 @@ pub fn tirra_db_encrypt_plain_db_file(
 
 pub fn tirra_db_found(db_enc_loc: &str) -> bool {
     Path::new(db_enc_loc).exists()
+}
+
+pub fn tirra_db_information(crypto: &TirraCrypto) -> Result<TirraDbInformation, TirraDbError> {
+    let db = tirra_db_access_start(crypto)?;
+
+    {
+        let sql = format!(
+            "SELECT
+            id,
+            schema_ver,
+            local_commit,
+            origin_commit,
+            local_source,
+            origin_source,
+            local_ts,
+            origin_ts
+            FROM information
+            ORDER BY id DESC
+            LIMIT 1
+            "
+        );
+
+        let mut stmt = db
+            .prepare(&sql)
+            .map_err(|_e| TirraDbError::DbRequestError)?;
+
+        let mut info_iter = stmt
+            .query_map([], |row| {
+                Ok(TirraDbInformation {
+                    id: row.get(0)?,
+                    schema_ver: row.get(1)?,
+                    local_commit: row.get(2)?,
+                    origin_commit: row.get(3)?,
+                    local_source: row.get(4)?,
+                    origin_source: row.get(5)?,
+                    local_ts: row.get(6)?,
+                    origin_ts: row.get(7)?,
+                })
+            })
+            .map_err(|_e| TirraDbError::DbRequestError)?;
+
+        match info_iter.next() {
+            Some(info_row) => Ok(info_row.unwrap()),
+            None => Err(TirraDbError::DbRequestError),
+        }
+    }
+}
+
+pub fn tirra_db_update_information_test(
+    insert: bool,
+    crypto: &TirraCrypto,
+) -> Result<(), TirraDbError> {
+    let db = tirra_db_access_start(crypto)?;
+    let now = tirra_db_time_now();
+
+    //
+    let test_commit: [u8; 16] = [0x0a; 16];
+    //let test_commit_2: [u8; 16] = [0x0b; 16];
+    if insert {
+        db.execute(
+            "INSERT INTO information
+            (schema_ver, local_commit, origin_commit, local_source, origin_source, local_ts, origin_ts) VALUES
+            ( 0, ?1, ?2, 'macos-ouadevv-87', '0', ?3, 0)",
+            params![test_commit, test_commit, now],
+        )
+        .map_err(|_e| TirraDbError::DbRequestError)?;
+    } else {
+        db.execute(
+            "UPDATE information SET
+            local_ts = ?1
+            where id = (select max(id) from information)",
+            params![now],
+        )
+        .map_err(|_e| TirraDbError::DbRequestError)?;
+    }
+
+    tirra_db_access_stop(db, crypto)?;
+
+    Ok(())
+}
+
+fn commit_id_string(commit_id: Vec<u8>) -> String {
+    let mut commit_str = String::new();
+    for byte in commit_id.iter() {
+        commit_str.push_str(format!("{:02x?}", byte).as_str());
+    }
+    commit_str
+}
+
+pub fn db_information_debug(info: &TirraDbInformation) {
+    println!("database information:");
+    println!("schema version\t: {}", info.schema_ver);
+    println!(
+        "local commit:\n\tid:\t{}\n\tAuthor: {}\n\tDate:\t{}",
+        commit_id_string(info.local_commit.clone().unwrap()),
+        info.local_source,
+        info.local_ts
+    );
+    print!("");
+    println!(
+        "origin commit:\n\tid:\t{}\n\tAuthor: {}\n\tDate:\t{}",
+        commit_id_string(info.origin_commit.clone().unwrap()),
+        info.origin_source,
+        info.origin_ts
+    );
+    println!("");
 }

@@ -369,6 +369,18 @@ impl EditorPage {
     fn save(&mut self) -> () {
         db::tirra_db_update_entry(&self.content.text(), self.curr_entry_id, &self.crypto)
             .expect("Tirra+Error: failed to save current file");
+
+        let info_result = db::tirra_db_information(&self.crypto);
+        match info_result {
+            Ok(info) => {
+                db::db_information_debug(&info);
+            }
+            Err(_) => {
+                // insert new row
+                db::tirra_db_update_information_test(true, &self.crypto)
+                    .expect("tirra-DB; failure to init info block");
+            }
+        }
     }
 
     fn reload_all(&mut self) -> Option<Vec<TirraEntry>> {
