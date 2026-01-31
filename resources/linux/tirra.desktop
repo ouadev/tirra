@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Tirra
+GenericName=Encrypted Text Editor
+Comment=Encrypted Writing Space
+Exec=sh -c "/usr/bin/tirra $HOME/awal.tirra"
+Terminal=false
+MimeType=text/plain;
+Icon=tirra
+Categories=Utility;
+StartupNotify=true
+StartupWMClass=tirra

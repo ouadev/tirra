@@ -1,0 +1,7 @@
+Package: tirra
+Version: 0.0-1
+Section: base
+Priority: optional
+Architecture: amd64
+Maintainer: Ouadev <ouadev@users.noreply.github.com>
+Description: Tirra Encrypted Notebook 
