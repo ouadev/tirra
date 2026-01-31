@@ -80,7 +80,7 @@ impl LoginPage {
         .secure(true)
         .on_submit(Message::LoginButtonPressed)
         .on_input(Message::PwdInputChanged)
-        .style(styles::text_input::transparent_style)
+        .style(styles::text_input::transparent_style_borders)
         .id(Id::new(LOGIN_INPUT_ICED_ID));
 
         // DIV : Login Button

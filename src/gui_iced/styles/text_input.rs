@@ -43,6 +43,25 @@ pub fn transparent_style(_theme: &Theme, _status: Status) -> Style {
     base
 }
 
+pub fn transparent_style_borders(_theme: &Theme, _status: Status) -> Style {
+    let palette_tirra = style_conf::palette();
+
+    let base = Style {
+        background: Background::Color(palette_tirra.background_neutral),
+        border: Border {
+            radius: 0.0.into(),
+            width: 1.,
+            color: palette_tirra.background_main,
+        },
+        icon: Color::default(),
+        placeholder: color!(0x8f8f8f),
+        value: palette_tirra.text,
+        selection: palette_tirra.control_main,
+    };
+
+    base
+}
+
 pub fn main_style_borders(_theme: &Theme, _status: Status) -> Style {
     let palette_tirra = style_conf::palette();
 
