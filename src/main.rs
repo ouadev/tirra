@@ -1,49 +1,67 @@
-use iced::executor;
-use iced::highlighter::{self, Highlighter};
-use iced::keyboard;
-use iced::theme::{self, Theme};
-use iced::widget::{
-    button, column, container, horizontal_space, pick_list, row, text,
-    text_editor, tooltip,
-};
-use iced::{
-    Alignment, Application, Command, Element, Font, Length, Settings,
-    Subscription,
-};
-
-use std::ffi;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::io;
-use std::fs::File;
+use gui::styles::style_constants;
+use iced::highlighter::{self};
+use iced::theme;
+use iced::theme::Theme;
+use iced::time::{self, every};
+use iced::widget::{column, container, horizontal_space, row, text, text_editor, Button};
+use iced::{executor, Background};
+use iced::{keyboard, window};
+use iced::{Application, Command, Element, Length, Settings, Subscription};
+use rusqlite::Connection;
+use rusqlite::Result;
+use std::borrow::Cow;
 use std::fs;
+use std::io;
+use std::path::Path;
+use std::time::SystemTime;
 
+use crate::gui::styles::button::TirraButtonStyle;
+use crate::gui::styles::button::TirraButtonType;
+use crate::gui::styles::style_constants::FONT_DEJAVU_SANS_MONO;
+use crate::gui::styles::style_constants::FONT_DEJAVU_SANS_MONO_BYTES;
+use crate::gui::styles::text_editor::EditorStyle;
+use crate::tirracrypto::tirracrypto as tirracr;
 
+mod gui;
+mod tirracrypto;
+
+// Constants
+const TIRRA_DB_PATH: &str = "./tirra.db";
 
 pub fn main() -> iced::Result {
-    Counter::run(Settings::default())
+    TirraIced::run(Settings {
+        fonts: vec![Cow::Borrowed(FONT_DEJAVU_SANS_MONO_BYTES)],
+        default_font: FONT_DEJAVU_SANS_MONO,
+        window: window::Settings {
+            icon: None,
+            ..Default::default()
+        },
+        ..Settings::default()
+    })
 }
 
-struct Counter {
-    value: i32,
+struct TirraEntry {
+    id: u32,
+    date: String,
+    text: String,
+}
+
+struct TirraIced {
     content: text_editor::Content,
-    file: Option<PathBuf>,
     theme: highlighter::Theme,
-    is_loading: bool,
     is_dirty: bool,
+    entries: Vec<TirraEntry>,
+    _curr_entry_id: u32,
 }
 
 #[derive(Debug, Clone)]
 enum Message {
     ActionPerformed(text_editor::Action),
-    ThemeSelected(highlighter::Theme),
-    NewFile,
-    OpenFile,
-    FileOpened(Result<(PathBuf, Arc<String>), Error>),
     SaveFile,
-    FileSaved(Result<PathBuf, Error>),
+    PeriodicTick,
+    EntryButtonClicked(u32),
+    NewEntryButtonClicked,
 }
-
 
 #[derive(Debug, Clone)]
 pub enum Error {
@@ -51,181 +69,191 @@ pub enum Error {
     IoError(io::ErrorKind),
 }
 
-impl Application for Counter {
+impl Application for TirraIced {
     type Message = Message;
     type Theme = Theme;
     type Executor = executor::Default;
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, Command<Message>) {
+        // intialize the backend
+        if Path::new(TIRRA_DB_PATH).exists() == false {
+            println!("db not found");
+            // create new db
+            tirra_db_init(TIRRA_DB_PATH).unwrap();
+            // insert first empty entry
+            tirra_db_add_entry(TIRRA_DB_PATH, "Welcome ...").unwrap();
+            // remove the plaintext file
+            fs::remove_file(TIRRA_DB_PATH).expect("plaintext db file couldn't removed");
+        }
+
+        // Load all entries into memory and display the first one
+        let all_entries =
+            tirra_db_get_all_entries(TIRRA_DB_PATH).expect("Error loading entries from database");
+        let init_content = text_editor::Content::with_text(&all_entries[0].text);
+        let id = all_entries[0].id;
+        //return
         (
             Self {
-                value: 0,
-                file: None,
-                content: text_editor::Content::new(),
-                theme: highlighter::Theme::SolarizedDark,
-                is_loading: false,
+                content: init_content,
+                theme: highlighter::Theme::InspiredGitHub,
                 is_dirty: false,
+                entries: all_entries,
+                _curr_entry_id: id,
             },
-            //Command::perform( (), Message::FileOpened),
             Command::none(),
         )
     }
 
     fn title(&self) -> String {
-        String::from("TiRRa")
+        format!("Tirra{} - ouadv", if self.is_dirty { "*" } else { "" })
     }
-
 
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
             Message::ActionPerformed(action) => {
                 self.is_dirty = self.is_dirty || action.is_edit();
-
                 self.content.perform(action);
+                Command::none()
+            }
+
+            Message::SaveFile | Message::PeriodicTick => {
+                //save_content_to_disk(&self.content.text());
+                if self.is_dirty {
+                    tirra_db_update_entry(TIRRA_DB_PATH, &self.content.text(), self._curr_entry_id)
+                        .unwrap();
+                    self.is_dirty = false;
+
+                    // Load all entries into memory and display the first one
+                    self.entries = tirra_db_get_all_entries(TIRRA_DB_PATH)
+                        .expect("Error loading entries from database");
+                }
+                Command::none()
+            }
+            Message::EntryButtonClicked(entry_id) => {
+                println!("entry selected : {}", entry_id);
+                // Save first
+                if self.is_dirty {
+                    tirra_db_update_entry(TIRRA_DB_PATH, &self.content.text(), self._curr_entry_id)
+                        .unwrap();
+                    self.is_dirty = false;
+                    // Load all entries into memory and display the first one
+                    self.entries = tirra_db_get_all_entries(TIRRA_DB_PATH)
+                        .expect("Error loading entries from database");
+                }
+                //
+                self._curr_entry_id = entry_id;
+                self.content = text_editor::Content::with_text(
+                    &entry_ref_by_id(&self.entries, entry_id).unwrap().text,
+                );
 
                 Command::none()
             }
-            Message::ThemeSelected(theme) => {
-                self.theme = theme;
-
-                Command::none()
-            }
-            Message::NewFile => {
-                if !self.is_loading {
-                    self.file = None;
-                    self.content = text_editor::Content::new();
-                }
-
-                Command::none()
-            }
-            Message::OpenFile => {
-                if self.is_loading {
-                    Command::none()
-                } else {
-                    self.is_loading = true;
-
-                    //Command::perform(String("ded"), Message::FileOpened)
-                    Command::none()
-                }
-            }
-            Message::FileOpened(result) => {
-                self.is_loading = false;
-                self.is_dirty = false;
-
-                if let Ok((path, contents)) = result {
-                    self.file = Some(path);
-                    self.content = text_editor::Content::with_text(&contents);
-                }
-
-                Command::none()
-            }
-            Message::SaveFile => {
-                if self.is_loading {
-                    Command::none()
-                } else {
-                    //self.is_loading = true;
-
-                    //Command::perform(
-                    //    save_file(self.file.clone(), self.content.text()),
-                    //    Message::FileSaved,
-                    //)
-                    save_content_to_disk(&self.content.text());
-                    Command::none()
-                }
-            }
-            Message::FileSaved(result) => {
-                println!("saved");
-                self.is_loading = false;
-
-                if let Ok(path) = result {
-                    self.file = Some(path);
+            Message::NewEntryButtonClicked => {
+                println!("New paper will be created");
+                // Save before creating a new entry
+                if self.is_dirty {
+                    tirra_db_update_entry(TIRRA_DB_PATH, &self.content.text(), self._curr_entry_id)
+                        .unwrap();
                     self.is_dirty = false;
                 }
-
+                tirra_db_add_entry(TIRRA_DB_PATH, "Pour your soul here >").unwrap();
+                // Load all entries into memory and display the first one
+                self.entries = tirra_db_get_all_entries(TIRRA_DB_PATH)
+                    .expect("Error loading entries from database");
                 Command::none()
             }
         }
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        keyboard::on_key_press(|key, modifiers| match key.as_ref() {
-            keyboard::Key::Character("s") if modifiers.command() => {
-                Some(Message::SaveFile)
-            }
+        let kb_event = keyboard::on_key_press(|key, modifiers| match key.as_ref() {
+            keyboard::Key::Character("s") if modifiers.command() => Some(Message::SaveFile),
             _ => None,
-        })
+        });
+
+        // Configure periodical save tick
+        let tick_event = every(time::Duration::new(5, 0)).map(|_| Message::PeriodicTick);
+
+        Subscription::batch(vec![tick_event, kb_event])
     }
 
     fn view(&self) -> Element<Message> {
-        let controls = row![
-            action(new_icon(), "New file", Some(Message::NewFile)),
-            action(
-                open_icon(),
-                "Open file",
-                (!self.is_loading).then_some(Message::OpenFile)
-            ),
-            action(
-                save_icon(),
-                "Save file",
-                self.is_dirty.then_some(Message::SaveFile)
-            ),
-            horizontal_space(),
-            pick_list(
-                highlighter::Theme::ALL,
-                Some(self.theme),
-                Message::ThemeSelected
-            )
-            .text_size(14)
-            .padding([5, 10])
-        ]
-        .spacing(10)
-        .align_items(Alignment::Center);
+        // DIV : Editor Text Zone
+        let div_editor_text = text_editor(&self.content)
+            .height(Length::Fill)
+            .style(theme::TextEditor::Custom(Box::new(EditorStyle {})))
+            .on_action(Message::ActionPerformed);
 
-        let status = row![
-            text(if let Some(path) = &self.file {
-                let path = path.display().to_string();
-
-                if path.len() > 60 {
-                    format!("...{}", &path[path.len() - 40..])
-                } else {
-                    path
-                }
-            } else {
-                String::from("New file")
-            }),
+        // DIV : Editor Status Zone
+        let div_editor_status = container(row![
+            text(format!(
+                "{}",
+                entry_ref_by_id(&self.entries, self._curr_entry_id)
+                    .unwrap()
+                    .date
+            )),
             horizontal_space(),
             text({
                 let (line, column) = self.content.cursor_position();
 
                 format!("{}:{}", line + 1, column + 1)
             })
-        ]
-        .spacing(10);
+        ])
+        .style(|_theme: &Theme| {
+            container::Appearance::default()
+                .with_background(Background::Color(style_constants::STYLE_EDITOR_BG_COLOR))
+        });
 
-        column![
-            controls,
-            text_editor(&self.content)
-                .height(Length::Fill)
-                .on_action(Message::ActionPerformed)
-                .highlight::<Highlighter>(
-                    highlighter::Settings {
-                        theme: self.theme,
-                        extension: self
-                            .file
-                            .as_deref()
-                            .and_then(Path::extension)
-                            .and_then(ffi::OsStr::to_str)
-                            .map(str::to_string)
-                            .unwrap_or(String::from("rs")),
-                    },
-                    |highlight, _theme| highlight.to_format()
-                ),
-            status,
-        ]
-        .spacing(10)
-        .padding(10)
-        .into()
+        //Editor
+        let div_editor = column![div_editor_text, div_editor_status];
+
+        // DIV : ADD Button
+        let div_add = Button::new(" + New paper ")
+            .width(Length::Fill)
+            .style(theme::Button::custom(TirraButtonStyle {
+                button_type: TirraButtonType::EntryAdd,
+                selected: false,
+            }))
+            .on_press(Message::NewEntryButtonClicked);
+
+        //DIV : list of entries
+        let div_entries = column(
+            self.entries.iter().map(|ent| {
+                let title = entry_title(ent, 20);
+                let ent_button = Button::new(text(format!("{}", title)))
+                    .width(Length::Fill)
+                    .style(theme::Button::custom(TirraButtonStyle {
+                        button_type: TirraButtonType::EntryOpen,
+                        selected: (ent.id == self._curr_entry_id),
+                    }))
+                    .clip(true)
+                    .on_press(Message::EntryButtonClicked(ent.id));
+
+                ent_button.into()
+            }), //map
+        ); //Column
+
+        //let div_sep: Rule = Rule::vertical(50);
+        let div_sep = container("")
+            .width(20)
+            .height(Length::Fill)
+            .style(|_theme: &Theme| {
+                container::Appearance::default()
+                    .with_background(Background::Color(style_constants::STYLE_EDITOR_BG_COLOR))
+            });
+        // DIV : Left Pan
+        let div_leftpan = container(column![div_add, div_entries])
+            .width(250)
+            .height(Length::Fill)
+            .style(|theme: &Theme| {
+                let palette = theme.extended_palette();
+                container::Appearance::default().with_background(palette.background.strong.color)
+            });
+
+        // BODY
+        let body = row![div_leftpan, div_sep, div_editor];
+        body.into()
     }
 
     fn theme(&self) -> Theme {
@@ -235,11 +263,43 @@ impl Application for Counter {
             Theme::Light
         }
     }
-
-
 }
 
+fn entry_ref_by_id(entries: &Vec<TirraEntry>, id: u32) -> Option<&TirraEntry> {
+    entries.iter().find(|ent| ent.id == id)
+}
 
+fn entry_title(entry: &TirraEntry, max_chars: u8) -> &str {
+    let mut last_index: usize = 0;
+    let mut first_index: usize = 0;
+    let mut first_found = false;
+    let mut collected = 0u8;
+    for (i, c) in entry.text.chars().enumerate() {
+        if !first_found && c != ' ' && c != '\n' {
+            first_found = true;
+            first_index = i;
+        }
+
+        if first_found && (collected == max_chars || c == '\n') {
+            break;
+        }
+
+        if first_found {
+            collected += 1;
+        }
+
+        last_index = i;
+    }
+
+    //println!("last_index = {}", last_index);
+    if collected != 0 {
+        &entry.text[first_index..last_index + 1]
+    } else {
+        &entry.text[0..0]
+    }
+}
+
+/*
 fn action<'a, Message: Clone + 'a>(
     content: impl Into<Element<'a, Message>>,
     label: &'a str,
@@ -259,29 +319,164 @@ fn action<'a, Message: Clone + 'a>(
         action.style(theme::Button::Secondary).into()
     }
 }
+*/
 
-fn new_icon<'a, Message>() -> Element<'a, Message> {
-    icon('\u{0e800}')
-}
-
-fn save_icon<'a, Message>() -> Element<'a, Message> {
-    icon('\u{0e801}')
-}
-
-fn open_icon<'a, Message>() -> Element<'a, Message> {
-    icon('\u{0f115}')
-}
-
-fn icon<'a, Message>(codepoint: char) -> Element<'a, Message> {
-    const ICON_FONT: Font = Font::with_name("editor-icons");
-
-    text(codepoint).font(ICON_FONT).into()
-}
-
-
+/*
 fn save_content_to_disk (cont: &str) -> () {
     //let mut secret_file = File::create("/tmp/notes.txt").expect("creation failed");
     println!("saving....");
 
     fs::write("/tmp/editor.txt",cont).expect("");
+}
+*/
+
+/**
+ * Create new database
+ */
+fn tirra_db_init(location: &str) -> Result<()> {
+    let db = Connection::open(location)?;
+    db.execute(
+        "CREATE TABLE entries (
+            id INTEGER PRIMARY KEY,
+            date INTEGER NOT NULL,
+            text BLOB
+        )",
+        (),
+    )?;
+
+    tirracr::tirra_init_crypto()?;
+
+    //encrypt db
+    tirracr::tirra_encrypt_db(location).expect("fine not encrypted");
+
+    Ok(())
+}
+
+/**
+ * Create a new entry in the database
+ */
+fn tirra_db_add_entry(location: &str, text_entry: &str) -> Result<u64> {
+    // decrypt the db
+    tirracr::tirra_decrypt_db(location)?;
+
+    // Open connection
+    let db = Connection::open(location)?;
+
+    //calculate timestamp
+    let timestamp = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+        Ok(n) => n.as_secs(),
+        Err(_) => panic!("can't calculate system time"),
+    };
+
+    //save
+    db.execute(
+        "INSERT INTO entries (date, text) VALUES (?1, ?2)",
+        (timestamp, text_entry),
+    )?;
+
+    db.close().expect("kk");
+
+    //re-encrypt db
+    tirracr::tirra_encrypt_db(location)?;
+
+    Ok(timestamp)
+}
+
+/**
+ * Save content to db
+ */
+fn tirra_db_update_entry(location: &str, text_entry: &str, entry_id: u32) -> Result<u64> {
+    // decrypt the db
+    tirracr::tirra_decrypt_db(location)?;
+
+    // Open connection
+    let db = Connection::open(location)?;
+
+    //calculate timestamp
+    let timestamp = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+        Ok(n) => n.as_secs(),
+        Err(_) => panic!("can't calculate system time"),
+    };
+
+    //save
+    db.execute(
+        "UPDATE entries SET date = ?1, text = ?2 WHERE id = ?3",
+        (timestamp, text_entry, entry_id),
+    )?;
+
+    db.close().expect("kk");
+
+    //re-encrypt db
+    tirracr::tirra_encrypt_db(location)?;
+
+    Ok(timestamp)
+}
+
+/**
+ * Get the entry from db by Id
+ */
+/*
+fn tirra_db_get_entry(location: &str, id: u32) -> Result<Option<TirraEntry>> {
+    let mut  ret_val = None;
+    //decrypt db
+    tirracr::tirra_decrypt_db(location) ?;
+
+    //conn
+    let db = Connection::open(location)?;
+
+    let mut stmt = db.prepare("SELECT id, datetime(date, 'unixepoch'), text from entries")?;
+
+    let entry_iter = stmt.query_map([], |row| {
+        Ok(TirraEntry {
+            _id: row.get(0)?,
+            date: row.get(1)?,
+            text: row.get(2)?,
+        })
+    })?;
+
+    for entry in entry_iter {
+        let entry_unwrapped = entry.unwrap();
+        if entry_unwrapped._id == id {
+            //println!("Date:\t{:?}\n{}\n------------------------",  entry_unwrapped.date, entry_unwrapped.text);
+            ret_val = Some(entry_unwrapped);
+        }
+    }
+
+    //re-encrypt db
+    tirracr::tirra_encrypt_db(location) ?;
+
+    return Ok(ret_val);
+}
+*/
+/**
+ * Retrieve all entries to memory. NO PAGING
+ */
+fn tirra_db_get_all_entries(location: &str) -> Result<Vec<TirraEntry>> {
+    //decrypt db
+    tirracr::tirra_decrypt_db(location)?;
+    //conn
+    let db = Connection::open(location)?;
+
+    let mut stmt =
+        db.prepare("SELECT id, datetime(date, 'unixepoch'), text from entries ORDER BY id DESC")?;
+
+    let entry_iter = stmt.query_map([], |row| {
+        Ok(TirraEntry {
+            id: row.get(0)?,
+            date: row.get(1)?,
+            text: row.get(2)?,
+        })
+    })?;
+
+    let mut vec_entries = Vec::new();
+
+    for entry in entry_iter {
+        let entry_unwrapped = entry.unwrap();
+        vec_entries.push(entry_unwrapped);
+    }
+
+    //re-encrypt db
+    tirracr::tirra_encrypt_db(location)?;
+
+    return Ok(vec_entries);
 }
