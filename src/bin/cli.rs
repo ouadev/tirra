@@ -74,7 +74,7 @@ pub fn main() -> () {
         let mut content = Vec::new();
         tx_file.read_to_end(&mut content).unwrap();
 
-        let _ = db::tirra_db_add_entry_migration(
+        let _ = db::tirra_db_root_add_entry(
             db::TIRRA_ENTRY_TYPE_GENERAL,
             &String::from_utf8(content).unwrap(),
             timestamp,
@@ -145,7 +145,7 @@ pub fn main() -> () {
             panic!("we are not supposed to be here without an encrypted database");
         }
 
-        let _ = db::tirra_db_reveal_to_disk(&tirra_crypto);
+        let _ = db::tirra_db_root_reveal_to_disk(&tirra_crypto);
     } else if cli_action == CliAction::Encrypt {
         if args_count != 5 {
             panic!("{}", USAGE_STR);
@@ -166,7 +166,7 @@ pub fn main() -> () {
             panic!("Encrypted db with the same name already exists !!");
         }
 
-        let _ = db::tirra_db_encrypt_plain_db_file(&tirra_crypto, &db_plain);
+        let _ = db::tirra_db_root_encrypt_plaintext(&tirra_crypto, &db_plain);
     }
 }
 
