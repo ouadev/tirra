@@ -2,7 +2,7 @@ use std::env;
 use std::fs::File;
 use std::io::Read;
 use tirra::storage::{
-    db::{self, TirraDb},
+    db::{self, DbOpResult, TirraDb},
     tirracrypto::TirraCrypto,
 };
 
@@ -32,6 +32,7 @@ enum CliAction {
     Stat,
     Decrypt,
     Encrypt,
+    Test,
 }
 
 pub fn main() -> () {
@@ -51,6 +52,7 @@ pub fn main() -> () {
         "stat" => cli_action = CliAction::Stat,
         "decrypt" => cli_action = CliAction::Decrypt,
         "encrypt" => cli_action = CliAction::Encrypt,
+        "test" => cli_action = CliAction::Test,
         _ => {
             println!("{}", USAGE_STR);
             return;
@@ -162,6 +164,35 @@ pub fn main() -> () {
             }
             Err(_) => {
                 println!("failed to encrypt file {}", clear_path);
+            }
+        }
+    } else if cli_action == CliAction::Test {
+        if args_count != 4 {
+            println!("{}", USAGE_STR);
+            return;
+        }
+
+        let db_path = String::from(&args[2]);
+        let pwd_file = String::from(&args[3]);
+
+        let pwd = read_pwd_file(&pwd_file);
+        let mut tirra_db = TirraDb::with_crypto(&db_path, &pwd);
+        // test db ops
+        let access = tirra_db.try_access();
+        println!("access : {}", access);
+
+        tirra_db.new_op_add_entry();
+        tirra_db.new_op_load_entries("WHERE id > 0 ORDER BY date_modify DESC LIMIT 20");
+
+        let result = tirra_db.run_op();
+        match result {
+            Ok(r) => {
+                if let DbOpResult::Entries(entries) = r {
+                    println!("entries : {}", entries.len());
+                }
+            }
+            _ => {
+                println!("error op");
             }
         }
     }

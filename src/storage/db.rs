@@ -25,13 +25,6 @@ const TIRRA_HOME_DIR_PATH: &str = "USERPROFILE";
 const TIRRA_DEFAULT_DB_NAME: &str = "awal.tirra";
 
 /**
- * @brief Tirra Database.
- */
-pub struct TirraDb {
-    crypto: TirraCrypto,
-}
-
-/**
 * @brief    representation of the `information` table latest row.
 */
 pub struct TirraDbInformation {
@@ -167,6 +160,30 @@ impl TirraEntryList {
 }
 
 /**
+ * @brief Tirra Database.
+ */
+pub struct TirraDb {
+    crypto: TirraCrypto,
+    ops: Vec<DbOp>,
+}
+
+/**
+ * DbOp
+ */
+pub enum DbOp {
+    UpdateEntry(u32, String), //content of the entry
+    AddEntry,                 // emptry entry
+    LoadEntries(String),      // load request.
+    Loadinfo,
+}
+
+pub enum DbOpResult {
+    Entries(TirraEntryList),
+    Information(TirraDbInformation),
+    None,
+}
+
+/**
  * TirraDb
  */
 
@@ -178,6 +195,7 @@ impl TirraDb {
     pub fn new() -> Self {
         Self {
             crypto: Default::default(),
+            ops: vec![],
         }
     }
 
@@ -185,9 +203,294 @@ impl TirraDb {
         let plain = format!("{}.{}", &location, "plaintext");
         Self {
             crypto: TirraCrypto::new(location, plain.as_str(), password),
+            ops: vec![],
         }
     }
 
+    /**
+     * Db Operation: update entry
+     */
+    pub fn new_op_update_entry(&mut self, text_entry: &str, entry_id: u32) {
+        self.ops
+            .push(DbOp::UpdateEntry(entry_id, String::from(text_entry)));
+    }
+
+    /**
+     * Db Operation: new entry
+     */
+    pub fn new_op_add_entry(&mut self) {
+        self.ops.push(DbOp::AddEntry);
+    }
+
+    /**
+     * Db Operation: load entries
+     */
+    pub fn new_op_load_entries(&mut self, filter: &str) {
+        self.ops.push(DbOp::LoadEntries(String::from(filter)));
+    }
+
+    /**
+     * db_op : run & returns unique result for the whole sequence of ops
+     */
+
+    pub fn run_op(&mut self) -> Result<DbOpResult, TirraDbError> {
+        let mut db = self.access_start()?;
+
+        let mut success: Result<(), TirraDbError> = Ok(());
+        let mut result = DbOpResult::None;
+
+        loop {
+            if let Some(op) = self.ops.pop() {
+                match op {
+                    DbOp::UpdateEntry(id, text) => {
+                        match Self::op_impl_update_entry(&mut db, &text, id) {
+                            Err(err) => {
+                                success = Err(err);
+                                break;
+                            }
+                            _ => {}
+                        }
+                    }
+                    DbOp::AddEntry => {
+                        let now = utils::time_now();
+                        match Self::op_impl_add_entry(
+                            &mut db, 0, /*type entry default */
+                            "", now, now,
+                        ) {
+                            Err(err) => {
+                                success = Err(err);
+                                break;
+                            }
+                            _ => {}
+                        }
+                    }
+                    DbOp::LoadEntries(filter) => match Self::op_impl_load_entries(&mut db, &filter)
+                    {
+                        Err(err) => {
+                            success = Err(err);
+                            break;
+                        }
+                        Ok(list) => {
+                            result = DbOpResult::Entries(list);
+                        }
+                    },
+                    DbOp::Loadinfo => match Self::op_impl_load_info(&mut db) {
+                        Err(err) => {
+                            success = Err(err);
+                            break;
+                        }
+                        Ok(info) => {
+                            result = DbOpResult::Information(info);
+                        }
+                    },
+                }
+            } else {
+                break;
+            }
+        }
+
+        //error: clear all ops
+        if success.is_err() {
+            self.ops.clear();
+        }
+
+        self.access_stop()?;
+
+        match success {
+            Ok(()) => Ok(result),
+            Err(err) => Err(err),
+        }
+    }
+
+    /**
+     * Op Impl: UpdateEntry
+     */
+    fn op_impl_update_entry(
+        db: &mut Connection,
+        text_entry: &str,
+        entry_id: u32,
+    ) -> Result<(), TirraDbError> {
+        let now = utils::time_now();
+
+        // start transaction
+        let transaction = db
+            .transaction()
+            .map_err(|_e| TirraDbError::DbRequestError)?;
+
+        //save
+        transaction
+            .execute(
+                "UPDATE entries SET
+            date_modify = ?1,
+            text        = ?2
+            WHERE id    = ?3",
+                (now, text_entry, entry_id),
+            )
+            .map_err(|_e| TirraDbError::DbRequestError)?;
+
+        // record commit
+        let _ = TirraDb::information_commit(&transaction, now, "macos-ouadv", text_entry);
+
+        // end transaction
+        transaction
+            .commit()
+            .map_err(|_e| TirraDbError::DbRequestError)
+    }
+
+    /**
+     * Op Impl: AddEntry.
+     */
+    fn op_impl_add_entry(
+        db: &mut Connection,
+        type_entry: u8,
+        text_entry: &str,
+        create_date: u64,
+        modify_date: u64,
+    ) -> Result<(), TirraDbError> {
+        let now = utils::time_now();
+        // start transaction
+        let transaction = db
+            .transaction()
+            .map_err(|_e| TirraDbError::DbRequestError)?;
+
+        //save
+        transaction
+            .execute(
+                "INSERT INTO entries
+        (date_create, date_modify, type, text) VALUES
+        ( ?1, ?2, ?3, ?4)",
+                params![create_date, modify_date, type_entry, text_entry],
+            )
+            .map_err(|_e| TirraDbError::DbRequestError)?;
+
+        // record commit
+        let _ = TirraDb::information_commit(&transaction, now, "macos-ouadv", text_entry);
+
+        // end transaction
+        transaction
+            .commit()
+            .map_err(|_e| TirraDbError::DbRequestError)
+    }
+
+    /**
+     * Op Impl: LoadEntries.
+     */
+    pub fn op_impl_load_entries(
+        db: &mut Connection,
+        filter: &str,
+    ) -> Result<TirraEntryList, TirraDbError> {
+        let mut vec_entries = Vec::new();
+
+        {
+            let sql = format!(
+                "SELECT
+            id,
+            date_create,
+            date_modify,
+            type,
+            text
+            FROM entries
+            {}",
+                filter
+            );
+
+            let Ok(mut stmt) = db.prepare(&sql) else {
+                return Err(TirraDbError::DbRequestErrorPrepare);
+            };
+
+            let entry_iter = match stmt.query_map([], |row| {
+                Ok(TirraEntry {
+                    id: row.get(0)?,
+                    date_create: row.get(1)?,
+                    date_modify: row.get(2)?,
+                    type_entry: row.get(3)?,
+                    text: row.get(4)?,
+                })
+            }) {
+                Ok(iter) => iter,
+                Err(_) => {
+                    return Err(TirraDbError::DbRequestErrorQuery);
+                }
+            };
+
+            for entry in entry_iter {
+                if let Ok(entry_ok) = entry {
+                    vec_entries.push(entry_ok);
+                } else {
+                    return Err(TirraDbError::DbRequestErrorIter);
+                }
+            }
+        }
+
+        return Ok(TirraEntryList::from_vec(vec_entries));
+    }
+
+    /**
+     * Op Impl: LoadInfo.
+     */
+    pub fn op_impl_load_info(db: &mut Connection) -> Result<TirraDbInformation, TirraDbError> {
+        let result: Result<TirraDbInformation, TirraDbError>;
+        {
+            let sql = format!(
+                "SELECT
+                id,
+                schema_ver,
+                local_commit,
+                origin_commit,
+                local_source,
+                origin_source,
+                local_ts,
+                origin_ts
+                FROM information
+                ORDER BY id DESC
+                LIMIT 1
+                "
+            );
+
+            let mut stmt = db
+                .prepare(&sql)
+                .map_err(|_e| TirraDbError::DbRequestError)?;
+
+            let mut info_iter = stmt
+                .query_map([], |row| {
+                    Ok(TirraDbInformation {
+                        id: row.get(0)?,
+                        schema_ver: row.get(1)?,
+                        local_commit: row.get(2)?,
+                        origin_commit: row.get(3)?,
+                        local_source: row.get(4)?,
+                        origin_source: row.get(5)?,
+                        local_ts: row.get(6)?,
+                        origin_ts: row.get(7)?,
+                    })
+                })
+                .map_err(|_e| TirraDbError::DbRequestError)?;
+
+            match info_iter.next() {
+                Some(info_row) => {
+                    result = info_row.map_err(|_e| TirraDbError::DbRequestError);
+                }
+                None => result = Err(TirraDbError::DbRequestError),
+            }
+        }
+        result
+    }
+
+    ///
+    ///
+    ///
+    ///
+    ///
+    ///
+    ///
+    ///
+    ///
+    ///////////////////
+    ///
+    ///
+    ///
+    ///
+    ///
     /**
      * Create new database
      */
