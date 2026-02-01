@@ -376,9 +376,7 @@ impl EditorPage {
                 db::db_information_debug(&info);
             }
             Err(_) => {
-                // insert new row
-                db::tirra_db_update_information_test(true, &self.crypto)
-                    .expect("tirra-DB; failure to init info block");
+                println!("error reading information block");
             }
         }
     }

@@ -2,6 +2,7 @@ use chacha20poly1305::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
     ChaCha20Poly1305,
 };
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::Path;
 
@@ -147,5 +148,12 @@ impl TirraCrypto {
 
     pub fn plaintext_db_location(&self) -> &str {
         &self.db_location_pt
+    }
+
+    pub fn tirra_hash_sha256(entropy: &str) -> Vec<u8> {
+        let mut hasher = Sha256::new();
+        hasher.update(entropy);
+        let result = hasher.finalize();
+        result.as_slice().to_vec()
     }
 }

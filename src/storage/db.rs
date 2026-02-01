@@ -1,12 +1,20 @@
 use crate::storage::tirracrypto::TirraCrypto;
 use rusqlite::params;
 use rusqlite::Connection;
+use rusqlite::Transaction;
 use std::fs;
 use std::path::Path;
+use std::process;
 use std::result::Result;
 use std::time::SystemTime;
 
 pub const TIRRA_ENTRY_TYPE_GENERAL: u8 = 0;
+pub const TIRRA_DB_SCHEMA_VER: u8 = 0;
+pub const TIRRA_FIRST_ENTRY_TEXT: &str =
+"The History of each Day.
+
+What is it that constitutes the history of each day for you? Look at your habits of which it consists: are they the product of numberless little acts of cowardice and laziness, or of your bravery and inventive reason? Although the two cases are so different, it is possible that men might bestow the same praise upon you, and that you might also be equally useful to them in the one case as in the other. But praise and utility and respectability may suffice for him whose only desire is to have a good conscience, - not however for you, the \"trier of the reins,\" who has a consciousness of the conscience!";
+
 pub struct TirraEntry {
     pub id: u32,
     pub date_create: u64,
@@ -73,6 +81,17 @@ pub fn tirra_db_init(crypto: &TirraCrypto) -> Result<(), TirraDbError> {
     )
     .map_err(|_e| TirraDbError::DbInitError)?;
 
+    // Init information Row
+    let init_commit_id = tirra_db_generate_commit_id("");
+    let now = tirra_db_time_now();
+    db.execute(
+        "INSERT INTO information
+        (schema_ver, local_commit, origin_commit, local_source, origin_source, local_ts, origin_ts) VALUES
+        ( ?1, ?2, ?3, 'localsource-init', 'originsource-init', ?4, ?5)",
+        params![TIRRA_DB_SCHEMA_VER, init_commit_id, init_commit_id, now, now],
+    )
+    .map_err(|_e| TirraDbError::DbRequestError)?;
+
     db.close().map_err(|_e| TirraDbError::DbInitError)?;
 
     //encrypt db
@@ -84,6 +103,21 @@ pub fn tirra_db_init(crypto: &TirraCrypto) -> Result<(), TirraDbError> {
         .map_err(|_e| TirraDbError::DbRemoveFileError)?;
 
     Ok(())
+}
+
+/**
+* generate unique commit id
+*/
+pub fn tirra_db_generate_commit_id(entropy: &str) -> Vec<u8> {
+    let now = tirra_db_time_now();
+    let unique_id_feed = format!(
+        "{}{}{}{}",
+        now,
+        entropy,
+        process::id(),
+        std::env::consts::OS
+    );
+    TirraCrypto::tirra_hash_sha256(unique_id_feed.as_str())
 }
 
 /**
@@ -157,16 +191,31 @@ pub fn tirra_db_add_entry(
     text_entry: &str,
     crypto: &TirraCrypto,
 ) -> Result<(), TirraDbError> {
-    let db = tirra_db_access_start(crypto)?;
+    let mut db = tirra_db_access_start(crypto)?;
     let now = tirra_db_time_now();
+
+    // start transaction
+    let transaction = db
+        .transaction()
+        .map_err(|_e| TirraDbError::DbRequestError)?;
+
     //save
-    db.execute(
-        "INSERT INTO entries
+    transaction
+        .execute(
+            "INSERT INTO entries
         (date_create, date_modify, type, text) VALUES
         ( ?1, ?2, ?3, ?4)",
-        params![now, now, type_entry, text_entry],
-    )
-    .map_err(|_e| TirraDbError::DbRequestError)?;
+            params![now, now, type_entry, text_entry],
+        )
+        .map_err(|_e| TirraDbError::DbRequestError)?;
+
+    // record commit
+    information_commit(&transaction, now, "macos-ouadv", text_entry)?;
+
+    // end transaction
+    transaction
+        .commit()
+        .map_err(|_e| TirraDbError::DbRequestError)?;
 
     tirra_db_access_stop(db, crypto)?;
 
@@ -191,6 +240,11 @@ pub fn tirra_db_add_entry_migration(
         params![create_date, create_date, type_entry, text_entry],
     )
     .map_err(|_e| TirraDbError::DbRequestError)?;
+    // unique commit
+    println!(
+        "unique commit\t: {}",
+        commit_id_string(tirra_db_generate_commit_id(text_entry))
+    );
 
     tirra_db_access_stop(db, crypto)?;
 
@@ -219,18 +273,32 @@ pub fn tirra_db_update_entry(
     entry_id: u32,
     crypto: &TirraCrypto,
 ) -> Result<(), TirraDbError> {
-    let db = tirra_db_access_start(crypto)?;
+    let mut db = tirra_db_access_start(crypto)?;
     let now = tirra_db_time_now();
 
+    // start transaction
+    let transaction = db
+        .transaction()
+        .map_err(|_e| TirraDbError::DbRequestError)?;
+
     //save
-    db.execute(
-        "UPDATE entries SET
+    transaction
+        .execute(
+            "UPDATE entries SET
         date_modify = ?1,
         text        = ?2
         WHERE id    = ?3",
-        (now, text_entry, entry_id),
-    )
-    .map_err(|_e| TirraDbError::DbRequestError)?;
+            (now, text_entry, entry_id),
+        )
+        .map_err(|_e| TirraDbError::DbRequestError)?;
+
+    // record commit
+    information_commit(&transaction, now, "macos-ouadv", text_entry)?;
+
+    // end transaction
+    transaction
+        .commit()
+        .map_err(|_e| TirraDbError::DbRequestError)?;
 
     tirra_db_access_stop(db, crypto)?;
 
@@ -361,36 +429,24 @@ pub fn tirra_db_information(crypto: &TirraCrypto) -> Result<TirraDbInformation, 
     }
 }
 
-pub fn tirra_db_update_information_test(
-    insert: bool,
-    crypto: &TirraCrypto,
+/**
+* Record commit information after an update to the database.
+*/
+fn information_commit(
+    conn_transaction: &Transaction,
+    now: u64,
+    author: &str,
+    additional: &str,
 ) -> Result<(), TirraDbError> {
-    let db = tirra_db_access_start(crypto)?;
-    let now = tirra_db_time_now();
 
-    //
-    let test_commit: [u8; 16] = [0x0a; 16];
-    //let test_commit_2: [u8; 16] = [0x0b; 16];
-    if insert {
-        db.execute(
-            "INSERT INTO information
-            (schema_ver, local_commit, origin_commit, local_source, origin_source, local_ts, origin_ts) VALUES
-            ( 0, ?1, ?2, 'macos-ouadevv-87', '0', ?3, 0)",
-            params![test_commit, test_commit, now],
-        )
-        .map_err(|_e| TirraDbError::DbRequestError)?;
-    } else {
-        db.execute(
+    conn_transaction
+        .execute(
             "UPDATE information SET
-            local_ts = ?1
-            where id = (select max(id) from information)",
-            params![now],
+            local_commit = ?1, local_source = ?2, local_ts = ?3
+            where id = 1",
+            params![tirra_db_generate_commit_id(additional), author, now],
         )
         .map_err(|_e| TirraDbError::DbRequestError)?;
-    }
-
-    tirra_db_access_stop(db, crypto)?;
-
     Ok(())
 }
 
@@ -404,6 +460,7 @@ fn commit_id_string(commit_id: Vec<u8>) -> String {
 
 pub fn db_information_debug(info: &TirraDbInformation) {
     println!("database information:");
+    println!("---------------------");
     println!("schema version\t: {}", info.schema_ver);
     println!(
         "local commit:\n\tid:\t{}\n\tAuthor: {}\n\tDate:\t{}",

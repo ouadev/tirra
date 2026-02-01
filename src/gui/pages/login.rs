@@ -64,7 +64,7 @@ impl LoginPage {
                         // insert first empty entry
                         db::tirra_db_add_entry(
                             db::TIRRA_ENTRY_TYPE_GENERAL,
-                            "Mr7ba.\nHere are some usefuli info about Tirra.",
+                            db::TIRRA_FIRST_ENTRY_TEXT,
                             &crypto,
                         )
                         .expect("first entry add failed");
