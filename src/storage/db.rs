@@ -231,20 +231,31 @@ pub fn tirra_db_add_entry_migration(
     create_date: u64,
     crypto: &TirraCrypto,
 ) -> Result<(), TirraDbError> {
-    let db = tirra_db_access_start(crypto)?;
+    let mut db = tirra_db_access_start(crypto)?;
+    let now = tirra_db_time_now();
+
+    // start transaction
+    let transaction = db
+        .transaction()
+        .map_err(|_e| TirraDbError::DbRequestError)?;
+
     //save
-    db.execute(
-        "INSERT INTO entries
+    transaction
+        .execute(
+            "INSERT INTO entries
         (date_create, date_modify, type, text) VALUES
         ( ?1, ?2, ?3, ?4)",
-        params![create_date, create_date, type_entry, text_entry],
-    )
-    .map_err(|_e| TirraDbError::DbRequestError)?;
-    // unique commit
-    println!(
-        "unique commit\t: {}",
-        commit_id_string(tirra_db_generate_commit_id(text_entry))
-    );
+            params![create_date, create_date, type_entry, text_entry],
+        )
+        .map_err(|_e| TirraDbError::DbRequestError)?;
+
+    // record commit
+    information_commit(&transaction, now, "macos-ouadv", text_entry)?;
+
+    // end transaction
+    transaction
+        .commit()
+        .map_err(|_e| TirraDbError::DbRequestError)?;
 
     tirra_db_access_stop(db, crypto)?;
 
@@ -255,9 +266,24 @@ pub fn tirra_db_add_entry_migration(
  * Create a new entry in the database
  */
 pub fn tirra_db_remove_entry(id_entry: u32, crypto: &TirraCrypto) -> Result<(), TirraDbError> {
-    let db = tirra_db_access_start(crypto)?;
+    let mut db = tirra_db_access_start(crypto)?;
+    let now = tirra_db_time_now();
+
+    // start transaction
+    let transaction = db
+        .transaction()
+        .map_err(|_e| TirraDbError::DbRequestError)?;
+
     //save
-    db.execute("DELETE FROM entries WHERE id = ?1", params![id_entry])
+    transaction.execute("DELETE FROM entries WHERE id = ?1", params![id_entry])
+        .map_err(|_e| TirraDbError::DbRequestError)?;
+
+    // record commit
+    information_commit(&transaction, now, "macos-ouadv", "")?;
+
+    // end transaction
+    transaction
+        .commit()
         .map_err(|_e| TirraDbError::DbRequestError)?;
 
     tirra_db_access_stop(db, crypto)?;
