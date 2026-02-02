@@ -52,7 +52,7 @@ pub fn scroller_style(theme: &Theme, status: scrollable::Status) -> scrollable::
 
     //container background
     return_style.container =
-        container::Style::default().background(Background::Color(palette.background_neutral));
+        container::Style::default().background(Background::Color(palette.background_secondary));
 
     //color of the rail
     return_style.vertical_rail.background = Some(Background::Color(palette.background_secondary));
