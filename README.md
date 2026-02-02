@@ -88,11 +88,11 @@ launch Command Line Interface:
 $ tirra --cli COMMAND [ARGUMENTS]
 
 tirra --cli ver
-tirra --cli add		DB_FILE DATE < INPUT_FILE
+tirra --cli add		DB_FILE DATE < CONTENT_FILE
 tirra --cli delete	DB_FILE ID
 tirra --cli stat  	DB_FILE
-tirra --cli decrypt	DB_FILE
-tirra --cli encrypt	PL_FILE
+tirra --cli decrypt	DB_FILE OUT_FILE
+tirra --cli encrypt	PL_FILE OUT_FILE 
 
 
 COMMANDS
@@ -112,10 +112,12 @@ ARGUMENTS
        DB_FILE
               Path to an encrypted Tirra database file.
        DATE   Unix epoch timestamp.
-       DB_FILE_PLAIN
-              Path to an plaintext database file.
+       PL_FILE
+              Path to a plaintext file.
+       OUT_FILE
+              Output file, either of encryption or decryption.
        ID     id of the entry.
-       INPUT_FILE
+       CONTENT_FILE
               A file whose content will be added to the database via
               standard input redirection.
 ```

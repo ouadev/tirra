@@ -16,11 +16,11 @@ Usage:
 $ tirra --cli COMMAND [ARGUMENTS]
 
 tirra --cli ver
-tirra --cli add		DB_FILE DATE < INPUT_FILE
+tirra --cli add		DB_FILE DATE < CONTENT_FILE
 tirra --cli delete	DB_FILE ID
 tirra --cli stat  	DB_FILE
-tirra --cli decrypt	DB_FILE
-tirra --cli encrypt	PL_FILE
+tirra --cli decrypt	DB_FILE OUT_FILE
+tirra --cli encrypt	PL_FILE OUT_FILE 
 
 
 COMMANDS
@@ -40,10 +40,12 @@ ARGUMENTS
        DB_FILE
               Path to an encrypted Tirra database file.
        DATE   Unix epoch timestamp.
-       DB_FILE_PLAIN
-              Path to an plaintext database file.
+       PL_FILE
+              Path to a plaintext file.
+       OUT_FILE
+              Output file, either of encryption or decryption.
        ID     id of the entry.
-       INPUT_FILE
+       CONTENT_FILE
               A file whose content will be added to the database via
               standard input redirection.
 ";
@@ -150,19 +152,19 @@ pub fn process(args: &Vec<String>, args_count: usize) {
         let mut tirra_db = init_db_with_pwd(db_path);
         print_stats(&mut tirra_db);
     } else if cli_action == CliAction::Decrypt {
-        if args_count != 3 {
+        if args_count != 4 {
             println!("{}", USAGE_STR);
             return;
         }
 
         let db_path = String::from(&args[2]);
+        let out_path = String::from(&args[3]);
 
         // Get Password
         let password: String = ask_for_pwd();
         let pwd = password.as_bytes();
 
-        let plain_path = format!("{}.tirra", db_path);
-        let mut crypto = TirraCrypto::new(&db_path, &plain_path, &pwd);
+        let mut crypto = TirraCrypto::new(&db_path, &out_path, &pwd);
 
         match crypto.decrypt_db() {
             Ok(_) => {
@@ -173,19 +175,19 @@ pub fn process(args: &Vec<String>, args_count: usize) {
             }
         }
     } else if cli_action == CliAction::Encrypt {
-        if args_count != 3 {
+        if args_count != 4 {
             println!("{}", USAGE_STR);
             return;
         }
 
         let clear_path = String::from(&args[2]);
-        let enc_path = format!("{}.tirrage", clear_path);
+        let out_path = String::from(&args[3]);
 
         // Get Password
         let password: String = ask_for_pwd();
         let pwd = password.as_bytes();
 
-        let crypto = TirraCrypto::new(&enc_path, &clear_path, &pwd);
+        let crypto = TirraCrypto::new(&out_path, &clear_path, &pwd);
 
         match crypto.encrypt_file(&pwd) {
             Ok(_) => {
