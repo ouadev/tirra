@@ -78,8 +78,13 @@ Primarily developed and tested on Linux. Windows and macOS support is experiment
 ## Command Line 
 
 ``` 
-Usage:
+launch GUI:
+$ tirra [DB_FILE]
 
+if no databse file is provided, the default one will be attempted: ~/awal.tirra
+
+
+launch Command Line Interface:
 $ tirra --cli COMMAND [ARGUMENTS]
 
 tirra --cli ver
