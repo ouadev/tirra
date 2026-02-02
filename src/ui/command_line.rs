@@ -12,19 +12,40 @@ const USAGE_STR: &str = "
 Tirra Command Line.
 
 Usage:
-tirra-cli ver
-tirra-cli add     DB_FILE  DATE < INPUT_FILE
-tirra-cli delete  DB_FILE  ID
-tirra-cli stat    DB_FILE
-tirra-cli decrypt DB_FILE
-tirra-cli encrypt PL_FILE 
+
+$ tirra --cli COMMAND [ARGUMENTS]
+
+tirra --cli ver
+tirra --cli add		DB_FILE DATE < INPUT_FILE
+tirra --cli delete	DB_FILE ID
+tirra --cli stat  	DB_FILE
+tirra --cli decrypt	DB_FILE
+tirra --cli encrypt	PL_FILE
 
 
-DB_FILE         : path to a tirra database
-PWD_FILE        : path to a file containing the access password.
-DATE            : Unix epotch timestamp
-DB_FILE_PLAIN   : path to unencryped database file.
-INPUT_FILE      : a file whose content will be added.
+COMMANDS
+       ver    Display the version information and exit.
+       add    Add content from a file using redirection. DATE must
+              be a Unix epoch timestamp.
+       delete Remove an entry from the database by its ID.
+       stat   Display statistics about the database.
+       decrypt
+              Decrypt an encrypted database file.
+              it can be used to decrypt any file encrypted using Age/scrypt.
+       encrypt
+              Encrypt a plaintext database file.
+              it can encrypt any file using Age/scrypt.
+
+ARGUMENTS
+       DB_FILE
+              Path to an encrypted Tirra database file.
+       DATE   Unix epoch timestamp.
+       DB_FILE_PLAIN
+              Path to an plaintext database file.
+       ID     id of the entry.
+       INPUT_FILE
+              A file whose content will be added to the database via
+              standard input redirection.
 ";
 
 #[derive(PartialEq)]
