@@ -206,6 +206,7 @@ pub struct WriterUi {
     editor_dirty: bool,
     cli_visible: bool,
     cli_text: String,
+    pub cli_mode: bool,
     search_text: String,
     last_activity: i64,
     pub modifying_create_date: u8,
@@ -234,6 +235,7 @@ impl WriterUi {
             order_by_date_create: false,
             pagination_offset: 0u32,
             cli_visible: false,
+            cli_mode: false,
             modifying_create_date: 0,
             create_date_change_text: String::new(),
             editor_needs_refresh: false,
@@ -334,6 +336,17 @@ impl WriterUi {
      * response to action: cli_submit
      */
     pub fn on_cli_submit(&mut self) {
+        let success = self.cli_req_apply();
+
+        if success {
+            self.cli_mode = true;
+        }
+    }
+
+    /**
+     * apply the request inside cli input
+     */
+    pub fn cli_req_apply(&mut self) -> bool {
         ////// start db access
         if let Err(_) = self.tirra_db.access_start() {
             exception("Db access start", Some(&self.tirra_db));
@@ -342,15 +355,28 @@ impl WriterUi {
         match self.tirra_db.api_load_entries(&self.cli_text, true) {
             Ok(entries) => {
                 self.entry_list = entries;
-                //self.update_curr_entry_id(None);
                 self.load_request = self.cli_text.clone();
+                
+                return true;
             }
             Err(_err) => {
                 println!("New Loader request failed !!!");
                 self.cli_text = self.load_request.clone();
+
+                return false;
             }
         };
         ////// stop db access
+    }
+
+    /**
+     * response to action: reset cli clicked
+     */
+    pub fn on_reset_cli_clicked(&mut self) {
+        self.cli_mode = false;
+
+        self.cli_text = self.calc_loader_request();
+        self.cli_req_apply();
     }
 
     /**
@@ -366,7 +392,7 @@ impl WriterUi {
     pub fn on_search_submit(&mut self) {
         self.pagination_offset = 0;
         self.cli_text = self.calc_loader_request();
-        self.on_cli_submit();
+        self.cli_req_apply();
     }
 
     /**
@@ -377,8 +403,7 @@ impl WriterUi {
         self.pagination_offset = 0;
 
         self.cli_text = self.calc_loader_request();
-        //self.editor_needs_refresh = true;
-        self.on_cli_submit();
+        self.cli_req_apply();
     }
 
     /**
@@ -456,7 +481,7 @@ impl WriterUi {
         }
 
         self.cli_text = self.calc_loader_request();
-        self.on_cli_submit();
+        self.cli_req_apply();
     }
 
     /**

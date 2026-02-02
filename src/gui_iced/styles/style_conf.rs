@@ -47,6 +47,10 @@ pub fn icon_right<'a>() -> Text<'a> {
     icon('\u{f105}')
 }
 
+pub fn icon_undo<'a>() -> Text<'a> {
+    icon('\u{e804}')
+}
+
 pub fn dark_mode_in_paris() -> () {
     let paris = [
         (8, 17),

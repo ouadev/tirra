@@ -42,6 +42,7 @@ pub enum Message {
     SortToggled,
     CreateDateDoubleClicked,
     DeleteEntryClicked,
+    ResetCliClicked,
     LoaderPagination(bool),
 }
 impl EditorPage {
@@ -141,6 +142,10 @@ impl EditorPage {
                 self.writer_ui.on_delete_entry_clicked();
                 task = Task::none();
             }
+            Message::ResetCliClicked => {
+                self.writer_ui.on_reset_cli_clicked();
+                task = Task::none();
+            }
             Message::LoaderPagination(next) => {
                 self.writer_ui.on_pagination_clicked(next);
                 task = Task::none();
@@ -199,10 +204,13 @@ impl EditorPage {
             sort_icon = style_conf::icon_sort_modify();
         };
 
-        let div_sort = components::button::button_action(sort_icon)
+        let mut div_sort = components::button::button_action(sort_icon)
             .width(Length::Fixed(40.))
-            .height(Length::Fill)
-            .on_press(Message::SortToggled);
+            .height(Length::Fill);
+
+        if !self.writer_ui.cli_mode {
+            div_sort = div_sort.on_press(Message::SortToggled);
+        }
 
         // Search
         let div_search = TextInput::new("search", &self.writer_ui.search_text())
@@ -318,7 +326,9 @@ impl EditorPage {
         // Pagination details
         let div_pagination;
         let pagionation_brief = self.writer_ui.pagination_brief();
-        if pagionation_brief.2 > (pagionation_brief.1 - pagionation_brief.0) {
+        if !self.writer_ui.cli_mode
+            && pagionation_brief.2 > (pagionation_brief.1 - pagionation_brief.0)
+        {
             let div_page_prev = button_action(style_conf::icon_left())
                 .width(50.)
                 .height(Length::Fill)
@@ -351,7 +361,25 @@ impl EditorPage {
                     container::Style::default().background(palette.background_secondary)
                 });
         } else {
-            div_pagination = container(space());
+            let page_brief = format!("{}", pagionation_brief.2);
+            let div_page_text = text(page_brief)
+                .align_x(text::Alignment::Center)
+                .size(13.)
+                .wrapping(Wrapping::WordOrGlyph)
+                .shaping(text::Shaping::Advanced)
+                .color(palette().text)
+                .width(Length::Fill);
+
+            div_pagination = container(div_page_text)
+                .height(Length::Fixed(30.))
+                .padding(Padding {
+                    top: 5.,
+                    ..Default::default()
+                })
+                .style(|_theme: &Theme| {
+                    let palette = style_conf::palette();
+                    container::Style::default().background(palette.background_secondary)
+                });
         }
 
         // DIV : Left Pan
@@ -468,6 +496,14 @@ impl EditorPage {
             );
         }
 
+        let button_delete: Element<'_, _, _, _> = if self.writer_ui.is_cli_visible() {
+            button_action(style_conf::icon_delete_entry().height(7.))
+                .on_press(Message::DeleteEntryClicked)
+                .into()
+        } else {
+            Space::new().width(32).into()
+        };
+
         // status bar
         container(row![
             Space::new().width(20),
@@ -483,8 +519,10 @@ impl EditorPage {
                 }),
             div_date_modify,
             widget::space::horizontal(),
+            button_delete,
+            widget::space::horizontal(),
             div_id,
-            Space::new().width(10)
+            Space::new().width(5)
         ])
         .padding(2)
         .style(|_theme: &Theme| {
@@ -511,10 +549,20 @@ impl EditorPage {
         .on_input(Message::CliChanged)
         .id(Id::new(CLI_INPUT_ICED_ID));
 
-        let button_delete =
-            button_action(style_conf::icon_delete_entry()).on_press(Message::DeleteEntryClicked);
+        let button_reset = if self.writer_ui.cli_mode {
+            button_action(style_conf::icon_undo())
+                .width(30.)
+                .on_press(Message::ResetCliClicked)
+        } else {
+            button_action(text("")).width(30.)
+        };
 
-        let div_cli = row![input_cmd, Space::new().width(10), button_delete];
+        let div_cli = row![
+            input_cmd,
+            Space::new().width(10),
+            button_reset,
+            Space::new().width(5),
+        ];
 
         let mut div_command_cont;
         if self.writer_ui.is_cli_visible() {
