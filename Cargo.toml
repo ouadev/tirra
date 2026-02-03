@@ -13,7 +13,7 @@ path = "src/bin/cli.rs"
 
 [dependencies]
 # ICED
-iced = { version = "0.14.0", features = [ "tokio"] }
+iced = { version = "0.14.0", features = [ "tokio", "advanced"] }
 
 # Sqlite Database
 rusqlite = { version = "0.32.0", features = ["bundled"] }

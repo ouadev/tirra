@@ -1,7 +1,9 @@
 use crate::gui_iced::components;
 use crate::gui_iced::components::button::{button_action, button_list_entry};
+use crate::gui_iced::components::paper;
 use crate::gui_iced::styles::style_conf::palette;
 use crate::gui_iced::styles::{self, style_conf};
+
 use crate::ui::ui::{BgRun, TirraInterface, WriterUi};
 
 use iced::theme::Theme;
@@ -24,12 +26,14 @@ const TEXT_EDITOR_ID: &str = "text_editor_id";
 pub struct EditorPage {
     pub writer_ui: WriterUi,
     pub content: text_editor::Content,
+    pub paper_handle: paper::PaperHandle,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
     Tick,
     EditorAction(text_editor::Action),
+    PaperAction(paper::Action),
     EntryClicked(u32),
     NewEntryClicked,
     LiveEntryClicked,
@@ -51,9 +55,18 @@ impl EditorPage {
         let mut writer_ui = WriterUi::new();
         writer_ui.connect(db_location, crypto_pwd);
         // initial editor content
-        let init_content = match &writer_ui.entry_live {
-            Some(entry) => text_editor::Content::with_text(&entry.text),
-            _ => text_editor::Content::with_text(""),
+
+        let init_content;
+        let init_handle;
+        match &writer_ui.entry_live {
+            Some(entry) => {
+                init_content = text_editor::Content::with_text(&entry.text);
+                init_handle = paper::PaperHandle::new(&entry.text);
+            }
+            _ => {
+                init_content = text_editor::Content::with_text("");
+                init_handle = paper::PaperHandle::new("no entry is found !!");
+            }
         };
 
         //return
@@ -61,6 +74,7 @@ impl EditorPage {
             Self {
                 writer_ui: writer_ui,
                 content: init_content,
+                paper_handle: init_handle,
             },
             Task::none(),
         )
@@ -75,12 +89,19 @@ impl EditorPage {
                         // block editing when in readonly mode
                         if !self.writer_ui.is_readonly() && self.writer_ui.is_entry_selected() {
                             self.content.perform(action);
+                            self.paper_handle = paper::PaperHandle::new(&self.content.text());
                             self.writer_ui.content_changed(&self.content.text());
                         }
                     }
                     _ => self.content.perform(action),
                 }
 
+                task = Task::none();
+            }
+
+            Message::PaperAction(action) => {
+                //println!("Paper Editor Action : {:?}", action);
+                self.paper_handle.perform(action);
                 task = Task::none();
             }
 
@@ -174,6 +195,8 @@ impl EditorPage {
             });
         // DIV : Left Pan
         let div_leftpan = self.view_left_pan();
+
+        // right pan
 
         // All
         if let Some(message) = &self.writer_ui.error_screen {
@@ -610,6 +633,20 @@ impl EditorPage {
                 })
         };
 
+        //DIV: Paper Editor
+        let palette = style_conf::palette();
+
+        let mut paper_editor = paper::Paper::new(&self.paper_handle);
+        paper_editor.set_style(palette.control_main, palette.text);
+        paper_editor = paper_editor.on_action(Message::PaperAction);
+
+        let paper_cont = container(paper_editor)
+            .width(Length::FillPortion(1))
+            .height(600.);
+
+        // dual editor
+        let editors = row![editor_cont, paper_cont];
+
         // DIV : Editor Status Zone
         let div_editor_status = if self.writer_ui.is_entry_selected() {
             self.view_editor_status()
@@ -618,7 +655,7 @@ impl EditorPage {
         };
 
         //Editor
-        column![div_command_cont, editor_cont, div_editor_status].into()
+        column![div_command_cont, editors, div_editor_status].into()
     }
 
     fn view_error_screen(&self, message: String) -> Element<'_, Message> {
@@ -646,9 +683,11 @@ impl EditorPage {
         match &self.writer_ui.entry_live {
             Some(entry) => {
                 self.content = text_editor::Content::with_text(&entry.text);
+                self.paper_handle = paper::PaperHandle::new(&entry.text);
             }
             _ => {
                 self.content = text_editor::Content::with_text("");
+                self.paper_handle = paper::PaperHandle::new("new editor handle");
             }
         }
     }
