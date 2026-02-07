@@ -1,4 +1,4 @@
-use super::age::AgeCrypto;
+use crate::crypto::age::AgeCrypto;
 
 pub struct TirraCrypto {
     db_location: String,
@@ -17,7 +17,6 @@ impl Default for TirraCrypto {
         }
     }
 }
-
 
 impl TirraCrypto {
     pub fn new(location_encrypted: &str, location_plain: &str, password: &[u8]) -> Self {
