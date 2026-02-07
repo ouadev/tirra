@@ -534,20 +534,22 @@ impl WriterUi {
         //instead of save_live() we use one DB commit to both save the current entry and create a new one.
 
         if let Some(entry) = &self.entry_live {
-            if let Err(error) = self
-                .tirra_db
-                .api_update_entry(&entry.text.clone(), entry.id, false)
-            {
-                self.error_screen = Some(format!(
-                    "error: I couldn't write the current entry content to database ({:?})",
-                    error
-                ));
+            if self.editor_dirty {
+                if let Err(error) =
+                    self.tirra_db
+                        .api_update_entry(&entry.text.clone(), entry.id, false)
+                {
+                    self.error_screen = Some(format!(
+                        "error: I couldn't write the current entry content to database ({:?})",
+                        error
+                    ));
+                }
+                self.editor_dirty = false;
             }
         }
-        self.editor_dirty = false;
 
         // add a new entry
-        let now = utils::time_now();
+        let now = utils::time_now() + 1; //add one second to avoid the same timestamp as the last saved record.
         match self
             .tirra_db
             .api_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", now, now, false)
