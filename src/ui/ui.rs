@@ -731,7 +731,6 @@ impl WriterUi {
                 TirraEntryList::new()
             }
         };
-        self.editor_dirty = false;
         ////// stop db access
     }
 
@@ -747,7 +746,7 @@ impl WriterUi {
             exception("Db access start", Some(&self.tirra_db));
         }
 
-        if let Some(entry) = &self.entry_live {
+        if let Some(entry) = &mut self.entry_live {
             if let Err(error) = self
                 .tirra_db
                 .api_update_entry(&entry.text.clone(), entry.id, true)
@@ -756,6 +755,9 @@ impl WriterUi {
                     "error: I couldn't write the current entry content to database ({:?})",
                     error
                 ));
+            } else {
+                //update locally the modification date. an alternative way to reload the last saved state.
+                entry.date_modify = utils::time_now();
             }
         }
         self.editor_dirty = false;
