@@ -221,7 +221,7 @@ impl TirraDb {
     }
 
     pub fn with_crypto(location: &str, password: &[u8]) -> Self {
-        let plain = format!("{}{}", &location, Self::DB_PLAIN_SUFFIX);
+        let plain = format!(".{}{}", &location, Self::DB_PLAIN_SUFFIX);
         Self {
             crypto: TirraCrypto::new(location, plain.as_str(), password),
             conn: None,
@@ -322,7 +322,7 @@ impl TirraDb {
          *  - alert at start up if clear db is found from previous sessions.
          */
         let enc_backup = format!(
-            "{}{}",
+            ".{}{}",
             &self.crypto.get_db_location(),
             Self::DB_BACKUP_SUFFIX
         );
