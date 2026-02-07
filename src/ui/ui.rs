@@ -311,15 +311,6 @@ impl WriterUi {
         }
     }
 
-    pub fn deprec_current_entry(&self) -> Option<&TirraEntry> {
-        /*match self.curr_entry_id {
-            Some(id) => self.entry_list.find_by_id(id),
-            _ => None,
-        }
-        */
-        None
-    }
-
     /**
      * response to action: show_cli command line
      */
@@ -356,7 +347,7 @@ impl WriterUi {
             Ok(entries) => {
                 self.entry_list = entries;
                 self.load_request = self.cli_text.clone();
-                
+
                 return true;
             }
             Err(_err) => {
@@ -576,7 +567,7 @@ impl WriterUi {
                 if temp_list.len() > 0 {
                     let last_entry = temp_list.get_entry(0).unwrap();
                     self.entry_live = Some(last_entry.clone());
-                    self.reload_if_needed(last_entry.id);
+                    self.reload();
                 } else {
                     exception("DB should return one entry", Some(&self.tirra_db));
                 }
@@ -713,26 +704,33 @@ impl WriterUi {
     fn reload_if_needed(&mut self, id: u32) {
         match self.entry_list.find_by_id(id) {
             Some(_entry) => {
-                ////// start db access
-                if let Err(_) = self.tirra_db.access_start() {
-                    exception("Db access start", Some(&self.tirra_db));
-                }
-
-                self.entry_list = match self
-                    .tirra_db
-                    .api_load_entries(&self.load_request.clone(), true)
-                {
-                    Ok(list) => list,
-                    Err(_err) => {
-                        exception("loading entries", Some(&self.tirra_db));
-                        TirraEntryList::new()
-                    }
-                };
-                self.editor_dirty = false;
-                ////// stop db access
+                self.reload();
             }
             _ => {}
         }
+    }
+
+    /**
+     * rerun the current loader request.
+     */
+    fn reload(&mut self) {
+        ////// start db access
+        if let Err(_) = self.tirra_db.access_start() {
+            exception("Db access start", Some(&self.tirra_db));
+        }
+
+        self.entry_list = match self
+            .tirra_db
+            .api_load_entries(&self.load_request.clone(), true)
+        {
+            Ok(list) => list,
+            Err(_err) => {
+                exception("loading entries", Some(&self.tirra_db));
+                TirraEntryList::new()
+            }
+        };
+        self.editor_dirty = false;
+        ////// stop db access
     }
 
     /**
