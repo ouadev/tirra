@@ -81,18 +81,21 @@ Primarily developed and tested on Linux. Windows and macOS support is experiment
 launch GUI:
 $ tirra [DB_FILE]
 
-if no databse file is provided, the default one will be attempted: ~/awal.tirra
+if no databse file is provided, the default one will be attempted: [HOME]/awal.tirra
 
 
 launch Command Line Interface:
+$ tirra-cli COMMAND [ARGUMENTS]
+OR also (in unix systems):  
 $ tirra --cli COMMAND [ARGUMENTS]
 
-tirra --cli ver
-tirra --cli add		DB_FILE DATE < CONTENT_FILE
-tirra --cli delete	DB_FILE ID
-tirra --cli stat  	DB_FILE
-tirra --cli decrypt	DB_FILE OUT_FILE
-tirra --cli encrypt	PL_FILE OUT_FILE 
+U
+tirra-cli ver
+tirra-cli add		DB_FILE DATE < CONTENT_FILE
+tirra-cli delete	DB_FILE ID
+tirra-cli stat  	DB_FILE
+tirra-cli decrypt	DB_FILE OUT_FILE
+tirra-cli encrypt	PL_FILE OUT_FILE 
 
 
 COMMANDS

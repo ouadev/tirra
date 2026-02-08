@@ -13,6 +13,8 @@ x86_64-w64-mingw32-windres resources/windows/resources.rc -O coff -o packages/wi
 
 # Build the application.
 cargo build --target x86_64-pc-windows-gnu --profile release --bin gui
+cargo build --target x86_64-pc-windows-gnu --profile release --bin cli
 
 # Copy the exe
 cp target/x86_64-pc-windows-gnu/release/gui.exe packages/tirra-$VERSION.exe
+cp target/x86_64-pc-windows-gnu/release/cli.exe packages/tirra-cli-$VERSION.exe
