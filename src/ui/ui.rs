@@ -92,7 +92,13 @@ impl LoginUi {
     }
 
     pub fn on_login(&mut self) {
-        let mut tirra_db = TirraDb::with_crypto(&self.db_location, self.password.as_bytes());
+        let mut tirra_db =
+            if let Ok(db) = TirraDb::with_crypto(&self.db_location, self.password.as_bytes()) {
+                db
+            } else {
+                exception("couldn't initialize new database", None);
+                return;
+            };
 
         if self.db_found == false {
             // Database is not found, start initialization of a new one at the same location.
@@ -249,15 +255,24 @@ impl WriterUi {
 
     pub fn connect(&mut self, db_location: &str, crypto_pwd: &[u8]) {
         //Init Crypto
-        self.tirra_db = TirraDb::with_crypto(db_location, crypto_pwd);
+        self.tirra_db = if let Ok(db) = TirraDb::with_crypto(db_location, crypto_pwd) {
+            db
+        } else {
+            exception("couldn't initialize new database", None);
+            return;
+        };
+
         // intialize the backend
         if utils::file_exists(db_location) == false {
             panic!("we are not supposed to be here without an encrypted database");
         }
 
         ////// start db access
-        if let Err(_) = self.tirra_db.access_start() {
-            exception("Db access start", Some(&self.tirra_db));
+        if let Err(x) = self.tirra_db.access_start() {
+            exception(
+                &format!("Db access start - connect - {:?}", x),
+                Some(&self.tirra_db),
+            );
         }
 
         if let Ok(local_info) = self.tirra_db.api_load_info(false) {
@@ -340,7 +355,7 @@ impl WriterUi {
     pub fn cli_req_apply(&mut self) -> bool {
         ////// start db access
         if let Err(_) = self.tirra_db.access_start() {
-            exception("Db access start", Some(&self.tirra_db));
+            exception("Db access start - cli_req_apply", Some(&self.tirra_db));
         }
 
         match self.tirra_db.api_load_entries(&self.cli_text, true) {
@@ -421,7 +436,10 @@ impl WriterUi {
         // database access
         ////// start db access
         if let Err(_) = self.tirra_db.access_start() {
-            exception("Db access start", Some(&self.tirra_db));
+            exception(
+                "Db access start - on_create_date_submit",
+                Some(&self.tirra_db),
+            );
         }
 
         match self.tirra_db.api_update_create_date(
@@ -488,7 +506,10 @@ impl WriterUi {
 
         ////// start db access
         if let Err(_) = self.tirra_db.access_start() {
-            exception("Db access start", Some(&self.tirra_db));
+            exception(
+                "Db access start - on_delete_entry_clicked",
+                Some(&self.tirra_db),
+            );
         }
 
         // remove current entry
@@ -528,7 +549,7 @@ impl WriterUi {
         }
         ////// start db access
         if let Err(_) = self.tirra_db.access_start() {
-            exception("Db access start", Some(&self.tirra_db));
+            exception("Db access start - on_new_entry", Some(&self.tirra_db));
         }
         // Save before creating a new entry
         //instead of save_live() we use one DB commit to both save the current entry and create a new one.
@@ -718,7 +739,7 @@ impl WriterUi {
     fn reload(&mut self) {
         ////// start db access
         if let Err(_) = self.tirra_db.access_start() {
-            exception("Db access start", Some(&self.tirra_db));
+            exception("Db access start - reload", Some(&self.tirra_db));
         }
 
         self.entry_list = match self
@@ -743,7 +764,7 @@ impl WriterUi {
         }
         ////// start db access
         if let Err(_) = self.tirra_db.access_start() {
-            exception("Db access start", Some(&self.tirra_db));
+            exception("Db access start - save_live", Some(&self.tirra_db));
         }
 
         if let Some(entry) = &mut self.entry_live {

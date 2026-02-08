@@ -94,14 +94,18 @@ pub fn process(args: &Vec<String>, args_count: usize) {
         let timestamp = args[3].parse().unwrap();
 
         //init db
-        let mut tirra_db = init_db_with_pwd(db_path);
+        let mut tirra_db = init_db_with_pwd(db_path).expect("failed to find path");
 
         // read from a standard input
         let input_txt =
             io::read_to_string(io::stdin()).expect("no content is found for the new entry");
         let content = Vec::from(input_txt.as_bytes());
 
-        tirra_db.access_start().unwrap();
+        if let Err(_x) = tirra_db.access_start() {
+            println!("couldn't access tirra database");
+            return;
+        }
+
         let added = tirra_db.api_add_entry(
             db::TIRRA_ENTRY_TYPE_GENERAL,
             &String::from_utf8(content).unwrap(),
@@ -127,9 +131,12 @@ pub fn process(args: &Vec<String>, args_count: usize) {
         let id = args[3].parse().unwrap();
 
         //init db
-        let mut tirra_db = init_db_with_pwd(db_path);
+        let mut tirra_db = init_db_with_pwd(db_path).expect("failed to find path");
 
-        tirra_db.access_start().unwrap();
+        if let Err(_x) = tirra_db.access_start() {
+            println!("couldn't access tirra database");
+            return;
+        }
         let removed = tirra_db.api_remove_entry(id, true);
 
         match removed {
@@ -149,7 +156,7 @@ pub fn process(args: &Vec<String>, args_count: usize) {
         let db_path = String::from(&args[2]);
 
         //init db
-        let mut tirra_db = init_db_with_pwd(db_path);
+        let mut tirra_db = init_db_with_pwd(db_path).expect("failed to find path");
         print_stats(&mut tirra_db);
     } else if cli_action == CliAction::Decrypt {
         if args_count != 4 {
@@ -209,7 +216,12 @@ pub fn process(args: &Vec<String>, args_count: usize) {
         let password: String = ask_for_pwd();
         let pwd = password.as_bytes();
 
-        let mut tirra_db = TirraDb::with_crypto(&db_path, &pwd);
+        let mut tirra_db = if let Ok(db) = TirraDb::with_crypto(&db_path, &pwd) {
+            db
+        } else {
+            println!("failed to find path: {}", db_path);
+            return;
+        };
         // test db ops
         let access = tirra_db.try_access();
         println!("access : {}", access);
@@ -220,18 +232,23 @@ pub fn process(args: &Vec<String>, args_count: usize) {
  * Init Db Access
  */
 
-fn init_db_with_pwd(db_path: String) -> TirraDb {
+fn init_db_with_pwd(db_path: String) -> Option<TirraDb> {
     // Get Password
     let password: String = ask_for_pwd();
     let pwd = password.as_bytes();
     //Init Tirra Db
-    let tirra_db = TirraDb::with_crypto(&db_path, &pwd);
-    //
-    return tirra_db;
+    if let Ok(db) = TirraDb::with_crypto(&db_path, &pwd) {
+        return Some(db);
+    } else {
+        return None;
+    };
 }
 
 fn print_stats(db: &mut TirraDb) {
-    db.access_start().unwrap();
+    if let Err(_x) = db.access_start() {
+        println!("couldn't access tirra database");
+        return;
+    }
     let loaded = db.api_load_entries(&TirraDb::build_filter("", true, 0, 1), false);
 
     match loaded {

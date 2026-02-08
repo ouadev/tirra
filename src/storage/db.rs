@@ -6,6 +6,7 @@ use rusqlite::Transaction;
 use std::env;
 use std::fs;
 use std::path::Path;
+use std::path::PathBuf;
 use std::process;
 use std::result::Result;
 
@@ -37,6 +38,11 @@ pub enum TirraDbError {
     DbRequestErrorQuery,
     DbRequestErrorIter,
     DbRequestErrorCommit,
+}
+
+enum TirraDbTempType {
+    Plain,
+    Backup,
 }
 
 /**
@@ -220,11 +226,21 @@ impl TirraDb {
         }
     }
 
-    pub fn with_crypto(location: &str, password: &[u8]) -> Self {
-        let plain = format!(".{}{}", &location, Self::DB_PLAIN_SUFFIX);
-        Self {
-            crypto: TirraCrypto::new(location, plain.as_str(), password),
-            conn: None,
+    pub fn with_crypto(location: &str, password: &[u8]) -> Result<Self, TirraDbError> {
+        if let Some(plain_db) = Self::calculate_temp_name(location, TirraDbTempType::Plain) {
+            Ok(Self {
+                crypto: TirraCrypto::new(
+                    location,
+                    plain_db
+                        .as_os_str()
+                        .to_str()
+                        .ok_or(TirraDbError::DbOpenFailure)?,
+                    password,
+                ),
+                conn: None,
+            })
+        } else {
+            Err(TirraDbError::DbOpenFailure)
         }
     }
 
@@ -258,7 +274,6 @@ impl TirraDb {
             search, order, offset, limit
         )
     }
-
 
     /**
      * Start access to db.
@@ -321,11 +336,14 @@ impl TirraDb {
          *  - one-last-check cleanup in exceptions and exit signal
          *  - alert at start up if clear db is found from previous sessions.
          */
-        let enc_backup = format!(
-            ".{}{}",
-            &self.crypto.get_db_location(),
-            Self::DB_BACKUP_SUFFIX
-        );
+
+        let enc_backup = if let Some(name) =
+            Self::calculate_temp_name(&self.crypto.get_db_location(), TirraDbTempType::Backup)
+        {
+            name
+        } else {
+            return Err(TirraDbError::CryptoAccessFailure);
+        };
 
         //close connection if it is open
         self.conn = None;
@@ -522,10 +540,24 @@ impl TirraDb {
     }
 
     pub fn api_scan_dir(db_path: &str) -> (bool, bool) {
-        let plain = format!("{}{}", &db_path, Self::DB_PLAIN_SUFFIX);
-        let backup = format!("{}{}", &db_path, Self::DB_BACKUP_SUFFIX);
+        let plain_exists: bool;
+        let backup_exists: bool;
 
-        (utils::file_exists(&plain), utils::file_exists(&backup))
+        if let Some(name) = Self::calculate_temp_name(db_path, TirraDbTempType::Plain) {
+            let plain = name.as_os_str().to_str().unwrap();
+            plain_exists = utils::file_exists(&plain);
+        } else {
+            plain_exists = false;
+        }
+
+        if let Some(name) = Self::calculate_temp_name(db_path, TirraDbTempType::Backup) {
+            let backup = name.as_os_str().to_str().unwrap();
+            backup_exists = utils::file_exists(&backup);
+        } else {
+            backup_exists = false;
+        }
+
+        (plain_exists, backup_exists)
     }
 
     /**
@@ -853,6 +885,20 @@ impl TirraDb {
     fn cleanup_plain(&self) -> Result<(), TirraDbError> {
         fs::remove_file(self.crypto.plaintext_db_location())
             .map_err(|_| TirraDbError::DbRemovePlain)
+    }
+
+    fn calculate_temp_name(path_str: &str, temp_type: TirraDbTempType) -> Option<PathBuf> {
+        let suffix = if let TirraDbTempType::Plain = temp_type {
+            Self::DB_PLAIN_SUFFIX
+        } else {
+            Self::DB_BACKUP_SUFFIX
+        };
+
+        let path = Path::new(path_str);
+        let parent = path.parent()?;
+        let filename = path.file_name()?.to_str()?;
+        let new_filename = format!(".{}{}", filename, suffix);
+        Some(parent.join(new_filename))
     }
 }
 
