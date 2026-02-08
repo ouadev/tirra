@@ -169,7 +169,7 @@ impl TirraInterface for LoginUi {
     fn on_activity(&mut self) {}
 
     fn title(&self) -> String {
-        format!("Tirra - open \t{}", version::VERSION)
+        format!("Tirra \t{}", version::VERSION)
     }
 
     fn background_work(&self) -> BgRun {
@@ -397,6 +397,7 @@ impl WriterUi {
      */
     pub fn on_search_submit(&mut self) {
         self.pagination_offset = 0;
+        self.cli_mode = false;
         self.cli_text = self.calc_loader_request();
         self.cli_req_apply();
     }
