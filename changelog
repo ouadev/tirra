@@ -1,3 +1,17 @@
+
+Tirra v1.1.0:
+-------------
+- add search input field
+- add sort button: sort by date_create or date_modify
+- add pagination to the entries explorer.
+- navigation with up/down arrows inside the entries list
+- hidden feature: double click date_create in the UI to change it
+- delete button: visible after CTRL+L
+- CTRL+N: shortcut to add new entry
+- improve UI style and appearance
+- make the SQL CLI and the explorer work together.
+- simplify tirra-cli usage.
+
 Tirra v1.0.0:
 -------------
 + Tirra is a simple file format for storing text entries, notes and articles, in a Sqlite file.
