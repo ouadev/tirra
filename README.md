@@ -89,7 +89,8 @@ $ tirra-cli COMMAND [ARGUMENTS]
 OR also (in unix systems):  
 $ tirra --cli COMMAND [ARGUMENTS]
 
-U
+Usage:
+
 tirra-cli ver
 tirra-cli add		DB_FILE DATE < CONTENT_FILE
 tirra-cli delete	DB_FILE ID

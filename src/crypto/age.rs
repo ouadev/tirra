@@ -434,6 +434,23 @@ impl AgeCrypto {
     }
 
     /**
+     *  used to see of the file header "looks" like an Age/v1 scrypt
+     */
+    pub fn check_header(file_location: &str) -> bool {
+        if let Ok(file) = File::open(file_location) {
+            let mut reader = BufReader::new(file);
+            //parse header
+            if let Err(_) = AgeScryptHeader::from_reader(&mut reader) {
+                false
+            } else {
+                true
+            }
+        } else {
+            false
+        }
+    }
+
+    /**
      * extract age file key from the header.
      */
     pub fn extract_secrets(

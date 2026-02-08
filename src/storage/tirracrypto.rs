@@ -33,6 +33,14 @@ impl TirraCrypto {
     }
 
     /**
+     * returns yes if the right header is found
+     */
+
+    pub fn probe_db_header(db_location: &str) -> bool {
+        AgeCrypto::check_header(db_location)
+    }
+
+    /**
      * only analyze header, to check access
      */
     pub fn probe_db(&mut self) -> Result<(), ()> {

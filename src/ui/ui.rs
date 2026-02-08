@@ -1,7 +1,10 @@
 use crate::{
     common::{exception::exception, utils, version},
     gui_iced::styles::style_conf,
-    storage::db::{self, TirraDb, TirraEntry, TirraEntryList},
+    storage::{
+        db::{self, TirraDb, TirraEntry, TirraEntryList},
+        tirracrypto::TirraCrypto,
+    },
 };
 use chrono::{DateTime, Datelike, Timelike, Utc};
 
@@ -65,6 +68,13 @@ impl LoginUi {
         let db_found: bool;
         if utils::file_exists(db_location) == true {
             db_found = true;
+
+            //checks header
+            if TirraCrypto::probe_db_header(db_location) == false {
+                info_text.push_str(&format!(
+                    "Beware, file doesn't seem to be a tirra database.\n"
+                ));
+            };
             //scan dir
             let (plain_file, backup_file) = TirraDb::api_scan_dir(db_location);
             if plain_file {
