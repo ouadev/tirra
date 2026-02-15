@@ -246,6 +246,29 @@ impl TirraDb {
     }
 
     /**
+     * new api: open connection
+     */
+    pub fn with_tirravfs(location: &str, password: &[u8]) -> Result<Self, TirraDbError> {
+        let db_path = format!("{}:{}", location, String::from_utf8_lossy(password));
+        //open conn
+        let connection;
+        match Connection::open(db_path) {
+            Ok(conn) => {
+                connection = Some(conn);
+            }
+            Err(_) => {
+                return Err(TirraDbError::DbOpenFailure);
+            }
+        };
+        //ret
+        Ok(Self {
+            //dummy crypto
+            crypto: TirraCrypto::new("", "", "".as_bytes()),
+            conn: connection,
+        })
+    }
+
+    /**
      * get the current encrypted db
      */
     pub fn get_db_location(&self) -> String {
@@ -349,6 +372,9 @@ impl TirraDb {
         } else {
             return Err(TirraDbError::CryptoAccessFailure);
         };
+
+        // trigger a display of VFS logs
+        Self::poke_vfs();
 
         //close connection if it is open
         self.conn = None;
@@ -566,6 +592,83 @@ impl TirraDb {
     }
 
     /**
+     * API2 using tirravfs
+     */
+
+    pub fn api_2_set_pragmas(&mut self) -> Result<(), TirraDbError> {
+        //check access
+        let db = if let Some(conn) = &mut self.conn {
+            conn
+        } else {
+            return Err(TirraDbError::CryptoAccessFailure);
+        };
+
+        // set pragmas
+        db.pragma_update(None, "journal_mode", "PERSIST")
+            .map_err(|_e| TirraDbError::DbRequestError)?;
+        db.pragma_update(None, "temp_store", "FILE")
+            .map_err(|_e| TirraDbError::DbRequestError)?;
+
+        //read pragmas to check they are applied
+        let pragma: i32 = db
+            .pragma_query_value(None, "temp_store", |row| row.get(0))
+            .map_err(|_e| TirraDbError::DbRequestError)?;
+
+        println!("temp_store : {}", pragma);
+        Ok(())
+    }
+
+    pub fn api_2_access_stop(&mut self) -> Result<(), TirraDbError> {
+        self.conn = None;
+        Ok(())
+    }
+
+    pub fn api_2_load_info(&mut self) -> Result<TirraDbInformation, TirraDbError> {
+        //check access
+        let db = if let Some(conn) = &mut self.conn {
+            conn
+        } else {
+            return Err(TirraDbError::CryptoAccessFailure);
+        };
+
+        let result = Self::op_load_info(db);
+        //if result.is_err() || last {
+        //    self.access_stop(last)?;
+        //}
+        return result;
+    }
+
+    pub fn api_2_load_entries(&mut self, filter: &str) -> Result<TirraEntryList, TirraDbError> {
+        //check access
+        let db = if let Some(conn) = &mut self.conn {
+            conn
+        } else {
+            return Err(TirraDbError::CryptoAccessFailure);
+        };
+
+        let result = Self::op_load_entries(db, filter);
+
+        return result;
+    }
+
+    pub fn api_2_update_entry(
+        &mut self,
+        text_entry: &str,
+        entry_id: u32,
+    ) -> Result<(), TirraDbError> {
+        //check access
+        let db = if let Some(conn) = &mut self.conn {
+            conn
+        } else {
+            return Err(TirraDbError::CryptoAccessFailure);
+        };
+
+        let result = Self::op_update_entry(db, text_entry, entry_id);
+
+        return result;
+    }
+
+    /**
      * Operation: UpdateEntry
      */
     fn op_update_entry(
@@ -580,15 +683,16 @@ impl TirraDb {
             .map_err(|_e| TirraDbError::DbRequestError)?;
 
         //save
-        transaction
+        let tr_result = transaction
             .execute(
                 "UPDATE entries SET
             date_modify = ?1,
             text        = ?2
             WHERE id    = ?3",
                 (now, text_entry, entry_id),
-            )
-            .map_err(|_e| TirraDbError::DbRequestError)?;
+            );
+        println!("tr_result : {:?}", tr_result);
+        tr_result.map_err(|_e| TirraDbError::DbRequestError)?;
 
         // record commit
         let _ = TirraDb::op_commit(&transaction, now, Self::DEFAULT_COMMIT_AUTHOR, text_entry);
@@ -919,6 +1023,44 @@ impl TirraDb {
         let filename = path.file_name()?.to_str()?;
         let new_filename = format!(".{}{}", filename, suffix);
         Some(parent.join(new_filename))
+    }
+
+    /**
+     * load tirravfs sqlite3 extension
+     */
+    pub fn load_vfs_extension() -> Result<(), TirraDbError> {
+        match Connection::open_in_memory() {
+            Ok(conn) => {
+                //
+                println!("Loading tirravfs extension... ");
+                unsafe {
+                    conn.load_extension_enable()
+                        .map_err(|_e| TirraDbError::DbInitError)?;
+                    conn.load_extension(
+                        format!("../tirra-vfs/target/debug/libtirra_vfs.so"),
+                        None::<&str>,
+                    )
+                    .map_err(|_e| TirraDbError::DbInitError)?;
+                    conn.load_extension_disable()
+                        .map_err(|_e| TirraDbError::DbInitError)?;
+                }
+
+                Ok(())
+            }
+            _ => {
+                return Err(TirraDbError::DbInitError);
+            }
+        }
+    }
+
+    /**
+     * new connection trigger the registration function of the VFS
+     */
+    pub fn poke_vfs() {
+        match Connection::open_in_memory() {
+            Ok(_) => {}
+            _ => {}
+        }
     }
 }
 

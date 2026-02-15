@@ -210,22 +210,58 @@ pub fn process(args: &Vec<String>, args_count: usize) {
             return;
         }
 
-        let db_path = String::from(&args[2]);
+        // load vfs extension
+        TirraDb::load_vfs_extension().expect("failure loading tirravfs");
 
-        // Get Password
+        //Open db
+        let db_path = String::from(&args[2]);
         let password: String = ask_for_pwd();
         let pwd = password.as_bytes();
+        //let mut tirra_db = TirraDb::with_crypto(&db_path, &pwd).expect("failure opening db");
+        let mut tirra_db = TirraDb::with_tirravfs(&db_path, &pwd).expect("failure opening db");
 
-        let mut tirra_db = if let Ok(db) = TirraDb::with_crypto(&db_path, &pwd) {
-            db
-        } else {
-            println!("failed to find path: {}", db_path);
-            return;
-        };
-        // test db ops
-        let access = tirra_db.try_access();
-        println!("access : {}", access);
+        //pragma work
+        tirra_db
+            .api_2_set_pragmas()
+            .expect("failure setting pragmas");
+
+        //print_infoblock_api2(&mut tirra_db);
+        //laod_entries_api2(&mut tirra_db);
+
+        tirra_db
+            .api_2_update_entry("to be or not to be", 218)
+            .expect("failure updating entry");
+
+        // close db;
+        tirra_db
+            .api_2_access_stop()
+            .expect("failure stopping access");
+
+        //show oplog
+        TirraDb::poke_vfs();
     }
+}
+
+fn laod_entries_api2(db: &mut TirraDb) {
+    let loaded = db.api_2_load_entries(&TirraDb::build_filter("", true, 0, 1));
+
+    match loaded {
+        Ok(list) => {
+            println!("entries:\t\t {}", list.get_limitless_count());
+        }
+        Err(_) => {
+            println!("Error loading entries from database");
+            return;
+        }
+    }
+}
+
+fn print_infoblock_api2(db: &mut TirraDb) {
+    let info = db.api_2_load_info().expect("failure loading info block");
+
+    println!("schema_version :\t {}", info.schema_ver);
+    println!("local :\t {:x?}", &info.local_commit.unwrap());
+    println!("origin :\t {:x?}", info.origin_commit.unwrap());
 }
 
 /**
