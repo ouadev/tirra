@@ -33,17 +33,27 @@ impl TirraCrypto {
     }
 
     /**
-     * returns yes if the right header is found
-     */
-
-    pub fn probe_db_header(db_location: &str) -> bool {
-        AgeCrypto::check_header(db_location)
-    }
-
-    /**
      * only analyze header, to check access
      */
     pub fn probe_db(&mut self) -> Result<(), ()> {
+        match &mut self.age {
+            Some(_age) => {
+                //this function shouldn't be called if we are already have an age instance
+                return Err(());
+            }
+            _ => {
+                let mut age_crypto = AgeCrypto::new();
+                age_crypto
+                    .extract_secrets(&self.db_location, &self.password)
+                    .map_err(|_| ())?;
+                age_crypto.decrypt_first_chunk().map_err(|_| ())?;
+                self.age = Some(age_crypto);
+                return Ok(());
+            }
+        }
+    }
+
+    pub fn build_secrets(&mut self) -> Result<(), ()> {
         match &mut self.age {
             Some(_age) => {
                 //this function shouldn't be called if we are already have an age instance
@@ -59,6 +69,38 @@ impl TirraCrypto {
                 return Ok(());
             }
         }
+    }
+
+    /**
+     * new secrets for a new db
+     */
+    pub fn new_secrets(&mut self) -> Result<(), ()> {
+        match &mut self.age {
+            Some(_age) => {
+                //this function shouldn't be called if we are already have an age instance
+                return Err(());
+            }
+            _ => {
+                let mut age_crypto = AgeCrypto::new();
+                age_crypto.new_secrets(&self.password).map_err(|_| ())?;
+                self.age = Some(age_crypto);
+                return Ok(());
+            }
+        }
+    }
+
+    /**
+     * pack secrets to be sent to a VFS
+     */
+    pub fn pack_secrets(&self) -> Option<[u8; 48]> {
+        let age = match &self.age {
+            Some(age) => age,
+            None => {
+                return None;
+            }
+        };
+
+        Some(age.pack_secrets())
     }
 
     /**
@@ -124,17 +166,6 @@ impl TirraCrypto {
             return Ok(true);
         } else {
             return Err(());
-        }
-    }
-
-    pub fn print_age(&self) {
-        match &self.age {
-            Some(age) => {
-                age.print();
-            }
-            None => {
-                println!("age instance is not found");
-            }
         }
     }
 

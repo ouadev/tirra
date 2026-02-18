@@ -1,10 +1,7 @@
 use crate::{
     common::{exception::exception, utils, version},
     gui_iced::styles::style_conf,
-    storage::{
-        db::{self, TirraDb, TirraEntry, TirraEntryList},
-        tirracrypto::TirraCrypto,
-    },
+    storage::db::{self, TirraDb, TirraEntry, TirraEntryList},
 };
 use chrono::{DateTime, Datelike, Timelike, Utc};
 /**
@@ -69,11 +66,12 @@ impl LoginUi {
             db_found = true;
 
             //checks header
-            if TirraCrypto::probe_db_header(db_location) == false {
+            //TODO: change implementation. decrypt the first page and check sqlite3 header.
+            /*if TirraCrypto::probe_db_header(db_location) == false {
                 info_text.push_str(&format!(
                     "Beware, file doesn't seem to be a tirra database.\n"
                 ));
-            };
+            };*/
             //scan dir
             let (plain_file, backup_file) = TirraDb::api_scan_dir(db_location);
             if plain_file {
@@ -276,9 +274,10 @@ impl WriterUi {
             panic!("we are not supposed to be here without an encrypted database");
         }
 
-        if let Err(_) = TirraDb::load_vfs_extension() {
+        /*if let Err(_) = TirraDb::load_vfs_extension() {
             exception("couldn't load VFS extension", Some(&self.tirra_db));
         }
+        */
         ////// start db access
         if let Err(x) = self.tirra_db.access_start() {
             exception(

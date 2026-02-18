@@ -1,5 +1,5 @@
 use crate::{
-    common::version,
+    common::{utils, version},
     storage::{
         db::{self, TirraDb},
         tirracrypto::TirraCrypto,
@@ -16,6 +16,7 @@ Usage:
 $ tirra --cli COMMAND [ARGUMENTS]
 
 tirra --cli ver
+tirra --cli newdb	DB_FILE
 tirra --cli add		DB_FILE DATE < CONTENT_FILE
 tirra --cli delete	DB_FILE ID
 tirra --cli stat  	DB_FILE
@@ -25,6 +26,7 @@ tirra --cli encrypt	PL_FILE OUT_FILE
 
 COMMANDS
        ver    Display the version information and exit.
+       newdb  Create a new database file at the specified path.
        add    Add content from a file using redirection. DATE must
               be a Unix epoch timestamp.
        delete Remove an entry from the database by its ID.
@@ -52,6 +54,7 @@ ARGUMENTS
 
 #[derive(PartialEq)]
 enum CliAction {
+    NewDb,
     Add,
     Delete,
     Stat,
@@ -70,6 +73,7 @@ pub fn process(args: &Vec<String>, args_count: usize) {
     }
 
     match args[1].as_str() {
+        "newdb" => cli_action = CliAction::NewDb,
         "add" => cli_action = CliAction::Add,
         "delete" => cli_action = CliAction::Delete,
         "stat" => cli_action = CliAction::Stat,
@@ -83,7 +87,50 @@ pub fn process(args: &Vec<String>, args_count: usize) {
         }
     }
 
-    if cli_action == CliAction::Version {
+    if cli_action == CliAction::NewDb {
+        if args_count != 3 {
+            println!("{}", USAGE_STR);
+            return;
+        }
+
+        let db_path = String::from(&args[2]);
+        let password: String = ask_for_pwd();
+        let pwd = password.as_bytes();
+
+        //Init Tirra Db
+        let mut tirra_db = if let Ok(db) = TirraDb::with_crypto(&db_path, pwd) {
+            db
+        } else {
+            println!("couldn't initialize new database");
+            return;
+        };
+
+        if !utils::file_exists(&db_path) {
+            // create new db
+            let db_created = tirra_db.api_create_db(false);
+            if let Err(_x) = db_created {
+                println!("couldn't initialize new database");
+                return;
+            }
+
+            // insert first empty entry
+            let now = utils::time_now();
+            let empty_added = tirra_db.api_add_entry(
+                db::TIRRA_ENTRY_TYPE_GENERAL,
+                db::TIRRA_FIRST_ENTRY_TEXT,
+                now,
+                now,
+                true,
+            );
+            if let Err(_x) = empty_added {
+                println!("database init, couldn't add first entry");
+                return;
+            }
+        } else {
+            println!("file already exists at path {}", db_path);
+            return;
+        }
+    } else if cli_action == CliAction::Version {
         println!("tirra {}", version::VERSION);
     } else if cli_action == CliAction::Add {
         if args_count != 4 {
@@ -217,31 +264,54 @@ pub fn process(args: &Vec<String>, args_count: usize) {
         let db_path = String::from(&args[2]);
         let password: String = ask_for_pwd();
         let pwd = password.as_bytes();
-        //let mut tirra_db = TirraDb::with_crypto(&db_path, &pwd).expect("failure opening db");
-        let mut tirra_db = TirraDb::with_tirravfs(&db_path, &pwd).expect("failure opening db");
 
-        //pragma work
-        tirra_db
-            .api_2_set_pragmas()
-            .expect("failure setting pragmas");
+        if !utils::file_exists(&db_path) {
+            let mut tirra_new =
+                TirraDb::with_tirravfs_new(&db_path, &pwd).expect("Failed to create a new db");
+            // create new db
+            tirra_new
+                .api_2_create_db()
+                .expect("Failed to create a new db");
 
-        //print_infoblock_api2(&mut tirra_db);
-        //laod_entries_api2(&mut tirra_db);
+            //add something
+            let now = utils::time_now() + 1; //add one second to avoid the same timestamp as the last saved record.
 
-        tirra_db
-            .api_2_update_entry("to be or not to be", 218)
-            .expect("failure updating entry");
+            tirra_new
+                .api_2_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "Italy", now, now)
+                .expect("failed to add new entry");
 
-        // close db;
-        tirra_db
-            .api_2_access_stop()
-            .expect("failure stopping access");
+            // close db;
+            tirra_new
+                .api_2_access_stop()
+                .expect("failure stopping access");
 
-        //show oplog
-        TirraDb::poke_vfs();
+            //show oplog
+            TirraDb::poke_vfs();
+        } else {
+            //let mut tirra_db = TirraDb::with_crypto(&db_path, &pwd).expect("failure opening db");
+            let mut tirra_db = TirraDb::with_tirravfs(&db_path, &pwd).expect("failure opening db");
+
+            load_infoblock_api2(&mut tirra_db);
+            //laod_entries_api2(&mut tirra_db);
+
+            //add something
+            let now = utils::time_now() + 1; //add one second to avoid the same timestamp as the last saved record.
+            tirra_db
+                .api_2_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "Italy", now, now)
+                .expect("failed to add new entry");
+
+            // close db;
+            tirra_db
+                .api_2_access_stop()
+                .expect("failure stopping access");
+
+            //show oplog
+            TirraDb::poke_vfs();
+        }
     }
 }
 
+#[allow(dead_code)]
 fn laod_entries_api2(db: &mut TirraDb) {
     let loaded = db.api_2_load_entries(&TirraDb::build_filter("", true, 0, 1));
 
@@ -256,7 +326,7 @@ fn laod_entries_api2(db: &mut TirraDb) {
     }
 }
 
-fn print_infoblock_api2(db: &mut TirraDb) {
+fn load_infoblock_api2(db: &mut TirraDb) {
     let info = db.api_2_load_info().expect("failure loading info block");
 
     println!("schema_version :\t {}", info.schema_ver);

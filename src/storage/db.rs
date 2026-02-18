@@ -1,5 +1,6 @@
 use crate::common::utils;
 use crate::storage::tirracrypto::TirraCrypto;
+use rusqlite::ffi;
 //use rusqlite::ffi;
 use rusqlite::params;
 use rusqlite::Connection;
@@ -249,25 +250,92 @@ impl TirraDb {
      * new api: open connection
      */
     pub fn with_tirravfs(location: &str, password: &[u8]) -> Result<Self, TirraDbError> {
-        let db_path = format!("{}:{}", location, String::from_utf8_lossy(password));
+        //
+        let mut crypto = TirraCrypto::new(location, "", password);
+
+        if let Err(_) = crypto.build_secrets() {
+            return Err(TirraDbError::CryptoAccessFailure);
+        }
+
+        let secrets = if let Some(secrets) = crypto.pack_secrets() {
+            secrets
+        } else {
+            return Err(TirraDbError::CryptoAccessFailure);
+        };
+
         //open conn
+        let secrets_b64 = utils::base64_encode(&secrets.to_vec());
+        let db_path = format!("file:{}?secrets={}", location, secrets_b64);
         let connection;
         match Connection::open(db_path) {
             Ok(conn) => {
+                // set connection parameters
+                conn.pragma_update(None, "journal_mode", "PERSIST")
+                    .map_err(|_e| TirraDbError::DbOpenFailure)?;
+                conn.pragma_update(None, "temp_store", "MEMORY")
+                    .map_err(|_e| TirraDbError::DbOpenFailure)?;
+
+                //conn.pragma_update(None, "tirravfs_secret", secrets_b64)
+                //    .map_err(|_| TirraDbError::DbOpenFailure)?;
+
                 connection = Some(conn);
             }
             Err(_) => {
                 return Err(TirraDbError::DbOpenFailure);
             }
         };
+
         //ret
         Ok(Self {
             //dummy crypto
-            crypto: TirraCrypto::new("", "", "".as_bytes()),
+            crypto: crypto,
             conn: connection,
         })
     }
 
+    pub fn with_tirravfs_new(location: &str, password: &[u8]) -> Result<Self, TirraDbError> {
+        //
+        let mut crypto = TirraCrypto::new(location, "", password);
+
+        if crypto.new_secrets().is_ok() {
+            let secrets = if let Some(secrets) = crypto.pack_secrets() {
+                secrets
+            } else {
+                return Err(TirraDbError::CryptoAccessFailure);
+            };
+
+            //open conn
+            let secrets_b64 = utils::base64_encode(&secrets.to_vec());
+            let db_path = format!("file:{}?secrets={}", location, secrets_b64);
+            let connection;
+            match Connection::open(db_path) {
+                Ok(conn) => {
+                    // set connection parameters
+                    conn.pragma_update(None, "journal_mode", "PERSIST")
+                        .map_err(|_e| TirraDbError::DbOpenFailure)?;
+                    conn.pragma_update(None, "temp_store", "MEMORY")
+                        .map_err(|_e| TirraDbError::DbOpenFailure)?;
+
+                    //conn.pragma_update(None, "tirravfs_secret", secrets_b64)
+                    //    .map_err(|_| TirraDbError::DbOpenFailure)?;
+
+                    connection = Some(conn);
+                }
+                Err(_) => {
+                    return Err(TirraDbError::DbOpenFailure);
+                }
+            };
+
+            //ret
+            Ok(Self {
+                //dummy crypto
+                crypto: crypto,
+                conn: connection,
+            })
+        } else {
+            return Err(TirraDbError::CryptoAccessFailure);
+        }
+    }
     /**
      * get the current encrypted db
      */
@@ -374,7 +442,7 @@ impl TirraDb {
         };
 
         // trigger a display of VFS logs
-        Self::poke_vfs();
+        //Self::poke_vfs();
 
         //close connection if it is open
         self.conn = None;
@@ -556,6 +624,17 @@ impl TirraDb {
             return Err(TirraDbError::CryptoAccessFailure);
         };
 
+        //set reserved bytes length
+        let mut reserved: i32 = 32; // 16 (nonce) + 16 (tag) for ChaCha20-Poly1305
+        unsafe {
+            ffi::sqlite3_file_control(
+                db.handle(),
+                std::ptr::null(), // zDbName, NULL = main db
+                ffi::SQLITE_FCNTL_RESERVE_BYTES,
+                &mut reserved as *mut i32 as *mut std::ffi::c_void,
+            );
+        }
+
         //initialize the db tables
         let result = Self::op_create_db(db);
 
@@ -603,12 +682,6 @@ impl TirraDb {
             return Err(TirraDbError::CryptoAccessFailure);
         };
 
-        // set pragmas
-        db.pragma_update(None, "journal_mode", "PERSIST")
-            .map_err(|_e| TirraDbError::DbRequestError)?;
-        db.pragma_update(None, "temp_store", "FILE")
-            .map_err(|_e| TirraDbError::DbRequestError)?;
-
         //read pragmas to check they are applied
         let pragma: i32 = db
             .pragma_query_value(None, "temp_store", |row| row.get(0))
@@ -651,6 +724,25 @@ impl TirraDb {
         return result;
     }
 
+    pub fn api_2_add_entry(
+        &mut self,
+        type_entry: u8,
+        text_entry: &str,
+        create_date: u64,
+        modify_date: u64,
+    ) -> Result<(), TirraDbError> {
+        //check access
+        let db = if let Some(conn) = &mut self.conn {
+            conn
+        } else {
+            return Err(TirraDbError::CryptoAccessFailure);
+        };
+
+        let result = Self::op_add_entry(db, type_entry, text_entry, create_date, modify_date);
+
+        return result;
+    }
+
     pub fn api_2_update_entry(
         &mut self,
         text_entry: &str,
@@ -668,6 +760,45 @@ impl TirraDb {
         return result;
     }
 
+    pub fn api_2_create_db(&mut self) -> Result<(), TirraDbError> {
+        //first time: create empty encrypted file.
+        //if let Err(_) = std::fs::File::create(self.crypto.get_db_location()) {
+        //    return Err(TirraDbError::DbOpenFailure);
+        //}
+        //first time: open the plaintext file directly.
+        match Connection::open(self.crypto.get_db_location()) {
+            Ok(conn) => {
+                self.conn = Some(conn);
+            }
+            _ => {
+                return Err(TirraDbError::DbOpenFailure);
+            }
+        }
+
+        //check access
+        let db = if let Some(conn) = &mut self.conn {
+            conn
+        } else {
+            return Err(TirraDbError::CryptoAccessFailure);
+        };
+
+        //set reserved bytes length
+        //TODO: move to the VFS.
+        let mut reserved: i32 = 32; // 16 (nonce) + 16 (tag) for ChaCha20-Poly1305
+        unsafe {
+            ffi::sqlite3_file_control(
+                db.handle(),
+                std::ptr::null(), // zDbName, NULL = main db
+                ffi::SQLITE_FCNTL_RESERVE_BYTES,
+                &mut reserved as *mut i32 as *mut std::ffi::c_void,
+            );
+        }
+
+        //initialize the db tables
+        let result = Self::op_create_db(db);
+
+        return result;
+    }
     /**
      * Operation: UpdateEntry
      */
@@ -683,15 +814,13 @@ impl TirraDb {
             .map_err(|_e| TirraDbError::DbRequestError)?;
 
         //save
-        let tr_result = transaction
-            .execute(
-                "UPDATE entries SET
+        let tr_result = transaction.execute(
+            "UPDATE entries SET
             date_modify = ?1,
             text        = ?2
             WHERE id    = ?3",
-                (now, text_entry, entry_id),
-            );
-        println!("tr_result : {:?}", tr_result);
+            (now, text_entry, entry_id),
+        );
         tr_result.map_err(|_e| TirraDbError::DbRequestError)?;
 
         // record commit
