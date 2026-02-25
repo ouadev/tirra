@@ -7,6 +7,7 @@ use crate::{
     },
 };
 use chrono::{DateTime, Datelike, Timelike, Utc};
+use rusqlite::Connection;
 
 /**
  * Keyboard control keys
@@ -276,6 +277,32 @@ impl WriterUi {
         if utils::file_exists(db_location) == false {
             panic!("we are not supposed to be here without an encrypted database");
         }
+
+        //load extension
+
+        match Connection::open_in_memory() {
+            Ok(conn) => {
+                //
+                println!("Loading tirravfs extension... ");
+                unsafe {
+                    conn.load_extension_enable()
+                        .expect("error enabling extension loading");
+                    conn.load_extension(
+                        format!("../tirra-vfs/target/debug/libtirra_vfs.so"),
+                        None::<&str>,
+                    )
+                    .expect("error loading tirra_vfs");
+                    conn.load_extension_disable()
+                        .expect("error disabling extension loading");
+                }
+            }
+            _ => {
+                exception("couldn't start loading tirra vfs", None);
+                return;
+            }
+        }
+
+        //
 
         ////// start db access
         if let Err(x) = self.tirra_db.access_start() {

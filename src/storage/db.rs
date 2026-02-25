@@ -1,5 +1,6 @@
 use crate::common::utils;
 use crate::storage::tirracrypto::TirraCrypto;
+//use rusqlite::ffi;
 use rusqlite::params;
 use rusqlite::Connection;
 use rusqlite::Transaction;
@@ -300,16 +301,20 @@ impl TirraDb {
             }
         }
 
+        // test tirravfs extension
+        let _ = Self::op_test_vfs();
+
         match Connection::open(self.crypto.plaintext_db_location()) {
             Ok(conn) => {
                 self.conn = Some(conn);
                 return Ok(());
             }
-            _ => {
+            Err(e) => {
                 //priority error to raise is inability to remove plain file
                 if let Err(rm_err) = self.cleanup_plain() {
                     return Err(rm_err);
                 } else {
+                    println!("failed to open decrypted db : {:?}", e);
                     return Err(TirraDbError::DbOpenFailure);
                 }
             }
@@ -767,6 +772,21 @@ impl TirraDb {
             }
         }
         result
+    }
+
+    /**
+     * Operation: vfsstat.
+     */
+    fn op_test_vfs() -> Result<u32, TirraDbError> {
+        /*unsafe {
+            let parent_vfs = ffi::sqlite3_vfs_find(std::ptr::null());
+            let vfs_name = std::ffi::CStr::from_ptr((*parent_vfs).zName)
+                .to_string_lossy()
+                .to_string();
+            println!("VFS name: {}", vfs_name);
+        }
+        */
+        Ok(12)
     }
 
     /**

@@ -16,7 +16,7 @@ path = "src/bin/cli.rs"
 iced = { version = "0.14.0", features = [ "tokio"] }
 
 # Sqlite Database
-rusqlite = { version = "0.32.0", features = ["bundled"] }
+rusqlite = { version = "0.32.0", features = ["bundled", "load_extension"] }
 
 # Date and Time
 chrono = "0.4.38"
