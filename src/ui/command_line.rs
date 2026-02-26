@@ -97,39 +97,38 @@ pub fn process(args: &Vec<String>, args_count: usize) {
         let password: String = ask_for_pwd();
         let pwd = password.as_bytes();
 
-        //Init Tirra Db
-        let mut tirra_db = if let Ok(db) = TirraDb::with_crypto(&db_path, pwd) {
-            db
-        } else {
-            println!("couldn't initialize new database");
-            return;
-        };
-
-        if !utils::file_exists(&db_path) {
-            // create new db
-            let db_created = tirra_db.api_create_db(false);
-            if let Err(_x) = db_created {
-                println!("couldn't initialize new database");
-                return;
-            }
-
-            // insert first empty entry
-            let now = utils::time_now();
-            let empty_added = tirra_db.api_add_entry(
-                db::TIRRA_ENTRY_TYPE_GENERAL,
-                db::TIRRA_FIRST_ENTRY_TEXT,
-                now,
-                now,
-                true,
-            );
-            if let Err(_x) = empty_added {
-                println!("database init, couldn't add first entry");
-                return;
-            }
-        } else {
+        if utils::file_exists(&db_path) {
             println!("file already exists at path {}", db_path);
             return;
         }
+
+        // load vfs extension
+        TirraDb::load_vfs_extension().expect("failure loading tirravfs");
+
+        //new db
+        let mut tirra_new =
+            TirraDb::with_tirravfs(&db_path, &pwd, true).expect("Failed to create a new db");
+
+        // create new schema
+        tirra_new
+            .api_create_db()
+            .expect("Failed to create a new db");
+
+        // insert first empty entry
+        let now = utils::time_now();
+        let empty_added = tirra_new.api_add_entry(
+            db::TIRRA_ENTRY_TYPE_GENERAL,
+            db::TIRRA_FIRST_ENTRY_TEXT,
+            now,
+            now,
+        );
+        if let Err(_x) = empty_added {
+            println!("database init, couldn't add first entry");
+            return;
+        }
+
+        // close db;
+        tirra_new.api_close_db().expect("failure stopping access");
     } else if cli_action == CliAction::Version {
         println!("tirra {}", version::VERSION);
     } else if cli_action == CliAction::Add {
@@ -139,26 +138,25 @@ pub fn process(args: &Vec<String>, args_count: usize) {
 
         let db_path = String::from(&args[2]);
         let timestamp = args[3].parse().unwrap();
-
-        //init db
-        let mut tirra_db = init_db_with_pwd(db_path).expect("failed to find path");
+        let password: String = ask_for_pwd();
 
         // read from a standard input
         let input_txt =
             io::read_to_string(io::stdin()).expect("no content is found for the new entry");
         let content = Vec::from(input_txt.as_bytes());
 
-        if let Err(_x) = tirra_db.access_start() {
-            println!("couldn't access tirra database");
-            return;
-        }
+        // load vfs extension
+        TirraDb::load_vfs_extension().expect("failure loading tirravfs");
+
+        //db
+        let mut tirra_db =
+            TirraDb::with_tirravfs(&db_path, &password.as_bytes(), false).expect("failure opening db");
 
         let added = tirra_db.api_add_entry(
             db::TIRRA_ENTRY_TYPE_GENERAL,
             &String::from_utf8(content).unwrap(),
             timestamp,
             timestamp,
-            true,
         );
 
         match added {
@@ -169,6 +167,8 @@ pub fn process(args: &Vec<String>, args_count: usize) {
                 println!("failed to add entry");
             }
         }
+
+        tirra_db.api_close_db().expect("error closing the database");
     } else if cli_action == CliAction::Delete {
         if args_count != 4 {
             panic!("{}", USAGE_STR);
@@ -176,15 +176,16 @@ pub fn process(args: &Vec<String>, args_count: usize) {
 
         let db_path = String::from(&args[2]);
         let id = args[3].parse().unwrap();
+        let password: String = ask_for_pwd();
 
-        //init db
-        let mut tirra_db = init_db_with_pwd(db_path).expect("failed to find path");
+        // load vfs extension
+        TirraDb::load_vfs_extension().expect("failure loading tirravfs");
 
-        if let Err(_x) = tirra_db.access_start() {
-            println!("couldn't access tirra database");
-            return;
-        }
-        let removed = tirra_db.api_remove_entry(id, true);
+        //db
+        let mut tirra_db =
+            TirraDb::with_tirravfs(&db_path, &password.as_bytes(),false).expect("failure opening db");
+
+        let removed = tirra_db.api_remove_entry(id);
 
         match removed {
             Ok(_) => {
@@ -194,6 +195,8 @@ pub fn process(args: &Vec<String>, args_count: usize) {
                 println!("failed to remove entry");
             }
         }
+
+        tirra_db.api_close_db().expect("error closing the database");
     } else if cli_action == CliAction::Stat {
         if args_count != 3 {
             println!("{}", USAGE_STR);
@@ -201,10 +204,18 @@ pub fn process(args: &Vec<String>, args_count: usize) {
         }
 
         let db_path = String::from(&args[2]);
+        let password: String = ask_for_pwd();
 
-        //init db
-        let mut tirra_db = init_db_with_pwd(db_path).expect("failed to find path");
+        // load vfs extension
+        TirraDb::load_vfs_extension().expect("failure loading tirravfs");
+
+        //db
+        let mut tirra_db =
+            TirraDb::with_tirravfs(&db_path, &password.as_bytes(), false).expect("failure opening db");
+
         print_stats(&mut tirra_db);
+
+        tirra_db.api_close_db().expect("error closing the database");
     } else if cli_action == CliAction::Decrypt {
         if args_count != 4 {
             println!("{}", USAGE_STR);
@@ -267,95 +278,57 @@ pub fn process(args: &Vec<String>, args_count: usize) {
 
         if !utils::file_exists(&db_path) {
             let mut tirra_new =
-                TirraDb::with_tirravfs_new(&db_path, &pwd).expect("Failed to create a new db");
+                TirraDb::with_tirravfs(&db_path, &pwd, true).expect("Failed to create a new db");
             // create new db
             tirra_new
-                .api_2_create_db()
+                .api_create_db()
                 .expect("Failed to create a new db");
 
             //add something
             let now = utils::time_now() + 1; //add one second to avoid the same timestamp as the last saved record.
 
             tirra_new
-                .api_2_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "Italy", now, now)
+                .api_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "Italy", now, now)
                 .expect("failed to add new entry");
 
             // close db;
-            tirra_new
-                .api_2_access_stop()
-                .expect("failure stopping access");
+            tirra_new.api_close_db().expect("error closing the database");
 
             //show oplog
             TirraDb::poke_vfs();
         } else {
             //let mut tirra_db = TirraDb::with_crypto(&db_path, &pwd).expect("failure opening db");
-            let mut tirra_db = TirraDb::with_tirravfs(&db_path, &pwd).expect("failure opening db");
+            let mut tirra_db = TirraDb::with_tirravfs(&db_path, &pwd, false).expect("failure opening db");
 
-            load_infoblock_api2(&mut tirra_db);
+            load_infoblock(&mut tirra_db);
             //laod_entries_api2(&mut tirra_db);
 
             //add something
             let now = utils::time_now() + 1; //add one second to avoid the same timestamp as the last saved record.
             tirra_db
-                .api_2_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "Italy", now, now)
+                .api_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "Italy", now, now)
                 .expect("failed to add new entry");
 
             // close db;
-            tirra_db
-                .api_2_access_stop()
-                .expect("failure stopping access");
-
+            tirra_db.api_close_db().expect("error closing the database");
             //show oplog
             TirraDb::poke_vfs();
         }
     }
 }
 
-#[allow(dead_code)]
-fn laod_entries_api2(db: &mut TirraDb) {
-    let loaded = db.api_2_load_entries(&TirraDb::build_filter("", true, 0, 1));
 
-    match loaded {
-        Ok(list) => {
-            println!("entries:\t\t {}", list.get_limitless_count());
-        }
-        Err(_) => {
-            println!("Error loading entries from database");
-            return;
-        }
-    }
-}
-
-fn load_infoblock_api2(db: &mut TirraDb) {
-    let info = db.api_2_load_info().expect("failure loading info block");
+fn load_infoblock(db: &mut TirraDb) {
+    let info = db.api_load_info().expect("failure loading info block");
 
     println!("schema_version :\t {}", info.schema_ver);
     println!("local :\t {:x?}", &info.local_commit.unwrap());
     println!("origin :\t {:x?}", info.origin_commit.unwrap());
 }
 
-/**
- * Init Db Access
- */
-
-fn init_db_with_pwd(db_path: String) -> Option<TirraDb> {
-    // Get Password
-    let password: String = ask_for_pwd();
-    let pwd = password.as_bytes();
-    //Init Tirra Db
-    if let Ok(db) = TirraDb::with_crypto(&db_path, &pwd) {
-        return Some(db);
-    } else {
-        return None;
-    };
-}
 
 fn print_stats(db: &mut TirraDb) {
-    if let Err(_x) = db.access_start() {
-        println!("couldn't access tirra database");
-        return;
-    }
-    let loaded = db.api_load_entries(&TirraDb::build_filter("", true, 0, 1), false);
+    let loaded = db.api_load_entries(&TirraDb::build_filter("", true, 0, 1));
 
     match loaded {
         Ok(list) => {
@@ -367,7 +340,7 @@ fn print_stats(db: &mut TirraDb) {
         }
     }
     // Print Info Block
-    let info_result = db.api_load_info(true);
+    let info_result = db.api_load_info();
     match info_result {
         Ok(info) => {
             println!("schema_version :\t {}", info.schema_ver);

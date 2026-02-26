@@ -13,6 +13,7 @@ use crate::common::exception::exception;
 use crate::gui_iced::pages::editor::{self, EditorPage};
 use crate::gui_iced::pages::login::{self, LoginPage};
 use crate::gui_iced::styles::style_conf;
+use crate::storage::db::TirraDb;
 use crate::ui::ui::{KbCtrl, TirraInterface};
 
 static DB_PATH_ONCE: OnceLock<String> = OnceLock::new();
@@ -113,6 +114,9 @@ impl TirraIced {
             Some(path) => path.clone(),
             _ => "temporary.db".to_string(),
         };
+
+        // load vfs extension
+        TirraDb::load_vfs_extension().expect("failure loading tirravfs");
 
         //
         let (login_page, _) = LoginPage::new(&db_path_once);

@@ -6,7 +6,6 @@ use rusqlite::params;
 use rusqlite::Connection;
 use rusqlite::Transaction;
 use std::env;
-use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process;
@@ -205,7 +204,7 @@ impl TirraEntryList {
  * @brief Tirra Database.
  */
 pub struct TirraDb {
-    crypto: TirraCrypto,
+    path: String,
     conn: Option<Connection>,
 }
 
@@ -223,38 +222,30 @@ impl TirraDb {
      */
     pub fn new() -> Self {
         Self {
-            crypto: Default::default(),
+            path: String::new(),
             conn: None,
-        }
-    }
-
-    pub fn with_crypto(location: &str, password: &[u8]) -> Result<Self, TirraDbError> {
-        if let Some(plain_db) = Self::calculate_temp_name(location, TirraDbTempType::Plain) {
-            Ok(Self {
-                crypto: TirraCrypto::new(
-                    location,
-                    plain_db
-                        .as_os_str()
-                        .to_str()
-                        .ok_or(TirraDbError::DbOpenFailure)?,
-                    password,
-                ),
-                conn: None,
-            })
-        } else {
-            Err(TirraDbError::DbOpenFailure)
         }
     }
 
     /**
      * new api: open connection
      */
-    pub fn with_tirravfs(location: &str, password: &[u8]) -> Result<Self, TirraDbError> {
+    pub fn with_tirravfs(
+        location: &str,
+        password: &[u8],
+        newdb: bool,
+    ) -> Result<Self, TirraDbError> {
         //
         let mut crypto = TirraCrypto::new(location, "", password);
 
-        if let Err(_) = crypto.build_secrets() {
-            return Err(TirraDbError::CryptoAccessFailure);
+        if newdb {
+            if crypto.new_secrets().is_err() {
+                return Err(TirraDbError::CryptoAccessFailure);
+            }
+        } else {
+            if crypto.build_secrets().is_err() {
+                return Err(TirraDbError::CryptoAccessFailure);
+            }
         }
 
         let secrets = if let Some(secrets) = crypto.pack_secrets() {
@@ -288,67 +279,15 @@ impl TirraDb {
         //ret
         Ok(Self {
             //dummy crypto
-            crypto: crypto,
+            path: location.to_string(),
             conn: connection,
         })
-    }
-
-    pub fn with_tirravfs_new(location: &str, password: &[u8]) -> Result<Self, TirraDbError> {
-        //
-        let mut crypto = TirraCrypto::new(location, "", password);
-
-        if crypto.new_secrets().is_ok() {
-            let secrets = if let Some(secrets) = crypto.pack_secrets() {
-                secrets
-            } else {
-                return Err(TirraDbError::CryptoAccessFailure);
-            };
-
-            //open conn
-            let secrets_b64 = utils::base64_encode(&secrets.to_vec());
-            let db_path = format!("file:{}?secrets={}", location, secrets_b64);
-            let connection;
-            match Connection::open(db_path) {
-                Ok(conn) => {
-                    // set connection parameters
-                    conn.pragma_update(None, "journal_mode", "PERSIST")
-                        .map_err(|_e| TirraDbError::DbOpenFailure)?;
-                    conn.pragma_update(None, "temp_store", "MEMORY")
-                        .map_err(|_e| TirraDbError::DbOpenFailure)?;
-
-                    //conn.pragma_update(None, "tirravfs_secret", secrets_b64)
-                    //    .map_err(|_| TirraDbError::DbOpenFailure)?;
-
-                    connection = Some(conn);
-                }
-                Err(_) => {
-                    return Err(TirraDbError::DbOpenFailure);
-                }
-            };
-
-            //ret
-            Ok(Self {
-                //dummy crypto
-                crypto: crypto,
-                conn: connection,
-            })
-        } else {
-            return Err(TirraDbError::CryptoAccessFailure);
-        }
     }
     /**
      * get the current encrypted db
      */
     pub fn get_db_location(&self) -> String {
-        self.crypto.get_db_location()
-    }
-
-    /**
-     * check the provided crypto can access the database
-     */
-    pub fn try_access(&mut self) -> bool {
-        // decrypt the db
-        self.crypto.probe_db().is_ok()
+        self.path.clone()
     }
 
     /**
@@ -368,166 +307,33 @@ impl TirraDb {
     }
 
     /**
-     * Start access to db.
+     * update an entry
      */
-    pub fn access_start(&mut self) -> Result<(), TirraDbError> {
-        if let Some(_) = self.conn {
-            return Err(TirraDbError::CryptoAccessFailure);
-        }
-        // decrypt the db
-        let decrypted = self
-            .crypto
-            .decrypt_db()
-            .map_err(|_e| TirraDbError::CryptoAccessFailure);
-
-        match decrypted {
-            Ok(_) => {}
-            Err(dec_err) => {
-                //priority error to raise is inability to remove plain file
-                if let Err(rm_err) = self.cleanup_plain() {
-                    return Err(rm_err);
-                } else {
-                    return Err(dec_err);
-                }
-            }
-        }
-
-        // test tirravfs extension
-        let _ = Self::op_test_vfs();
-
-        match Connection::open(self.crypto.plaintext_db_location()) {
-            Ok(conn) => {
-                self.conn = Some(conn);
-                return Ok(());
-            }
-            Err(e) => {
-                //priority error to raise is inability to remove plain file
-                if let Err(rm_err) = self.cleanup_plain() {
-                    return Err(rm_err);
-                } else {
-                    println!("failed to open decrypted db : {:?}", e);
-                    return Err(TirraDbError::DbOpenFailure);
-                }
-            }
-        }
-    }
-
-    /**
-     * Stop access to db.
-     * close connection and remove plaintext file.
-     */
-    pub fn access_stop(&mut self, re_encrypt: bool) -> Result<(), TirraDbError> {
-        /*
-         * documentation about access to encrypted.
-         * The operation should be atomic: dec-write-enc-rm
-         * - issue at dec:   consistency OK.  privacy NOK
-         * - issue at write: consistency OK.  privacy NOK
-         * - issue at enc:   consistency NOK. privacy NOK
-         * - issue at rm;    consistency OK.  privacy NOK
-         * => should miminize the likelihood of this happening.
-         *
-         * Consistency: back up encrypted db before starting the operation.
-         * Privacy    :
-         *  - cleanup after a failure in one of the steps above.
-         *  - one-last-check cleanup in exceptions and exit signal
-         *  - alert at start up if clear db is found from previous sessions.
-         */
-
-        let enc_backup = if let Some(name) =
-            Self::calculate_temp_name(&self.crypto.get_db_location(), TirraDbTempType::Backup)
-        {
-            name
-        } else {
-            return Err(TirraDbError::CryptoAccessFailure);
-        };
-
-        // trigger a display of VFS logs
-        //Self::poke_vfs();
-
-        //close connection if it is open
-        self.conn = None;
-
-        if re_encrypt {
-            // 1- back up encrypted db
-
-            if let Err(_) = fs::copy(self.crypto.get_db_location(), &enc_backup) {
-                return Err(TirraDbError::CryptoAccessFailure);
-            }
-
-            // 2- encrypt
-            let encrypted = self
-                .crypto
-                .encrypt_db()
-                .map_err(|_e| TirraDbError::CryptoAccessFailure);
-
-            match encrypted {
-                Err(enc_err) => {
-                    //failure to encrypt db. the main enc db file might be inconsistent now.
-                    // - remove plain
-                    self.cleanup_plain()?;
-                    // - copy from backup.
-                    if let Err(_) = fs::copy(&enc_backup, self.crypto.get_db_location()) {
-                        return Err(enc_err);
-                    }
-                    //- remove backup then
-                    fs::remove_file(&enc_backup).map_err(|_| enc_err.clone())?;
-
-                    return Err(enc_err);
-                }
-                _ => {}
-            }
-        }
-
-        //3- remove plain db
-        self.cleanup_plain()?;
-
-        if re_encrypt {
-            //4- remove backup enc db
-            fs::remove_file(&enc_backup).map_err(|_| TirraDbError::DbRemoveFileError)?;
-        }
-
-        self.conn = None;
-
-        Ok(())
-    }
-
     pub fn api_update_entry(
         &mut self,
         text_entry: &str,
         entry_id: u32,
-        last: bool,
     ) -> Result<(), TirraDbError> {
         //check access
-        let db = if let Some(conn) = &mut self.conn {
-            conn
-        } else {
-            return Err(TirraDbError::CryptoAccessFailure);
-        };
+        let db = self
+            .conn
+            .as_mut()
+            .ok_or(TirraDbError::CryptoAccessFailure)?;
 
         let result = Self::op_update_entry(db, text_entry, entry_id);
-        if result.is_err() || last {
-            self.access_stop(last)?;
-        }
+
         return result;
     }
 
-    pub fn api_update_create_date(
-        &mut self,
-        entry_id: u32,
-        time: u64,
-        last: bool,
-    ) -> Result<(), TirraDbError> {
+    pub fn api_update_create_date(&mut self, entry_id: u32, time: u64) -> Result<(), TirraDbError> {
         //check access
-        let db = if let Some(conn) = &mut self.conn {
-            conn
-        } else {
-            return Err(TirraDbError::CryptoAccessFailure);
-        };
+        let db = self
+            .conn
+            .as_mut()
+            .ok_or(TirraDbError::CryptoAccessFailure)?;
 
         let result = Self::op_update_create_date(db, entry_id, time);
-        if result.is_err() || last {
-            self.access_stop(last)?;
-        }
+
         return result;
     }
 
@@ -537,236 +343,55 @@ impl TirraDb {
         text_entry: &str,
         create_date: u64,
         modify_date: u64,
-        last: bool,
     ) -> Result<(), TirraDbError> {
         //check access
-        let db = if let Some(conn) = &mut self.conn {
-            conn
-        } else {
-            return Err(TirraDbError::CryptoAccessFailure);
-        };
+        let db = self
+            .conn
+            .as_mut()
+            .ok_or(TirraDbError::CryptoAccessFailure)?;
 
         let result = Self::op_add_entry(db, type_entry, text_entry, create_date, modify_date);
-        if result.is_err() || last {
-            self.access_stop(last)?;
-        }
+
         return result;
     }
 
-    pub fn api_load_entries(
-        &mut self,
-        filter: &str,
-        last: bool,
-    ) -> Result<TirraEntryList, TirraDbError> {
+    pub fn api_load_entries(&mut self, filter: &str) -> Result<TirraEntryList, TirraDbError> {
         //check access
-        let db = if let Some(conn) = &mut self.conn {
-            conn
-        } else {
-            return Err(TirraDbError::CryptoAccessFailure);
-        };
+        let db = self
+            .conn
+            .as_mut()
+            .ok_or(TirraDbError::CryptoAccessFailure)?;
 
         let result = Self::op_load_entries(db, filter);
-        if result.is_err() || last {
-            self.access_stop(last)?;
-        }
+
         return result;
     }
 
-    pub fn api_load_info(&mut self, last: bool) -> Result<TirraDbInformation, TirraDbError> {
+    pub fn api_load_info(&mut self) -> Result<TirraDbInformation, TirraDbError> {
         //check access
-        let db = if let Some(conn) = &mut self.conn {
-            conn
-        } else {
-            return Err(TirraDbError::CryptoAccessFailure);
-        };
+        let db = self
+            .conn
+            .as_mut()
+            .ok_or(TirraDbError::CryptoAccessFailure)?;
 
         let result = Self::op_load_info(db);
-        if result.is_err() || last {
-            self.access_stop(last)?;
-        }
         return result;
     }
 
-    pub fn api_remove_entry(&mut self, id_entry: u32, last: bool) -> Result<(), TirraDbError> {
+    pub fn api_remove_entry(&mut self, id_entry: u32) -> Result<(), TirraDbError> {
         //check access
-        let db = if let Some(conn) = &mut self.conn {
-            conn
-        } else {
-            return Err(TirraDbError::CryptoAccessFailure);
-        };
+        let db = self
+            .conn
+            .as_mut()
+            .ok_or(TirraDbError::CryptoAccessFailure)?;
 
         let result = Self::op_remove_entry(db, id_entry);
-        if result.is_err() || last {
-            self.access_stop(last)?;
-        }
-        return result;
-    }
-
-    pub fn api_create_db(&mut self, last: bool) -> Result<(), TirraDbError> {
-        //first time: create empty encrypted file.
-        if let Err(_) = std::fs::File::create(self.crypto.get_db_location()) {
-            return Err(TirraDbError::DbOpenFailure);
-        }
-        //first time: open the plaintext file directly.
-        match Connection::open(self.crypto.plaintext_db_location()) {
-            Ok(conn) => {
-                self.conn = Some(conn);
-            }
-            _ => {
-                return Err(TirraDbError::DbOpenFailure);
-            }
-        }
-
-        //check access
-        let db = if let Some(conn) = &mut self.conn {
-            conn
-        } else {
-            return Err(TirraDbError::CryptoAccessFailure);
-        };
-
-        //set reserved bytes length
-        let mut reserved: i32 = 32; // 16 (nonce) + 16 (tag) for ChaCha20-Poly1305
-        unsafe {
-            ffi::sqlite3_file_control(
-                db.handle(),
-                std::ptr::null(), // zDbName, NULL = main db
-                ffi::SQLITE_FCNTL_RESERVE_BYTES,
-                &mut reserved as *mut i32 as *mut std::ffi::c_void,
-            );
-        }
-
-        //initialize the db tables
-        let result = Self::op_create_db(db);
-
-        //stop access as usual
-        if result.is_err() || last {
-            self.access_stop(last)?;
-        }
-        return result;
-    }
-
-    pub fn api_cleanup(&self) {
-        self.cleanup_plain().unwrap_or(())
-    }
-
-    pub fn api_scan_dir(db_path: &str) -> (bool, bool) {
-        let plain_exists: bool;
-        let backup_exists: bool;
-
-        if let Some(name) = Self::calculate_temp_name(db_path, TirraDbTempType::Plain) {
-            let plain = name.as_os_str().to_str().unwrap();
-            plain_exists = utils::file_exists(&plain);
-        } else {
-            plain_exists = false;
-        }
-
-        if let Some(name) = Self::calculate_temp_name(db_path, TirraDbTempType::Backup) {
-            let backup = name.as_os_str().to_str().unwrap();
-            backup_exists = utils::file_exists(&backup);
-        } else {
-            backup_exists = false;
-        }
-
-        (plain_exists, backup_exists)
-    }
-
-    /**
-     * API2 using tirravfs
-     */
-
-    pub fn api_2_set_pragmas(&mut self) -> Result<(), TirraDbError> {
-        //check access
-        let db = if let Some(conn) = &mut self.conn {
-            conn
-        } else {
-            return Err(TirraDbError::CryptoAccessFailure);
-        };
-
-        //read pragmas to check they are applied
-        let pragma: i32 = db
-            .pragma_query_value(None, "temp_store", |row| row.get(0))
-            .map_err(|_e| TirraDbError::DbRequestError)?;
-
-        println!("temp_store : {}", pragma);
-        Ok(())
-    }
-
-    pub fn api_2_access_stop(&mut self) -> Result<(), TirraDbError> {
-        self.conn = None;
-        Ok(())
-    }
-
-    pub fn api_2_load_info(&mut self) -> Result<TirraDbInformation, TirraDbError> {
-        //check access
-        let db = if let Some(conn) = &mut self.conn {
-            conn
-        } else {
-            return Err(TirraDbError::CryptoAccessFailure);
-        };
-
-        let result = Self::op_load_info(db);
-        //if result.is_err() || last {
-        //    self.access_stop(last)?;
-        //}
-        return result;
-    }
-
-    pub fn api_2_load_entries(&mut self, filter: &str) -> Result<TirraEntryList, TirraDbError> {
-        //check access
-        let db = if let Some(conn) = &mut self.conn {
-            conn
-        } else {
-            return Err(TirraDbError::CryptoAccessFailure);
-        };
-
-        let result = Self::op_load_entries(db, filter);
 
         return result;
     }
 
-    pub fn api_2_add_entry(
-        &mut self,
-        type_entry: u8,
-        text_entry: &str,
-        create_date: u64,
-        modify_date: u64,
-    ) -> Result<(), TirraDbError> {
-        //check access
-        let db = if let Some(conn) = &mut self.conn {
-            conn
-        } else {
-            return Err(TirraDbError::CryptoAccessFailure);
-        };
-
-        let result = Self::op_add_entry(db, type_entry, text_entry, create_date, modify_date);
-
-        return result;
-    }
-
-    pub fn api_2_update_entry(
-        &mut self,
-        text_entry: &str,
-        entry_id: u32,
-    ) -> Result<(), TirraDbError> {
-        //check access
-        let db = if let Some(conn) = &mut self.conn {
-            conn
-        } else {
-            return Err(TirraDbError::CryptoAccessFailure);
-        };
-
-        let result = Self::op_update_entry(db, text_entry, entry_id);
-
-        return result;
-    }
-
-    pub fn api_2_create_db(&mut self) -> Result<(), TirraDbError> {
-        //first time: create empty encrypted file.
-        //if let Err(_) = std::fs::File::create(self.crypto.get_db_location()) {
-        //    return Err(TirraDbError::DbOpenFailure);
-        //}
-        //first time: open the plaintext file directly.
-        match Connection::open(self.crypto.get_db_location()) {
+    pub fn api_create_db(&mut self) -> Result<(), TirraDbError> {
+        match Connection::open(&self.path) {
             Ok(conn) => {
                 self.conn = Some(conn);
             }
@@ -795,9 +420,37 @@ impl TirraDb {
         }
 
         //initialize the db tables
-        let result = Self::op_create_db(db);
+        Self::op_create_db(db)
+    }
 
-        return result;
+    pub fn api_scan_dir(db_path: &str) -> (bool, bool) {
+        let plain_exists: bool;
+        let backup_exists: bool;
+
+        if let Some(name) = Self::calculate_temp_name(db_path, TirraDbTempType::Plain) {
+            let plain = name.as_os_str().to_str().unwrap();
+            plain_exists = utils::file_exists(&plain);
+        } else {
+            plain_exists = false;
+        }
+
+        if let Some(name) = Self::calculate_temp_name(db_path, TirraDbTempType::Backup) {
+            let backup = name.as_os_str().to_str().unwrap();
+            backup_exists = utils::file_exists(&backup);
+        } else {
+            backup_exists = false;
+        }
+
+        (plain_exists, backup_exists)
+    }
+
+    /**
+     * API2 using tirravfs
+     */
+
+    pub fn api_close_db(&mut self) -> Result<(), TirraDbError> {
+        self.conn = None;
+        Ok(())
     }
     /**
      * Operation: UpdateEntry
@@ -1008,21 +661,6 @@ impl TirraDb {
     }
 
     /**
-     * Operation: vfsstat.
-     */
-    fn op_test_vfs() -> Result<u32, TirraDbError> {
-        /*unsafe {
-            let parent_vfs = ffi::sqlite3_vfs_find(std::ptr::null());
-            let vfs_name = std::ffi::CStr::from_ptr((*parent_vfs).zName)
-                .to_string_lossy()
-                .to_string();
-            println!("VFS name: {}", vfs_name);
-        }
-        */
-        Ok(12)
-    }
-
-    /**
      * Operation: RemoveEntry.
      */
     fn op_remove_entry(db: &mut Connection, id_entry: u32) -> Result<(), TirraDbError> {
@@ -1133,11 +771,6 @@ impl TirraDb {
             std::env::consts::OS
         );
         utils::hash_sha256(unique_id_feed.as_str())
-    }
-
-    fn cleanup_plain(&self) -> Result<(), TirraDbError> {
-        fs::remove_file(self.crypto.plaintext_db_location())
-            .map_err(|_| TirraDbError::DbRemovePlain)
     }
 
     fn calculate_temp_name(path_str: &str, temp_type: TirraDbTempType) -> Option<PathBuf> {

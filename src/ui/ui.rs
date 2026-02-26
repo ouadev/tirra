@@ -66,12 +66,8 @@ impl LoginUi {
             db_found = true;
 
             //checks header
-            //TODO: change implementation. decrypt the first page and check sqlite3 header.
-            /*if TirraCrypto::probe_db_header(db_location) == false {
-                info_text.push_str(&format!(
-                    "Beware, file doesn't seem to be a tirra database.\n"
-                ));
-            };*/
+            //TODO: change implementation. read plaintext part of the header and guess.
+
             //scan dir
             let (plain_file, backup_file) = TirraDb::api_scan_dir(db_location);
             if plain_file {
@@ -99,22 +95,23 @@ impl LoginUi {
     }
 
     pub fn on_login(&mut self) {
-        let mut tirra_db =
-            if let Ok(db) = TirraDb::with_crypto(&self.db_location, self.password.as_bytes()) {
-                db
-            } else {
-                exception("couldn't initialize new database", None);
-                return;
-            };
-
         if self.db_found == false {
             // Database is not found, start initialization of a new one at the same location.
             // intialize the backend
             if utils::file_exists(&self.db_location) == false {
+                //init db
+                let mut tirra_db = if let Ok(db) =
+                    TirraDb::with_tirravfs(&self.db_location, self.password.as_bytes(), true)
+                {
+                    db
+                } else {
+                    exception("couldn't initialize new database", None);
+                    return;
+                };
                 // create new db
-                let db_created = tirra_db.api_create_db(false);
+                let db_created = tirra_db.api_create_db();
                 if let Err(_x) = db_created {
-                    exception("couldn't initialize new database", Some(&tirra_db));
+                    exception("couldn't create new schema", Some(&tirra_db));
                 }
 
                 // insert first empty entry
@@ -124,7 +121,6 @@ impl LoginUi {
                     db::TIRRA_FIRST_ENTRY_TEXT,
                     now,
                     now,
-                    true,
                 );
                 if let Err(_x) = empty_added {
                     exception("database init, couldn't add first entry", Some(&tirra_db));
@@ -135,12 +131,15 @@ impl LoginUi {
                 panic!("something is up. database is not supposed to be found");
             }
         } else {
-            if tirra_db.try_access() {
+            //try to open encrypted database
+            if let Ok(_db) =
+                TirraDb::with_tirravfs(&self.db_location, self.password.as_bytes(), false)
+            {
                 self.logged_in = true;
             } else {
                 self.info_text = format!("Decryption failure: Wrong key");
                 self.logged_in = false;
-            }
+            };
         }
     }
 
@@ -262,10 +261,10 @@ impl WriterUi {
 
     pub fn connect(&mut self, db_location: &str, crypto_pwd: &[u8]) {
         //Init Crypto
-        self.tirra_db = if let Ok(db) = TirraDb::with_crypto(db_location, crypto_pwd) {
+        self.tirra_db = if let Ok(db) = TirraDb::with_tirravfs(db_location, crypto_pwd, false) {
             db
         } else {
-            exception("couldn't initialize new database", None);
+            exception("couldn't open database", None);
             return;
         };
 
@@ -274,19 +273,7 @@ impl WriterUi {
             panic!("we are not supposed to be here without an encrypted database");
         }
 
-        /*if let Err(_) = TirraDb::load_vfs_extension() {
-            exception("couldn't load VFS extension", Some(&self.tirra_db));
-        }
-        */
-        ////// start db access
-        if let Err(x) = self.tirra_db.access_start() {
-            exception(
-                &format!("Db access start - connect - {:?}", x),
-                Some(&self.tirra_db),
-            );
-        }
-
-        if let Ok(local_info) = self.tirra_db.api_load_info(false) {
+        if let Ok(local_info) = self.tirra_db.api_load_info() {
             local_info.print_debug();
         } else {
             exception(
@@ -295,17 +282,13 @@ impl WriterUi {
             );
         }
         // Load all entries into memory and display the first one
-        let entry_list = match self
-            .tirra_db
-            .api_load_entries(&self.calc_loader_request(), true)
-        {
+        let entry_list = match self.tirra_db.api_load_entries(&self.calc_loader_request()) {
             Ok(list) => list,
             Err(_err) => {
                 exception("loading entries", Some(&self.tirra_db));
                 TirraEntryList::new()
             }
         };
-        ////// stop db access
 
         // assignments
         self.entry_list = entry_list;
@@ -364,12 +347,7 @@ impl WriterUi {
      * apply the request inside cli input
      */
     pub fn cli_req_apply(&mut self) -> bool {
-        ////// start db access
-        if let Err(_) = self.tirra_db.access_start() {
-            exception("Db access start - cli_req_apply", Some(&self.tirra_db));
-        }
-
-        match self.tirra_db.api_load_entries(&self.cli_text, true) {
+        match self.tirra_db.api_load_entries(&self.cli_text) {
             Ok(entries) => {
                 self.entry_list = entries;
                 self.load_request = self.cli_text.clone();
@@ -383,7 +361,6 @@ impl WriterUi {
                 return false;
             }
         };
-        ////// stop db access
     }
 
     /**
@@ -445,20 +422,11 @@ impl WriterUi {
                 return;
             }
         }
-        // database access
-        ////// start db access
-        if let Err(_) = self.tirra_db.access_start() {
-            exception(
-                "Db access start - on_create_date_submit",
-                Some(&self.tirra_db),
-            );
-        }
 
-        match self.tirra_db.api_update_create_date(
-            self.entry_live.as_ref().unwrap().id,
-            epoch,
-            true,
-        ) {
+        match self
+            .tirra_db
+            .api_update_create_date(self.entry_live.as_ref().unwrap().id, epoch)
+        {
             Ok(()) => {
                 if let Some(entry) = &mut self.entry_live {
                     entry.date_create = epoch;
@@ -472,7 +440,6 @@ impl WriterUi {
         // end modifying session
         self.create_date_change_text.clear();
         self.modifying_create_date = 0;
-        //self.editor_needs_refresh = true;
     }
 
     /**
@@ -516,17 +483,8 @@ impl WriterUi {
             return;
         }
 
-        ////// start db access
-        if let Err(_) = self.tirra_db.access_start() {
-            exception(
-                "Db access start - on_delete_entry_clicked",
-                Some(&self.tirra_db),
-            );
-        }
-
         // remove current entry
-
-        if let Err(error) = self.tirra_db.api_remove_entry(live_id, true) {
+        if let Err(error) = self.tirra_db.api_remove_entry(live_id) {
             self.error_screen = Some(format!(
                 "error: I couldn't delete the current entry ({:?})",
                 error
@@ -559,18 +517,15 @@ impl WriterUi {
         if self.readonly_mode {
             return;
         }
-        ////// start db access
-        if let Err(_) = self.tirra_db.access_start() {
-            exception("Db access start - on_new_entry", Some(&self.tirra_db));
-        }
+
         // Save before creating a new entry
         //instead of save_live() we use one DB commit to both save the current entry and create a new one.
 
         if let Some(entry) = &self.entry_live {
             if self.editor_dirty {
-                if let Err(error) =
-                    self.tirra_db
-                        .api_update_entry(&entry.text.clone(), entry.id, false)
+                if let Err(error) = self
+                    .tirra_db
+                    .api_update_entry(&entry.text.clone(), entry.id)
                 {
                     self.error_screen = Some(format!(
                         "error: I couldn't write the current entry content to database ({:?})",
@@ -585,13 +540,13 @@ impl WriterUi {
         let now = utils::time_now() + 1; //add one second to avoid the same timestamp as the last saved record.
         match self
             .tirra_db
-            .api_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", now, now, false)
+            .api_add_entry(db::TIRRA_ENTRY_TYPE_GENERAL, "", now, now)
         {
             Ok(()) => {
                 //load the last one ??
                 let temp_list = match self
                     .tirra_db
-                    .api_load_entries(&TirraDb::build_filter("", true, 0, 1), true)
+                    .api_load_entries(&TirraDb::build_filter("", true, 0, 1))
                 {
                     Ok(list) => list,
                     Err(_err) => {
@@ -749,22 +704,13 @@ impl WriterUi {
      * rerun the current loader request.
      */
     fn reload(&mut self) {
-        ////// start db access
-        if let Err(_) = self.tirra_db.access_start() {
-            exception("Db access start - reload", Some(&self.tirra_db));
-        }
-
-        self.entry_list = match self
-            .tirra_db
-            .api_load_entries(&self.load_request.clone(), true)
-        {
+        self.entry_list = match self.tirra_db.api_load_entries(&self.load_request.clone()) {
             Ok(list) => list,
             Err(_err) => {
                 exception("loading entries", Some(&self.tirra_db));
                 TirraEntryList::new()
             }
         };
-        ////// stop db access
     }
 
     /**
@@ -774,15 +720,11 @@ impl WriterUi {
         if !self.editor_dirty {
             return;
         }
-        ////// start db access
-        if let Err(_) = self.tirra_db.access_start() {
-            exception("Db access start - save_live", Some(&self.tirra_db));
-        }
 
         if let Some(entry) = &mut self.entry_live {
             if let Err(error) = self
                 .tirra_db
-                .api_update_entry(&entry.text.clone(), entry.id, true)
+                .api_update_entry(&entry.text.clone(), entry.id)
             {
                 self.error_screen = Some(format!(
                     "error: I couldn't write the current entry content to database ({:?})",
