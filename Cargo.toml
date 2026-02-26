@@ -18,6 +18,9 @@ iced = { version = "0.14.0", features = [ "tokio"] }
 # Sqlite Database
 rusqlite = { version = "0.32.0", features = ["bundled", "load_extension"] }
 
+# tirravfs sqlite3 extension - static linking
+tirra-vfs = { path = "../tirra-vfs", features = ["static"] }
+
 # Date and Time
 chrono = "0.4.38"
 

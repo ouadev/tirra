@@ -791,6 +791,8 @@ impl TirraDb {
      * load tirravfs sqlite3 extension
      */
     pub fn load_vfs_extension() -> Result<(), TirraDbError> {
+        // Option 1: load tirra-vfs using rusqlite load_extension
+        /*
         match Connection::open_in_memory() {
             Ok(conn) => {
                 //
@@ -799,19 +801,39 @@ impl TirraDb {
                     conn.load_extension_enable()
                         .map_err(|_e| TirraDbError::DbInitError)?;
                     conn.load_extension(
-                        format!("../tirra-vfs/target/debug/libtirra_vfs.so"),
+                        format!("../tirra-vfs/target/debug/libtirra_vfs"),
                         None::<&str>,
                     )
-                    .map_err(|_e| TirraDbError::DbInitError)?;
+                    .map_err(|_e| {
+                        println!("error:{:?}", _e);
+                        TirraDbError::DbInitError
+                    })?;
                     conn.load_extension_disable()
                         .map_err(|_e| TirraDbError::DbInitError)?;
                 }
 
-                Ok(())
+                return Ok(());
             }
             _ => {
                 return Err(TirraDbError::DbInitError);
             }
+        }
+        */
+        // Option 2: lib is statically linked.
+        /*
+                extern "C" {
+                    fn tirravfs_init_static() -> u32;
+                }
+                unsafe {
+                    tirravfs_init_static();
+                    Ok(())
+                }
+        */
+    
+        // Option 3: Rust's own static linking (rlib)
+        unsafe {
+            tirra_vfs::tirravfs_init_static();
+            Ok(())
         }
     }
 

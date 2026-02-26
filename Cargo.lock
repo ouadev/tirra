@@ -3071,6 +3071,19 @@ dependencies = [
  "rpassword",
  "rusqlite",
  "sha2",
+ "tirra-vfs",
+]
+
+[[package]]
+name = "tirra-vfs"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "chacha20",
+ "chrono",
+ "pbkdf2",
+ "poly1305",
+ "sha2",
 ]
 
 [[package]]
