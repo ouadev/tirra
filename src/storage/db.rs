@@ -829,7 +829,7 @@ impl TirraDb {
                     Ok(())
                 }
         */
-    
+
         // Option 3: Rust's own static linking (rlib)
         unsafe {
             tirra_vfs::tirravfs_init_static();
@@ -841,9 +841,8 @@ impl TirraDb {
      * new connection trigger the registration function of the VFS
      */
     pub fn poke_vfs() {
-        match Connection::open_in_memory() {
-            Ok(_) => {}
-            _ => {}
+        unsafe {
+            tirra_vfs::tirravfs_probe();
         }
     }
 }

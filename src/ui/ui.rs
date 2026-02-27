@@ -811,6 +811,7 @@ impl TirraInterface for WriterUi {
             KbCtrl::CtrlK => {
                 //run stuff on the editor, for testing purposes.
                 println!("editor page: Ctrl-K Command");
+                TirraDb::poke_vfs();
             }
             KbCtrl::CtrlL => {
                 style_conf::toggle_theme();
