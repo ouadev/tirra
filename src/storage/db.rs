@@ -217,6 +217,7 @@ impl TirraDb {
     const DEFAULT_COMMIT_AUTHOR: &str = "tirra-author";
     const DB_PLAIN_SUFFIX: &str = ".plain";
     const DB_BACKUP_SUFFIX: &str = ".backup";
+    const ENC_EXTENSION_NAME: &str = "tirravfs";
     /**
      * new TirraDb Object
      */
@@ -258,16 +259,17 @@ impl TirraDb {
         let secrets_b64 = utils::base64_encode(&secrets.to_vec());
         let db_path = format!("file:{}?secrets={}", location, secrets_b64);
         let connection;
-        match Connection::open(db_path) {
+        match Connection::open_with_flags_and_vfs(
+            db_path,
+            rusqlite::OpenFlags::default(),
+            Self::ENC_EXTENSION_NAME,
+        ) {
             Ok(conn) => {
                 // set connection parameters
                 conn.pragma_update(None, "journal_mode", "PERSIST")
                     .map_err(|_e| TirraDbError::DbOpenFailure)?;
                 conn.pragma_update(None, "temp_store", "MEMORY")
                     .map_err(|_e| TirraDbError::DbOpenFailure)?;
-
-                //conn.pragma_update(None, "tirravfs_secret", secrets_b64)
-                //    .map_err(|_| TirraDbError::DbOpenFailure)?;
 
                 connection = Some(conn);
             }
@@ -277,6 +279,28 @@ impl TirraDb {
         };
 
         //ret
+        Ok(Self {
+            //dummy crypto
+            path: location.to_string(),
+            conn: connection,
+        })
+    }
+
+    /**
+     * new api: open connection
+     */
+    pub fn with_plain(location: &str) -> Result<Self, TirraDbError> {
+        //open conn
+        let connection;
+        match Connection::open(location) {
+            Ok(conn) => {
+                connection = Some(conn);
+            }
+            Err(_) => {
+                return Err(TirraDbError::DbOpenFailure);
+            }
+        };
+
         Ok(Self {
             //dummy crypto
             path: location.to_string(),
