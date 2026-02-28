@@ -111,7 +111,7 @@ pub fn process(args: &Vec<String>, args_count: usize) {
 
         // create new schema
         tirra_new
-            .api_create_db()
+            .api_create_schema()
             .expect("Failed to create a new db");
 
         // insert first empty entry
@@ -281,7 +281,7 @@ pub fn process(args: &Vec<String>, args_count: usize) {
                 TirraDb::with_tirravfs(&db_path, &pwd, true).expect("Failed to create a new db");
             // create new db
             tirra_new
-                .api_create_db()
+                .api_create_schema()
                 .expect("Failed to create a new db");
 
             //add something

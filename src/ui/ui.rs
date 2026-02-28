@@ -109,7 +109,7 @@ impl LoginUi {
                     return;
                 };
                 // create new db
-                let db_created = tirra_db.api_create_db();
+                let db_created = tirra_db.api_create_schema();
                 if let Err(_x) = db_created {
                     exception("couldn't create new schema", Some(&tirra_db));
                 }

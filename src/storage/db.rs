@@ -265,8 +265,22 @@ impl TirraDb {
             Self::ENC_EXTENSION_NAME,
         ) {
             Ok(conn) => {
+                //
+                if newdb {
+                    //set reserved bytes length
+                    //TODO: move to the VFS.
+                    let mut reserved: i32 = 32;
+                    unsafe {
+                        ffi::sqlite3_file_control(
+                            conn.handle(),
+                            std::ptr::null(), // zDbName, NULL = main db
+                            ffi::SQLITE_FCNTL_RESERVE_BYTES,
+                            &mut reserved as *mut i32 as *mut std::ffi::c_void,
+                        );
+                    }
+                }
                 // set connection parameters
-                conn.pragma_update(None, "journal_mode", "PERSIST")
+                conn.pragma_update(None, "journal_mode", "MEMORY")
                     .map_err(|_e| TirraDbError::DbOpenFailure)?;
                 conn.pragma_update(None, "temp_store", "MEMORY")
                     .map_err(|_e| TirraDbError::DbOpenFailure)?;
@@ -414,16 +428,7 @@ impl TirraDb {
         return result;
     }
 
-    pub fn api_create_db(&mut self) -> Result<(), TirraDbError> {
-        match Connection::open(&self.path) {
-            Ok(conn) => {
-                self.conn = Some(conn);
-            }
-            _ => {
-                return Err(TirraDbError::DbOpenFailure);
-            }
-        }
-
+    pub fn api_create_schema(&mut self) -> Result<(), TirraDbError> {
         //check access
         let db = if let Some(conn) = &mut self.conn {
             conn
@@ -431,20 +436,8 @@ impl TirraDb {
             return Err(TirraDbError::CryptoAccessFailure);
         };
 
-        //set reserved bytes length
-        //TODO: move to the VFS.
-        let mut reserved: i32 = 32; // 16 (nonce) + 16 (tag) for ChaCha20-Poly1305
-        unsafe {
-            ffi::sqlite3_file_control(
-                db.handle(),
-                std::ptr::null(), // zDbName, NULL = main db
-                ffi::SQLITE_FCNTL_RESERVE_BYTES,
-                &mut reserved as *mut i32 as *mut std::ffi::c_void,
-            );
-        }
-
         //initialize the db tables
-        Self::op_create_db(db)
+        Self::op_create_schema(db)
     }
 
     pub fn api_scan_dir(db_path: &str) -> (bool, bool) {
@@ -713,7 +706,7 @@ impl TirraDb {
     /**
      * Operation: CreateDb
      */
-    fn op_create_db(db: &mut Connection) -> Result<(), TirraDbError> {
+    fn op_create_schema(db: &mut Connection) -> Result<(), TirraDbError> {
         db.execute(
             "CREATE TABLE entries (
                 id          INTEGER PRIMARY KEY,
