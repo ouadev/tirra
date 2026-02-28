@@ -61,6 +61,7 @@ enum CliAction {
     Decrypt,
     Encrypt,
     Test,
+    Migrate,
     Version,
 }
 
@@ -80,6 +81,7 @@ pub fn process(args: &Vec<String>, args_count: usize) {
         "decrypt" => cli_action = CliAction::Decrypt,
         "encrypt" => cli_action = CliAction::Encrypt,
         "test" => cli_action = CliAction::Test,
+        "migrate" => cli_action = CliAction::Migrate,
         "ver" => cli_action = CliAction::Version,
         _ => {
             println!("{}", USAGE_STR);
@@ -149,8 +151,8 @@ pub fn process(args: &Vec<String>, args_count: usize) {
         TirraDb::load_vfs_extension().expect("failure loading tirravfs");
 
         //db
-        let mut tirra_db =
-            TirraDb::with_tirravfs(&db_path, &password.as_bytes(), false).expect("failure opening db");
+        let mut tirra_db = TirraDb::with_tirravfs(&db_path, &password.as_bytes(), false)
+            .expect("failure opening db");
 
         let added = tirra_db.api_add_entry(
             db::TIRRA_ENTRY_TYPE_GENERAL,
@@ -182,8 +184,8 @@ pub fn process(args: &Vec<String>, args_count: usize) {
         TirraDb::load_vfs_extension().expect("failure loading tirravfs");
 
         //db
-        let mut tirra_db =
-            TirraDb::with_tirravfs(&db_path, &password.as_bytes(),false).expect("failure opening db");
+        let mut tirra_db = TirraDb::with_tirravfs(&db_path, &password.as_bytes(), false)
+            .expect("failure opening db");
 
         let removed = tirra_db.api_remove_entry(id);
 
@@ -210,8 +212,8 @@ pub fn process(args: &Vec<String>, args_count: usize) {
         TirraDb::load_vfs_extension().expect("failure loading tirravfs");
 
         //db
-        let mut tirra_db =
-            TirraDb::with_tirravfs(&db_path, &password.as_bytes(), false).expect("failure opening db");
+        let mut tirra_db = TirraDb::with_tirravfs(&db_path, &password.as_bytes(), false)
+            .expect("failure opening db");
 
         print_stats(&mut tirra_db);
 
@@ -292,13 +294,16 @@ pub fn process(args: &Vec<String>, args_count: usize) {
                 .expect("failed to add new entry");
 
             // close db;
-            tirra_new.api_close_db().expect("error closing the database");
+            tirra_new
+                .api_close_db()
+                .expect("error closing the database");
 
             //show oplog
             TirraDb::poke_vfs();
         } else {
             //let mut tirra_db = TirraDb::with_crypto(&db_path, &pwd).expect("failure opening db");
-            let mut tirra_db = TirraDb::with_tirravfs(&db_path, &pwd, false).expect("failure opening db");
+            let mut tirra_db =
+                TirraDb::with_tirravfs(&db_path, &pwd, false).expect("failure opening db");
 
             load_infoblock(&mut tirra_db);
             //laod_entries_api2(&mut tirra_db);
@@ -314,9 +319,26 @@ pub fn process(args: &Vec<String>, args_count: usize) {
             //show oplog
             TirraDb::poke_vfs();
         }
+    } else if cli_action == CliAction::Migrate {
+        //migrate OLD_PLAIN NEW_DB
+        if args_count != 4 {
+            println!("{}", USAGE_STR);
+            return;
+        }
+
+        // load vfs extension
+        TirraDb::load_vfs_extension().expect("failure loading tirravfs");
+
+        //Open db
+        let db_path_plain = String::from(&args[2]);
+        let db_path_new = String::from(&args[3]);
+        let password: String = ask_for_pwd();
+        let pwd = password.as_bytes();
+
+        //migrate
+        migrate_from_plain_to_tirravfs(&db_path_plain, &db_path_new, pwd);
     }
 }
-
 
 fn load_infoblock(db: &mut TirraDb) {
     let info = db.api_load_info().expect("failure loading info block");
@@ -325,7 +347,6 @@ fn load_infoblock(db: &mut TirraDb) {
     println!("local :\t {:x?}", &info.local_commit.unwrap());
     println!("origin :\t {:x?}", info.origin_commit.unwrap());
 }
-
 
 fn print_stats(db: &mut TirraDb) {
     let loaded = db.api_load_entries(&TirraDb::build_filter("", true, 0, 1));
@@ -357,4 +378,49 @@ fn ask_for_pwd() -> String {
     // ask for password
     let password = rpassword::prompt_password("password: ").unwrap();
     password
+}
+
+/**
+ * migrate manually from a plaintext database to the new format : tirravfs
+ */
+fn migrate_from_plain_to_tirravfs(db_path_plain: &str, db_path_new: &str, pwd: &[u8]) {
+    //open db_path_plain
+    let mut tirra_old = TirraDb::with_plain(db_path_plain).expect("Failed to open plain db");
+    print_stats(&mut tirra_old);
+
+    //open tirra10 empty database
+    let mut tirra_new =
+        TirraDb::with_tirravfs(db_path_new, pwd, true).expect("failure opening new empty db");
+
+    //create schema
+    tirra_new
+        .api_create_schema()
+        .expect("couldn't create schema");
+
+    //load all 'entries' tables from old db, otherwise loop progressively
+    let entry_list = tirra_old
+        .api_load_entries(&TirraDb::build_filter("", true, 0, 1000))
+        .expect("couldn't load all entries");
+
+    let mut position = 0usize;
+    loop {
+        if let Some(entry) = entry_list.get_entry(position) {
+            //INSERT INTO NEW DB
+            tirra_new
+                .api_add_entry(
+                    entry.type_entry,
+                    &entry.text,
+                    entry.date_create,
+                    entry.date_modify,
+                )
+                .expect("error copying entry");
+        } else {
+            break;
+        }
+        position += 1;
+    }
+
+    //close both
+    tirra_new.api_close_db().expect("error closing db");
+    tirra_old.api_close_db().expect("error closing db");
 }
