@@ -16,7 +16,7 @@ path = "src/bin/cli.rs"
 iced = { version = "0.14.0", features = [ "tokio"] }
 
 # Sqlite Database
-rusqlite = { version = "0.32.0", features = ["bundled", "load_extension"] }
+rusqlite = { version = "0.32.0", features = ["bundled"] }
 
 # tirravfs sqlite3 extension - static linking
 tirra-vfs = { path = "../tirra-vfs", features = ["static"] }
