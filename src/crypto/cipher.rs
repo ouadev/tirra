@@ -1,9 +1,6 @@
-
 use chacha20::cipher::{KeyIvInit, StreamCipher, StreamCipherSeek};
 use chacha20::rand_core::Rng;
-use chacha20::rand_core::SeedableRng;
 use chacha20::ChaCha20;
-use chacha20::ChaCha20Rng;
 use pbkdf2::pbkdf2_hmac_array;
 use poly1305::universal_hash::KeyInit;
 use poly1305::universal_hash::UniversalHash;
@@ -15,6 +12,7 @@ pub enum CipherError {
     Format,
     MacIncorrect,
 }
+#[derive(Debug)]
 pub struct Cipher {
     payload_salt: [u8; 16],
     payload_key: [u8; 32],
@@ -247,7 +245,6 @@ impl Cipher {
  * Random number generator
  */
 pub fn fill_random(buffer: &mut [u8]) {
-    let seed = [42u8; 32];
-    let mut rng = ChaCha20Rng::from_seed(seed);
+    let mut rng = rand::rng();
     rng.fill_bytes(buffer);
 }
