@@ -280,7 +280,9 @@ impl TirraDb {
                     }
                 }
                 // set connection parameters
-                conn.pragma_update(None, "journal_mode", "MEMORY")
+                // journal: created on disk, that's where they are more useful, and since tirravfs encrypts them too it is safe.
+                // other temp files: open on memory because encryption is not supported for them.
+                conn.pragma_update(None, "journal_mode", "DELETE")
                     .map_err(|_e| TirraDbError::DbOpenFailure)?;
                 conn.pragma_update(None, "temp_store", "MEMORY")
                     .map_err(|_e| TirraDbError::DbOpenFailure)?;
