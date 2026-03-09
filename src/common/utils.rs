@@ -1,8 +1,3 @@
-use base64::{
-    alphabet::{self},
-    engine::{general_purpose::NO_PAD, GeneralPurpose},
-    prelude::*,
-};
 use chrono::{DateTime, Utc};
 use sha2::{Digest, Sha256};
 use std::path::Path;
@@ -14,9 +9,7 @@ use std::time::SystemTime;
 pub fn datetime_from_unix(unix_ts: i64) -> DateTime<Utc> {
     match DateTime::from_timestamp(unix_ts, 0) {
         Some(date) => date,
-        _ => {
-            DateTime::<Utc>::MIN_UTC
-        }
+        _ => DateTime::<Utc>::MIN_UTC,
     }
 }
 
@@ -54,30 +47,6 @@ pub fn time_now() -> u64 {
         Ok(n) => n.as_secs(),
         Err(_) => 0,
     }
-}
-
-/**
- * base64 decode: standard alphabet, and no padding
- */
-pub fn base64_decode(b64_string: String) -> Option<Vec<u8>> {
-    //base64 decoding
-    let b64_engine = GeneralPurpose::new(&alphabet::STANDARD, NO_PAD);
-    match b64_engine.decode(b64_string) {
-        Ok(bin) => Some(bin),
-        Err(decode_err) => {
-            println!("error base64 decoding {:?}", decode_err);
-            None
-        }
-    }
-}
-
-/**
- * base64 encode: standard alphabet, and no padding
- */
-pub fn base64_encode(bin: &Vec<u8>) -> String {
-    //base64 decoding
-    let b64_engine = GeneralPurpose::new(&alphabet::STANDARD, NO_PAD);
-    b64_engine.encode(bin)
 }
 
 pub fn hash_sha256(entropy: &str) -> Vec<u8> {

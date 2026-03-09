@@ -1,5 +1,4 @@
 use crate::common::utils;
-use crate::storage::tirracrypto::TirraCrypto;
 use rusqlite::ffi;
 //use rusqlite::ffi;
 use rusqlite::params;
@@ -236,28 +235,13 @@ impl TirraDb {
         password: &[u8],
         newdb: bool,
     ) -> Result<Self, TirraDbError> {
-        //
-        let mut crypto = TirraCrypto::new(location, "", password);
-
-        if newdb {
-            if crypto.new_secrets().is_err() {
-                return Err(TirraDbError::CryptoAccessFailure);
-            }
-        } else {
-            if crypto.build_secrets().is_err() {
-                return Err(TirraDbError::CryptoAccessFailure);
-            }
-        }
-
-        let secrets = if let Some(secrets) = crypto.pack_secrets() {
-            secrets
-        } else {
-            return Err(TirraDbError::CryptoAccessFailure);
-        };
-
         //open conn
-        let secrets_b64 = utils::base64_encode(&secrets.to_vec());
-        let db_path = format!("file:{}?secrets={}", location, secrets_b64);
+        let passphrase_hex = password
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>();
+        let db_path = format!("file:{}?passphrase={}", location, passphrase_hex);
+
         let connection;
         match Connection::open_with_flags_and_vfs(
             db_path,
