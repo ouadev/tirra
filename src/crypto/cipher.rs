@@ -12,17 +12,23 @@ pub enum CipherError {
     Format,
     MacIncorrect,
 }
+
+#[derive(Debug)]
+pub enum Secret {
+    Passphrase(String),
+    Key([u8; 32]),
+}
+
 #[derive(Debug)]
 pub struct Cipher {
-    payload_salt: [u8; 16],
+    secret: Secret,
     payload_key: [u8; 32],
+    payload_salt: Option<[u8; 16]>,
 }
 
 impl Cipher {
     const KEY_DERIVATION_ITER: u32 = 64007;
-    // const FILE_SALT_SIZE: usize = 16;
     pub const FILE_PLAIN_HEADER_SIZE: usize = 24;
-
     pub const PAGE_SIZE: usize = 4096;
     pub const PAGE_TAG_SIZE: usize = 16;
     pub const PAGE_NONCE_SIZE: usize = 16;
@@ -32,70 +38,69 @@ impl Cipher {
     /**
      * new Cipher from a password.
      */
-    #[allow(dead_code)]
-    pub fn with_pwd(password: &[u8]) -> Self {
-        let mut salt: [u8; 16] = [0u8; 16];
-
-        // generate salt
-        fill_random(&mut salt);
-
-        Self::with_pwd_and_salt(password, salt)
-    }
-
-    /**
-     * Construct directly with a key and nonce
-     */
-    pub fn with_key_and_salt(key: [u8; 32], salt: [u8; 16]) -> Self {
+    pub fn with_pwd(password: String) -> Self {
         Self {
-            payload_salt: salt,
-            payload_key: key,
+            secret: Secret::Passphrase(password),
+            payload_key: [0u8; 32],
+            payload_salt: None,
         }
     }
 
     /**
-     * derive key from a passphrase using PBKDF2_HMAC_Sha256
+     * Construct directly with a key
      */
-    pub fn with_pwd_and_salt(password: &[u8], salt: [u8; 16]) -> Self {
-        let key = pbkdf2_hmac_array::<Sha256, 32>(password, &salt, Self::KEY_DERIVATION_ITER);
+    pub fn with_key(key: [u8; 32]) -> Self {
         Self {
-            payload_salt: salt,
-            payload_key: key,
+            secret: Secret::Key(key),
+            payload_key: [0u8; 32],
+            payload_salt: None,
         }
     }
 
-    /**
-     * get the cipher's key
-     */
-    #[allow(dead_code)]
-    pub fn get_key(&self) -> [u8; 32] {
-        self.payload_key.clone()
-    }
-
-    /**
-     * get the ciphers' salt
-     */
-    #[allow(dead_code)]
-    pub fn get_salt(&self) -> [u8; 16] {
-        self.payload_salt.clone()
-    }
     /**
      * encrypt 4064 bytes into a 4096 bytes page.
      */
     pub fn encrypt_page(
-        &self,
+        &mut self,
         //payload_key: &[u8; 32],
         chunk: &[u8], //4064 bytes
         page_no: u32,
     ) -> Result<Vec<u8>, CipherError> {
-        //get payload key and salt
-        let payload_key = &self.payload_key;
-        let salt = &self.payload_salt;
         // generate nonce
         let mut nonce: [u8; 16] = [0u8; 16];
         fill_random(&mut nonce);
         let chacha20_nonce: &[u8; 12] = nonce[..12].try_into().map_err(|_e| CipherError::Format)?;
         //prepare counter seed.
         let counter_seed: [u8; 4] = nonce[12..].try_into().map_err(|_e| CipherError::Format)?;
+
+        // get payload key
+        if page_no == 1 {
+            match &self.secret {
+                Secret::Passphrase(pwd) => {
+                    if self.payload_salt.is_none() {
+                        //salt is not set yet, which means this is a new db being created.
+                        let mut salt: [u8; 16] = [0u8; 16];
+                        fill_random(&mut salt);
+                        self.payload_salt = Some(salt);
+                        //derivate key
+                        let key = pbkdf2_hmac_array::<Sha256, 32>(
+                            pwd.as_bytes(),
+                            &salt,
+                            Self::KEY_DERIVATION_ITER,
+                        );
+
+                        self.payload_key = key;
+                    }
+                }
+                Secret::Key(key) => {
+                    // if a key is provided. ignore the salt.
+                    self.payload_key = *key;
+                }
+            }
+        }
+
+        //get payload key and salt
+        let payload_key = &self.payload_key;
 
         let skip_clear = if page_no == 1 {
             Self::FILE_PLAIN_HEADER_SIZE
@@ -125,7 +130,9 @@ impl Cipher {
         encrypt_cipher.apply_keystream(&mut ciphertext[skip_clear..]);
 
         if page_no == 1 {
-            ciphertext[0..16].copy_from_slice(salt);
+            if let Some(salt) = self.payload_salt {
+                ciphertext[0..16].copy_from_slice(&salt);
+            }
         }
 
         //append nonce
@@ -149,10 +156,7 @@ impl Cipher {
     /**
      * decrypt a 4096 bytes page into a 4096 byte plaintext page.
      */
-    pub fn decrypt_page(&self, chunk: &[u8], page_no: u32) -> Result<Vec<u8>, CipherError> {
-        //get payload key
-        let payload_key = &self.payload_key;
-
+    pub fn decrypt_page(&mut self, chunk: &[u8], page_no: u32) -> Result<Vec<u8>, CipherError> {
         //get nonce
         let arg_nonce =
             &chunk[Self::PAGE_PLAIN_SIZE..Self::PAGE_PLAIN_SIZE + Self::PAGE_NONCE_SIZE]; //16 bytes
@@ -167,6 +171,33 @@ impl Cipher {
 
         //get tag
         let expected_tag = &chunk[Self::PAGE_PLAIN_SIZE + Self::PAGE_NONCE_SIZE..]; //16 bytes
+
+        // set payload key
+        // if a passphrase is used, then derivate the key using the salt
+        // if a key is directly provided, ignore salt.
+        if page_no == 1 {
+            match &self.secret {
+                Secret::Passphrase(pwd) => {
+                    let salt: [u8; 16] =
+                        chunk[0..16].try_into().map_err(|_e| CipherError::Format)?;
+                    let key = pbkdf2_hmac_array::<Sha256, 32>(
+                        pwd.as_bytes(),
+                        &salt,
+                        Self::KEY_DERIVATION_ITER,
+                    );
+
+                    self.payload_key = key;
+                    self.payload_salt = Some(salt);
+                }
+                Secret::Key(key) => {
+                    self.payload_key = *key;
+                    self.payload_salt = None;
+                }
+            }
+        }
+
+        //get payload key
+        let payload_key = &self.payload_key;
 
         let chunk_to_auth = &chunk[..Self::PAGE_PLAIN_SIZE + Self::PAGE_NONCE_SIZE]; //4080 bytes
 

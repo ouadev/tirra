@@ -229,9 +229,8 @@ pub fn process(args: &Vec<String>, args_count: usize) {
 
         // Get Password
         let password: String = ask_for_pwd();
-        let pwd = password.as_bytes();
 
-        let mut crypto = TirraCrypto::new(&db_path, &out_path, &pwd);
+        let mut crypto = TirraCrypto::new(&db_path, &out_path, password);
 
         match crypto.decrypt_db() {
             Ok(_) => {
@@ -252,11 +251,10 @@ pub fn process(args: &Vec<String>, args_count: usize) {
 
         // Get Password
         let password: String = ask_for_pwd();
-        let pwd = password.as_bytes();
 
-        let crypto = TirraCrypto::new(&out_path, &clear_path, &pwd);
+        let mut crypto = TirraCrypto::new(&out_path, &clear_path, password);
 
-        match crypto.encrypt_file(&pwd) {
+        match crypto.encrypt_db() {
             Ok(_) => {
                 println!("file successfully encrypted");
             }

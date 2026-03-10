@@ -17,7 +17,7 @@ pub enum TirraCryptoError {
 pub struct TirraCrypto {
     db_location: String,
     db_location_pt: String,
-    password: Vec<u8>,
+    password: String,
     cipher: Option<Cipher>,
 }
 
@@ -26,20 +26,18 @@ impl Default for TirraCrypto {
         Self {
             db_location: String::new(),
             db_location_pt: String::new(),
-            password: vec![],
+            password: String::new(),
             cipher: None,
         }
     }
 }
 
 impl TirraCrypto {
-    const FILE_SALT_SIZE: usize = 16;
-
-    pub fn new(location_encrypted: &str, location_plain: &str, password: &[u8]) -> Self {
+    pub fn new(location_encrypted: &str, location_plain: &str, password: String) -> Self {
         Self {
             db_location: location_encrypted.to_string(),
             db_location_pt: location_plain.to_string(),
-            password: Vec::<u8>::from(password),
+            password: password,
             cipher: None,
         }
     }
@@ -58,35 +56,11 @@ impl TirraCrypto {
                 return Err(());
             }
             _ => {
-                let cipher = Self::extract_secrets(&self.db_location, &self.password);
-
-                if let Ok(cipher) = cipher {
-                    self.decrypt_first_chunk(&self.db_location, &cipher)
-                        .map_err(|_| ())?;
-                    self.cipher = Some(cipher);
-                    return Ok(());
-                } else {
-                    return Err(());
-                }
-            }
-        }
-    }
-
-    pub fn build_secrets(&mut self) -> Result<(), ()> {
-        match &mut self.cipher {
-            Some(_cipher) => {
-                //this function shouldn't be called if we are already have an cipher instance
-                return Err(());
-            }
-            _ => {
-                let cipher = Self::extract_secrets(&self.db_location, &self.password);
-
-                if let Ok(cipher) = cipher {
-                    self.cipher = Some(cipher);
-                    return Ok(());
-                } else {
-                    return Err(());
-                }
+                let mut cipher = Cipher::with_pwd(self.password.clone());
+                self.decrypt_first_chunk(&self.db_location, &mut cipher)
+                    .map_err(|_| ())?;
+                self.cipher = Some(cipher);
+                return Ok(());
             }
         }
     }
@@ -101,7 +75,7 @@ impl TirraCrypto {
                 return Err(());
             }
             _ => {
-                let cipher = Cipher::with_pwd(&self.password);
+                let cipher = Cipher::with_pwd(self.password.clone());
                 self.cipher = Some(cipher);
                 return Ok(());
             }
@@ -109,31 +83,10 @@ impl TirraCrypto {
     }
 
     /**
-     * pack secrets to be sent to a VFS
-     */
-    pub fn pack_secrets(&self) -> Option<[u8; 48]> {
-        let cipher = match &self.cipher {
-            Some(cipher) => cipher,
-            None => {
-                return None;
-            }
-        };
-
-        let key = cipher.get_key();
-        let salt = cipher.get_salt();
-
-        let mut secrets = [0u8; 48];
-        secrets[0..32].copy_from_slice(&key);
-        secrets[32..48].copy_from_slice(&salt);
-
-        Some(secrets)
-    }
-
-    /**
      * Encrypt Db
      */
-    pub fn encrypt_db(&self) -> Result<bool, ()> {
-        match &self.cipher {
+    pub fn encrypt_db(&mut self) -> Result<bool, ()> {
+        match &mut self.cipher {
             Some(cipher) => {
                 let encrypted =
                     Self::encrypt_with_cipher(cipher, &self.db_location_pt, &self.db_location);
@@ -145,9 +98,9 @@ impl TirraCrypto {
             }
 
             None => {
-                let temp_cipher = Cipher::with_pwd(&self.password);
+                let mut temp_cipher = Cipher::with_pwd(self.password.clone());
                 let encrypted = Self::encrypt_with_cipher(
-                    &temp_cipher,
+                    &mut temp_cipher,
                     &self.db_location_pt,
                     &self.db_location,
                 );
@@ -167,16 +120,12 @@ impl TirraCrypto {
     pub fn decrypt_db(&mut self) -> Result<bool, ()> {
         // extract secrets, only once
         if self.cipher.is_none() {
-            let cipher = Self::extract_secrets(&self.db_location, &self.password);
-            if let Ok(cipher) = cipher {
-                self.cipher = Some(cipher);
-            } else {
-                return Err(());
-            }
+            let cipher = Cipher::with_pwd(self.password.clone());
+            self.cipher = Some(cipher);
         }
 
         // decrypt
-        match &self.cipher {
+        match &mut self.cipher {
             Some(cipher) => {
                 let decrypt =
                     Self::decrypt_with_cipher(cipher, &self.db_location, &self.db_location_pt);
@@ -186,43 +135,8 @@ impl TirraCrypto {
         }
     }
 
-    /**
-     * Encrypt file
-     */
-    pub fn encrypt_file(&self, password: &[u8]) -> Result<bool, ()> {
-        let temp_cipher = Cipher::with_pwd(password);
-        let encrypted =
-            Self::encrypt_with_cipher(&temp_cipher, &self.db_location_pt, &self.db_location);
-        if let Ok(b) = encrypted {
-            return Ok(b);
-        } else {
-            return Err(());
-        }
-    }
-
     pub fn plaintext_db_location(&self) -> &str {
         &self.db_location_pt
-    }
-
-    /******/
-    /**
-     * extract cipher file key from the header.
-     */
-    fn extract_secrets(file_location: &str, password: &[u8]) -> Result<Cipher, TirraCryptoError> {
-        //open file
-        let file = File::open(file_location).map_err(|_| TirraCryptoError::FileOpen)?;
-
-        let mut reader = BufReader::new(file);
-
-        // retrieve payload nonce
-        let mut salt: [u8; Self::FILE_SALT_SIZE] = [0u8; Self::FILE_SALT_SIZE];
-        if let Err(_) = reader.read_exact(&mut salt) {
-            return Err(TirraCryptoError::FileRead);
-        }
-
-        let cipher = Cipher::with_pwd_and_salt(password, salt);
-
-        Ok(cipher)
     }
 
     /**
@@ -231,7 +145,7 @@ impl TirraCrypto {
     pub fn decrypt_first_chunk(
         &self,
         file_location: &str,
-        cipher: &Cipher,
+        cipher: &mut Cipher,
     ) -> Result<bool, TirraCryptoError> {
         //open file
         let file = File::open(file_location).map_err(|_| TirraCryptoError::FileOpen)?;
@@ -268,7 +182,7 @@ impl TirraCrypto {
      * Encrypt a file with a cipher
      */
     fn encrypt_with_cipher(
-        cipher: &Cipher,
+        cipher: &mut Cipher,
         plain_file_location: &str,
         enc_file_location: &str,
     ) -> Result<bool, TirraCryptoError> {
@@ -345,7 +259,7 @@ impl TirraCrypto {
      * Decrypt database file with cipher
      */
     pub fn decrypt_with_cipher(
-        cipher: &Cipher,
+        cipher: &mut Cipher,
         enc_file_location: &str,
         plain_file_location: &str,
     ) -> Result<bool, TirraCryptoError> {
