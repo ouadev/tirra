@@ -32,8 +32,7 @@ impl Cipher {
     pub const PAGE_SIZE: usize = 4096;
     pub const PAGE_TAG_SIZE: usize = 16;
     pub const PAGE_NONCE_SIZE: usize = 16;
-    pub const PAGE_PLAIN_SIZE: usize =
-        Self::PAGE_SIZE - Self::PAGE_TAG_SIZE - Self::PAGE_NONCE_SIZE;
+    pub const RESERVED_BYTES_SIZE: usize = Self::PAGE_TAG_SIZE + Self::PAGE_NONCE_SIZE;
 
     /**
      * new Cipher from a password.
@@ -66,13 +65,6 @@ impl Cipher {
         chunk: &[u8], //4064 bytes
         page_no: u32,
     ) -> Result<Vec<u8>, CipherError> {
-        // generate nonce
-        let mut nonce: [u8; 16] = [0u8; 16];
-        fill_random(&mut nonce);
-        let chacha20_nonce: &[u8; 12] = nonce[..12].try_into().map_err(|_e| CipherError::Format)?;
-        //prepare counter seed.
-        let counter_seed: [u8; 4] = nonce[12..].try_into().map_err(|_e| CipherError::Format)?;
-
         // get payload key
         if page_no == 1 {
             match &self.secret {
@@ -99,14 +91,85 @@ impl Cipher {
             }
         }
 
-        //get payload key and salt
-        let payload_key = &self.payload_key;
+        //request encryption
+        let mut ciphertext = self.encrypt(&chunk, page_no, true)?;
 
-        let skip_clear = if page_no == 1 {
+        if page_no == 1 {
+            if let Some(salt) = self.payload_salt {
+                ciphertext[0..16].copy_from_slice(&salt);
+            }
+        }
+
+        Ok(ciphertext)
+    }
+
+    /**
+     * decrypt a 4096 bytes page into a 4096 byte plaintext page.
+     */
+    pub fn decrypt_page(&mut self, chunk: &[u8], page_no: u32) -> Result<Vec<u8>, CipherError> {
+        // set payload key
+        // if a passphrase is used, then derivate the key using the salt
+        // if a key is directly provided, ignore salt.
+        if page_no == 1 {
+            match &self.secret {
+                Secret::Passphrase(pwd) => {
+                    if self.payload_salt.is_none() {
+                        let salt: [u8; 16] =
+                            chunk[0..16].try_into().map_err(|_e| CipherError::Format)?;
+                        let key = pbkdf2_hmac_array::<Sha256, 32>(
+                            pwd.as_bytes(),
+                            &salt,
+                            Self::KEY_DERIVATION_ITER,
+                        );
+
+                        self.payload_key = key;
+                        self.payload_salt = Some(salt);
+                    }
+                }
+                Secret::Key(key) => {
+                    self.payload_key = *key;
+                    self.payload_salt = None;
+                }
+            }
+        }
+
+        //request decryption
+        let mut ciphertext = self.decrypt(&chunk, page_no, true)?;
+
+        if page_no == 1 {
+            let magic_word = b"SQLite format 3\0";
+            //put macgic work back
+            ciphertext[0..16].copy_from_slice(magic_word);
+        }
+        Ok(ciphertext)
+    }
+
+    /**
+     * encrypt N bytes into a N + 32 bytes encrypted content.
+     * Note: it assumes payload_key is set.
+     */
+    pub fn encrypt(
+        &mut self,
+        //payload_key: &[u8; 32],
+        chunk: &[u8], //4064 bytes
+        page_no: u32,
+        skip_option: bool,
+    ) -> Result<Vec<u8>, CipherError> {
+        //skip salt
+        let skip = if skip_option && page_no == 1 {
             Self::FILE_PLAIN_HEADER_SIZE
         } else {
             0
         };
+        // generate nonce
+        let mut nonce: [u8; 16] = [0u8; 16];
+        fill_random(&mut nonce);
+        let chacha20_nonce: &[u8; 12] = nonce[..12].try_into().map_err(|_e| CipherError::Format)?;
+        //prepare counter seed.
+        let counter_seed: [u8; 4] = nonce[12..].try_into().map_err(|_e| CipherError::Format)?;
+
+        //get payload key and salt
+        let payload_key = &self.payload_key;
 
         // Generate one-time keys
         let counter = u32::from_le_bytes(counter_seed) ^ page_no;
@@ -127,16 +190,20 @@ impl Cipher {
         let mut encrypt_cipher = ChaCha20::new(&enc_key.into(), chacha20_nonce.into());
         let mut ciphertext = chunk.to_vec();
         encrypt_cipher.seek((counter as u64 + 1) * 64);
-        encrypt_cipher.apply_keystream(&mut ciphertext[skip_clear..]);
+        encrypt_cipher
+            .apply_keystream(&mut ciphertext[skip..chunk.len() - Self::RESERVED_BYTES_SIZE]);
 
-        if page_no == 1 {
+        //append nonce
+        //ciphertext.extend_from_slice(&nonce);
+        ciphertext[chunk.len() - Self::RESERVED_BYTES_SIZE..chunk.len() - Self::PAGE_TAG_SIZE]
+            .copy_from_slice(&nonce);
+
+        // prepend salt it exists
+        if skip_option && page_no == 1 {
             if let Some(salt) = self.payload_salt {
                 ciphertext[0..16].copy_from_slice(&salt);
             }
         }
-
-        //append nonce
-        ciphertext.extend_from_slice(&nonce);
 
         // The Poly1305 one-time key is the first 32 bytes of that block
         let tag = Self::internal_compute_tag(
@@ -144,22 +211,36 @@ impl Cipher {
                 .try_into()
                 .map_err(|_| CipherError::MacIncorrect)?,
             &[],
-            &ciphertext,
+            &ciphertext[..chunk.len() - Self::PAGE_TAG_SIZE],
         );
 
         //append tag
-        ciphertext.extend_from_slice(tag.as_slice());
+        //ciphertext.extend_from_slice(tag.as_slice());
+        ciphertext[chunk.len() - Self::PAGE_TAG_SIZE..].copy_from_slice(&tag);
 
         Ok(ciphertext)
     }
 
     /**
-     * decrypt a 4096 bytes page into a 4096 byte plaintext page.
+     * decrypt a N + 32 bytes page into a N byte plaintext content.
+     * Note: it assumes payload_key is set
      */
-    pub fn decrypt_page(&mut self, chunk: &[u8], page_no: u32) -> Result<Vec<u8>, CipherError> {
+    pub fn decrypt(
+        &mut self,
+        chunk: &[u8],
+        page_no: u32,
+        skip_option: bool,
+    ) -> Result<Vec<u8>, CipherError> {
+        let reserved_off = chunk.len() - (Self::PAGE_NONCE_SIZE + Self::PAGE_TAG_SIZE);
+
+        //skip salt ?
+        let skip = if skip_option && page_no == 1 {
+            Self::FILE_PLAIN_HEADER_SIZE
+        } else {
+            0
+        };
         //get nonce
-        let arg_nonce =
-            &chunk[Self::PAGE_PLAIN_SIZE..Self::PAGE_PLAIN_SIZE + Self::PAGE_NONCE_SIZE]; //16 bytes
+        let arg_nonce = &chunk[reserved_off..reserved_off + Self::PAGE_NONCE_SIZE]; //16 bytes
         let chacha20_nonce: &[u8; 12] = arg_nonce[..12]
             .try_into()
             .map_err(|_e| CipherError::Format)?;
@@ -170,42 +251,12 @@ impl Cipher {
             .map_err(|_e| CipherError::Format)?;
 
         //get tag
-        let expected_tag = &chunk[Self::PAGE_PLAIN_SIZE + Self::PAGE_NONCE_SIZE..]; //16 bytes
-
-        // set payload key
-        // if a passphrase is used, then derivate the key using the salt
-        // if a key is directly provided, ignore salt.
-        if page_no == 1 {
-            match &self.secret {
-                Secret::Passphrase(pwd) => {
-                    let salt: [u8; 16] =
-                        chunk[0..16].try_into().map_err(|_e| CipherError::Format)?;
-                    let key = pbkdf2_hmac_array::<Sha256, 32>(
-                        pwd.as_bytes(),
-                        &salt,
-                        Self::KEY_DERIVATION_ITER,
-                    );
-
-                    self.payload_key = key;
-                    self.payload_salt = Some(salt);
-                }
-                Secret::Key(key) => {
-                    self.payload_key = *key;
-                    self.payload_salt = None;
-                }
-            }
-        }
+        let expected_tag = &chunk[reserved_off + Self::PAGE_NONCE_SIZE..]; //16 bytes
 
         //get payload key
         let payload_key = &self.payload_key;
 
-        let chunk_to_auth = &chunk[..Self::PAGE_PLAIN_SIZE + Self::PAGE_NONCE_SIZE]; //4080 bytes
-
-        let skip_clear = if page_no == 1 {
-            Self::FILE_PLAIN_HEADER_SIZE
-        } else {
-            0
-        };
+        let chunk_to_auth = &chunk[..reserved_off + Self::PAGE_NONCE_SIZE]; //4080 bytes
 
         // Generate one-time keys
         let counter = u32::from_le_bytes(counter_seed) ^ page_no;
@@ -233,7 +284,9 @@ impl Cipher {
 
         if tag.as_slice() != expected_tag {
             println!(
-                "dec. tag incorrect. expected: {:02x?}, got: {:02x?}",
+                "decrypt: [{} {}] incorrect tag\nexpect:\t{:02x?}\ngot:\t{:02x?}",
+                skip_option,
+                page_no,
                 expected_tag,
                 tag.as_slice()
             );
@@ -244,13 +297,8 @@ impl Cipher {
         let mut ciphertext = chunk.to_vec();
         let mut decrypt_cipher = ChaCha20::new(&enc_key.into(), chacha20_nonce.into());
         decrypt_cipher.seek((counter as u64 + 1) * 64);
-        decrypt_cipher.apply_keystream(&mut ciphertext[skip_clear..Self::PAGE_PLAIN_SIZE]);
+        decrypt_cipher.apply_keystream(&mut ciphertext[skip..reserved_off]);
 
-        if page_no == 1 {
-            //put macgic work back
-            let magic_word = b"SQLite format 3\0";
-            ciphertext[0..16].copy_from_slice(magic_word);
-        }
         Ok(ciphertext)
     }
 

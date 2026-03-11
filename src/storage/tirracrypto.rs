@@ -226,10 +226,7 @@ impl TirraCrypto {
                 }
 
                 //
-                let enc = cipher.encrypt_page(
-                    &chunk_vec.as_slice()[0..Cipher::PAGE_PLAIN_SIZE],
-                    chunk_n + 1,
-                );
+                let enc = cipher.encrypt_page(&chunk_vec, chunk_n + 1);
 
                 match enc {
                     Ok(encrypted) => {
