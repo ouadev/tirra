@@ -297,7 +297,7 @@ pub fn process(args: &Vec<String>, args_count: usize) {
                 .expect("error closing the database");
 
             //show oplog
-            TirraDb::poke_vfs();
+            //TirraDb::poke_vfs();
         } else {
             //let mut tirra_db = TirraDb::with_crypto(&db_path, &pwd).expect("failure opening db");
             let mut tirra_db =
@@ -315,7 +315,7 @@ pub fn process(args: &Vec<String>, args_count: usize) {
             // close db;
             tirra_db.api_close_db().expect("error closing the database");
             //show oplog
-            TirraDb::poke_vfs();
+            //TirraDb::poke_vfs();
         }
     } else if cli_action == CliAction::Migrate {
         //migrate OLD_PLAIN NEW_DB
