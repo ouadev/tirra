@@ -101,7 +101,7 @@ impl LoginUi {
             if utils::file_exists(&self.db_location) == false {
                 //init db
                 let mut tirra_db = if let Ok(db) =
-                    TirraDb::with_tirravfs(&self.db_location, self.password.as_bytes(), true)
+                    TirraDb::with_tirravfs(&self.db_location, self.password.as_bytes())
                 {
                     db
                 } else {
@@ -133,7 +133,7 @@ impl LoginUi {
         } else {
             //try to open encrypted database
             if let Ok(_db) =
-                TirraDb::with_tirravfs(&self.db_location, self.password.as_bytes(), false)
+                TirraDb::with_tirravfs(&self.db_location, self.password.as_bytes())
             {
                 self.logged_in = true;
             } else {
@@ -261,7 +261,7 @@ impl WriterUi {
 
     pub fn connect(&mut self, db_location: &str, crypto_pwd: &[u8]) {
         //Init Crypto
-        self.tirra_db = if let Ok(db) = TirraDb::with_tirravfs(db_location, crypto_pwd, false) {
+        self.tirra_db = if let Ok(db) = TirraDb::with_tirravfs(db_location, crypto_pwd) {
             db
         } else {
             exception("couldn't open database", None);

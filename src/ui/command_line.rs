@@ -109,7 +109,7 @@ pub fn process(args: &Vec<String>, args_count: usize) {
 
         //new db
         let mut tirra_new =
-            TirraDb::with_tirravfs(&db_path, &pwd, true).expect("Failed to create a new db");
+            TirraDb::with_tirravfs(&db_path, &pwd).expect("Failed to create a new db");
 
         // create new schema
         tirra_new
@@ -151,8 +151,8 @@ pub fn process(args: &Vec<String>, args_count: usize) {
         TirraDb::load_vfs_extension().expect("failure loading tirravfs");
 
         //db
-        let mut tirra_db = TirraDb::with_tirravfs(&db_path, &password.as_bytes(), false)
-            .expect("failure opening db");
+        let mut tirra_db =
+            TirraDb::with_tirravfs(&db_path, &password.as_bytes()).expect("failure opening db");
 
         let added = tirra_db.api_add_entry(
             db::TIRRA_ENTRY_TYPE_GENERAL,
@@ -184,8 +184,8 @@ pub fn process(args: &Vec<String>, args_count: usize) {
         TirraDb::load_vfs_extension().expect("failure loading tirravfs");
 
         //db
-        let mut tirra_db = TirraDb::with_tirravfs(&db_path, &password.as_bytes(), false)
-            .expect("failure opening db");
+        let mut tirra_db =
+            TirraDb::with_tirravfs(&db_path, &password.as_bytes()).expect("failure opening db");
 
         let removed = tirra_db.api_remove_entry(id);
 
@@ -212,8 +212,8 @@ pub fn process(args: &Vec<String>, args_count: usize) {
         TirraDb::load_vfs_extension().expect("failure loading tirravfs");
 
         //db
-        let mut tirra_db = TirraDb::with_tirravfs(&db_path, &password.as_bytes(), false)
-            .expect("failure opening db");
+        let mut tirra_db =
+            TirraDb::with_tirravfs(&db_path, &password.as_bytes()).expect("failure opening db");
 
         print_stats(&mut tirra_db);
 
@@ -278,7 +278,7 @@ pub fn process(args: &Vec<String>, args_count: usize) {
 
         if !utils::file_exists(&db_path) {
             let mut tirra_new =
-                TirraDb::with_tirravfs(&db_path, &pwd, true).expect("Failed to create a new db");
+                TirraDb::with_tirravfs(&db_path, &pwd).expect("Failed to create a new db");
             // create new db
             tirra_new
                 .api_create_schema()
@@ -300,8 +300,7 @@ pub fn process(args: &Vec<String>, args_count: usize) {
             //TirraDb::poke_vfs();
         } else {
             //let mut tirra_db = TirraDb::with_crypto(&db_path, &pwd).expect("failure opening db");
-            let mut tirra_db =
-                TirraDb::with_tirravfs(&db_path, &pwd, false).expect("failure opening db");
+            let mut tirra_db = TirraDb::with_tirravfs(&db_path, &pwd).expect("failure opening db");
 
             load_infoblock(&mut tirra_db);
             //laod_entries_api2(&mut tirra_db);
@@ -388,7 +387,7 @@ fn migrate_from_plain_to_tirravfs(db_path_plain: &str, db_path_new: &str, pwd: &
 
     //open tirra10 empty database
     let mut tirra_new =
-        TirraDb::with_tirravfs(db_path_new, pwd, true).expect("failure opening new empty db");
+        TirraDb::with_tirravfs(db_path_new, pwd).expect("failure opening new empty db");
 
     //create schema
     tirra_new

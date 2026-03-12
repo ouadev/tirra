@@ -233,7 +233,6 @@ impl TirraDb {
     pub fn with_tirravfs(
         location: &str,
         password: &[u8],
-        newdb: bool,
     ) -> Result<Self, TirraDbError> {
         //open conn
         let passphrase_hex = password
@@ -250,19 +249,19 @@ impl TirraDb {
         ) {
             Ok(conn) => {
                 //
-                if newdb {
-                    //set reserved bytes length
-                    //TODO: move to the VFS.
-                    let mut reserved: i32 = 32;
-                    unsafe {
-                        ffi::sqlite3_file_control(
-                            conn.handle(),
-                            std::ptr::null(), // zDbName, NULL = main db
-                            ffi::SQLITE_FCNTL_RESERVE_BYTES,
-                            &mut reserved as *mut i32 as *mut std::ffi::c_void,
-                        );
-                    }
+
+                //set reserved bytes length
+                //TODO: move to the VFS.
+                let mut reserved: i32 = 32;
+                unsafe {
+                    ffi::sqlite3_file_control(
+                        conn.handle(),
+                        std::ptr::null(), // zDbName, NULL = main db
+                        ffi::SQLITE_FCNTL_RESERVE_BYTES,
+                        &mut reserved as *mut i32 as *mut std::ffi::c_void,
+                    );
                 }
+
                 // set connection parameters
                 // journal: created on disk, that's where they are more useful, and since tirravfs encrypts them too it is safe.
                 // other temp files: open on memory because encryption is not supported for them.
