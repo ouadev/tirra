@@ -17,9 +17,8 @@ Encrypted Notebook written in Rust.
 ## Features
 
 * Browse, read, and edit text entries stored in an encrypted SQLite database
-* Encryption using age protocol with passphrase. [*Age V1*](https://github.com/FiloSottile/age)
 * Open file format (SQLite)
-* Database is only decrypted during active use
+* on-the-fly encryption powered by sqlite3 encryption extension [tirravfs](https://github.com/ouadev/tirravfs)
 * Automatic logout after 3 minutes of inactivity
 * Full-text search across all entries
 * Possibility to edit the currently used SQL query
@@ -130,7 +129,6 @@ ARGUMENTS
 
 ## Important Notes
 
-* Temporary Files: If the application closes unexpectedly during encryption/decryption, a plaintext version of the database may temporarily remain on disk (in the same folder as the encrypted file).The Application will emit a warning about it next time it is launched.
 * Backup Responsibility: This application does not include automatic backup functionality. Manual backups are recommended.
 
 
