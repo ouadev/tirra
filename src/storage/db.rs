@@ -230,10 +230,7 @@ impl TirraDb {
     /**
      * new api: open connection
      */
-    pub fn with_tirravfs(
-        location: &str,
-        password: &[u8],
-    ) -> Result<Self, TirraDbError> {
+    pub fn with_tirravfs(location: &str, password: &[u8]) -> Result<Self, TirraDbError> {
         //open conn
         let passphrase_hex = password
             .iter()
@@ -826,26 +823,23 @@ impl TirraDb {
                 extern "C" {
                     fn tirravfs_init_static() -> u32;
                 }
-                unsafe {
+                
                     tirravfs_init_static();
                     Ok(())
-                }
+                
         */
 
         // Option 3: Rust's own static linking (rlib)
-        unsafe {
-            tirra_vfs::tirravfs_init_static();
-            Ok(())
-        }
+
+        tirra_vfs::tirravfs_init_static();
+        Ok(())
     }
 
     /**
      * new connection trigger the registration function of the VFS
      */
     pub fn poke_vfs() {
-        unsafe {
-            tirra_vfs::tirravfs_probe();
-        }
+        tirra_vfs::tirravfs_probe();
     }
 }
 

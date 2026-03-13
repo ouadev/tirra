@@ -57,14 +57,11 @@ impl Cipher {
     }
 
     /**
-     * encrypt 4064 bytes into a 4096 bytes page.
+     * encrypt a main database page.
+     * @param chunk a 4069 bytes. The last 32 bytes are ignored.
+     * @param page_no page number to encrypt. The first page number is 0
      */
-    pub fn encrypt_page(
-        &mut self,
-        //payload_key: &[u8; 32],
-        chunk: &[u8], //4064 bytes
-        page_no: u32,
-    ) -> Result<Vec<u8>, CipherError> {
+    pub fn encrypt_page(&mut self, chunk: &[u8], page_no: u32) -> Result<Vec<u8>, CipherError> {
         // get payload key
         if page_no == 1 {
             match &self.secret {
@@ -72,7 +69,7 @@ impl Cipher {
                     if self.payload_salt.is_none() {
                         //salt is not set yet, which means this is a new db being created.
                         let mut salt: [u8; 16] = [0u8; 16];
-                        fill_random(&mut salt);
+                        Self::fill_random(&mut salt);
                         self.payload_salt = Some(salt);
                         //derivate key
                         let key = pbkdf2_hmac_array::<Sha256, 32>(
@@ -104,7 +101,9 @@ impl Cipher {
     }
 
     /**
-     * decrypt a 4096 bytes page into a 4096 byte plaintext page.
+     * decrypt a main database page
+     * @param chunk a 4069 bytes with the last 32 bytes containing nonce & tag
+     * @param page_no page number to decrypt. The first page number is 0
      */
     pub fn decrypt_page(&mut self, chunk: &[u8], page_no: u32) -> Result<Vec<u8>, CipherError> {
         // set payload key
@@ -146,16 +145,19 @@ impl Cipher {
 
     /**
      * encrypt N bytes into a N + 32 bytes encrypted content.
+     * @param chunk N bytes of data.
+     * @param page_no page number to decrypt. The first page number is 0
+     * @skip_option: true for the first page of the main database. special treatment:
+     *               don't encrypt the first 24 bytes.
      * Note: it assumes payload_key is set.
      */
     pub fn encrypt(
         &mut self,
-        //payload_key: &[u8; 32],
-        chunk: &[u8], //4064 bytes
+        chunk: &[u8],
         page_no: u32,
         skip_option: bool,
     ) -> Result<Vec<u8>, CipherError> {
-        //skip salt
+        //skip plaintext header
         let skip = if skip_option && page_no == 1 {
             Self::FILE_PLAIN_HEADER_SIZE
         } else {
@@ -163,7 +165,7 @@ impl Cipher {
         };
         // generate nonce
         let mut nonce: [u8; 16] = [0u8; 16];
-        fill_random(&mut nonce);
+        Self::fill_random(&mut nonce);
         let chacha20_nonce: &[u8; 12] = nonce[..12].try_into().map_err(|_e| CipherError::Format)?;
         //prepare counter seed.
         let counter_seed: [u8; 4] = nonce[12..].try_into().map_err(|_e| CipherError::Format)?;
@@ -210,12 +212,10 @@ impl Cipher {
             (&poly1305_key)
                 .try_into()
                 .map_err(|_| CipherError::MacIncorrect)?,
-            &[],
             &ciphertext[..chunk.len() - Self::PAGE_TAG_SIZE],
         );
 
         //append tag
-        //ciphertext.extend_from_slice(tag.as_slice());
         ciphertext[chunk.len() - Self::PAGE_TAG_SIZE..].copy_from_slice(&tag);
 
         Ok(ciphertext)
@@ -223,7 +223,11 @@ impl Cipher {
 
     /**
      * decrypt a N + 32 bytes page into a N byte plaintext content.
-     * Note: it assumes payload_key is set
+     * @param chunk N + 32 bytes of data.
+     * @param page_no page number to decrypt. The first page number is 0
+     * @skip_option: true for the first page of the main database. special treatment:
+     *               don't encrypt the first 24 bytes.
+     * Note: it assumes payload_key is set.
      */
     pub fn decrypt(
         &mut self,
@@ -233,7 +237,7 @@ impl Cipher {
     ) -> Result<Vec<u8>, CipherError> {
         let reserved_off = chunk.len() - (Self::PAGE_NONCE_SIZE + Self::PAGE_TAG_SIZE);
 
-        //skip salt ?
+        //skip plaintext header
         let skip = if skip_option && page_no == 1 {
             Self::FILE_PLAIN_HEADER_SIZE
         } else {
@@ -278,18 +282,10 @@ impl Cipher {
             (&poly1305_key)
                 .try_into()
                 .map_err(|_| CipherError::Format)?,
-            &[],
             chunk_to_auth,
         );
 
         if tag.as_slice() != expected_tag {
-            println!(
-                "decrypt: [{} {}] incorrect tag\nexpect:\t{:02x?}\ngot:\t{:02x?}",
-                skip_option,
-                page_no,
-                expected_tag,
-                tag.as_slice()
-            );
             return Err(CipherError::MacIncorrect);
         }
 
@@ -303,27 +299,20 @@ impl Cipher {
     }
 
     /**
-     * helper function to calculate poly1305 tag
+     *calculate poly1305 tag
      */
-    fn internal_compute_tag(
-        poly1305_key: &[u8; 32], // first 32 bytes of ChaCha20 block 0
-        _aad: &[u8],             // additional authenticated data (can be empty)
-        ciphertext: &[u8],       // encrypted data + nonce combined
-    ) -> poly1305::Tag {
+    fn internal_compute_tag(poly1305_key: &[u8; 32], ciphertext: &[u8]) -> poly1305::Tag {
         let key = Poly1305Key::from_slice(poly1305_key);
         let mut mac = Poly1305::new(key);
-
         mac.update_padded(ciphertext);
-
-        // Finalize
         mac.finalize()
     }
-}
 
-/**
- * Random number generator
- */
-pub fn fill_random(buffer: &mut [u8]) {
-    let mut rng = rand::rng();
-    rng.fill_bytes(buffer);
+    /**
+     * Random number generator
+     */
+    fn fill_random(buffer: &mut [u8]) {
+        let mut rng = rand::rng();
+        rng.fill_bytes(buffer);
+    }
 }
