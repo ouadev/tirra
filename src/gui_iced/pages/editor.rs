@@ -325,9 +325,9 @@ impl EditorPage {
 
         // Pagination details
         let div_pagination;
-        let pagionation_brief = self.writer_ui.pagination_brief();
+        let pagination_brief = self.writer_ui.pagination_brief();
         if !self.writer_ui.cli_mode
-            && pagionation_brief.2 > (pagionation_brief.1 - pagionation_brief.0)
+            && pagination_brief.2 > (pagination_brief.1 - pagination_brief.0)
         {
             let div_page_prev = button_action(style_conf::icon_left())
                 .width(50.)
@@ -340,7 +340,7 @@ impl EditorPage {
 
             let page_brief = format!(
                 "{} - {} / {}",
-                pagionation_brief.0, pagionation_brief.1, pagionation_brief.2
+                pagination_brief.0, pagination_brief.1, pagination_brief.2
             );
             let div_page_text = text(page_brief)
                 .align_x(text::Alignment::Center)
@@ -350,7 +350,20 @@ impl EditorPage {
                 .color(palette().text)
                 .width(Length::Fill);
 
-            div_pagination = container(row![div_page_prev, div_page_text, div_page_next])
+            let mut pagination_row = row![];
+            if pagination_brief.0 > 0 {
+                pagination_row = pagination_row.push(div_page_prev);
+            }else{
+                pagination_row = pagination_row.push(container(space()).width(50.));
+            }
+            pagination_row = pagination_row.push(div_page_text);
+            if pagination_brief.2 > pagination_brief.1 {
+                pagination_row = pagination_row.push(div_page_next);
+            }else{
+                pagination_row = pagination_row.push(container(space()).width(50.));
+            }
+
+            div_pagination = container(pagination_row)
                 .height(Length::Fixed(30.))
                 .padding(Padding {
                     top: 5.,
@@ -361,7 +374,7 @@ impl EditorPage {
                     container::Style::default().background(palette.background_secondary)
                 });
         } else {
-            let page_brief = format!("{}", pagionation_brief.2);
+            let page_brief = format!("{}", pagination_brief.2);
             let div_page_text = text(page_brief)
                 .align_x(text::Alignment::Center)
                 .size(13.)

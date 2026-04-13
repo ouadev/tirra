@@ -455,7 +455,7 @@ impl WriterUi {
     pub fn on_pagination_clicked(&mut self, next: bool) {
         let total = self.entry_list.get_limitless_count();
         if next {
-            if self.pagination_offset + Self::UI_ENTRIES_PAGINATION_MAX <= total {
+            if self.pagination_offset + Self::UI_ENTRIES_PAGINATION_MAX < total {
                 self.pagination_offset += Self::UI_ENTRIES_PAGINATION_MAX;
             } else {
                 return;
