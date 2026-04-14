@@ -149,10 +149,9 @@ impl TirraIced {
                         // inactivity
                         if page_editor.writer_ui.is_inactivity() {
                             println!("Inactivity: logging out");
-                            let (login_page, _login_cmd) = LoginPage::new(&self.db_location);
-                            self.page = RunningPage::Login(login_page);
-                            // TODO: make sure the Editor and its content are destroyed !!
-                            Task::none()
+                            // upon inactivity, instead of logging out, which will leave data in memory.
+                            // we will exit the process, and rely on the OS to clear the memory.
+                            iced::exit()
                         } else {
                             // trigger a file save
                             self.update_editor_page(editor::Message::Tick)
