@@ -1,3 +1,9 @@
+Tirra v2.0.0:
+-------------
+- new encryption method: on-the-fly encryption using the tirra-vs SQLite extension.
+- inactivity timer: close the application instead of logging out, to erase plaintext data from the process's memory.
+- bugfix: pagination arrows still visible and active in cases when they are not needed.
+
 
 Tirra v1.1.0:
 -------------
