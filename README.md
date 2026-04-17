@@ -17,15 +17,16 @@ Encrypted Notebook written in Rust.
 ## Features
 
 * Browse, read, and edit text entries stored in an encrypted SQLite database
-* Open file format (SQLite)
+* Open file format
 * on-the-fly encryption powered by sqlite3 encryption extension [tirravfs](https://github.com/ouadev/tirravfs)
-* Automatic logout after 3 minutes of inactivity
+* encryption scheme: ChaCha20-Poly1305. Key derivation algorithm: pbkdf2/Sha256, with 64007 iterations.
+* Application is automatically closed after 3 minutes of inactivity
 * Full-text search across all entries
-* Possibility to edit the currently used SQL query
-* Entry deletion
-* Sort by creation or modification date (ascending/descending)
-* Command-line interface
-* Automatic save
+* Option to manually change the SQL query used to read entries
+* Entry operations: add, remove, edit content, and change creation_date.
+* Sort by creation or modification date.
+* Command-line interface to interface with the encrypted database.
+* periodic saving of the content of the current entry.
 
 
 ## Keyboard Shortcuts
@@ -129,7 +130,8 @@ ARGUMENTS
 
 ## Important Notes
 
-* Backup Responsibility: This application does not include automatic backup functionality. Manual backups are recommended.
+* Backup: This application does not include automatic backup functionality. Manual backups are recommended.
+* Version v2.x.x uses SQLite extension *tirravfs* for encryption. Instead of the v1.x.x approach of decrypting the database file to disk — leaving it briefly accessible in plaintext — v2.x.x keeps all plaintext data exclusively in memory. Databases created with v1.x.x are not compatible with v2.x.x. Migration is possible.
 
 
 <div align="center"><a href="https://github.com/iced-rs/iced">
