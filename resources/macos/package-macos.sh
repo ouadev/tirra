@@ -23,7 +23,7 @@ if [ ! -d "$SDK_DIRECTORY" ]; then
    fi
 fi
 
-WLVERSION="2.0.0-rc2"
+WLVERSION="2.0.0-rc3"
 DESTINATION="packages/macos-release"
 SOURCE_DIR="target/release"
 RESOURCES="resources"
