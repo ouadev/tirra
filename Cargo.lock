@@ -3172,8 +3172,8 @@ dependencies = [
 
 [[package]]
 name = "tirra-vfs"
-version = "0.1.1"
-source = "git+https://github.com/ouadev/tirravfs?tag=v0.1.1#39a203496c2ce5ce27a5f7906f1a59f49b7fd35a"
+version = "0.1.2"
+source = "git+https://github.com/ouadev/tirravfs?tag=v0.1.2#5ad8174d0acd61963b4ae5b5ab1805b2b9e6cac4"
 dependencies = [
  "chacha20",
  "chrono",
